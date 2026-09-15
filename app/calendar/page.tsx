@@ -1,0 +1,155 @@
+import Link from 'next/link';
+import { listTrades } from '@/db/trades';
+import { listCashEvents } from '@/db/cash';
+import { ACCOUNTS, type Account } from '@/lib/domain';
+import { adherenceOf } from '@/lib/adherence';
+import { balanceFor } from '@/lib/balance';
+import { accountsInUse, forAccount } from '@/lib/stats';
+import { cellsByDay, monthGrid, summarise, type DayCell } from '@/lib/calendar';
+import { TitleBar } from '@/components/shell/TitleBar';
+import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
+import { Panel, Stat } from '@/components/stats/Bars';
+import { BalanceCard } from '@/components/money/BalanceCard';
+import { Calendar } from '@/components/money/Calendar';
+
+export const dynamic = 'force-dynamic';
+
+const usd = (v: number) =>
+  `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString(undefined, {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  })}`;
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * The month, and where the account actually is.
+ *
+ * A calendar is the one view that makes a bad run visible as a shape rather
+ * than as an average. Four red squares in a row is a thing you can point at;
+ * the same four trades inside a −3.2R month are invisible.
+ */
+export default async function CalendarPage(
+  { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
+) {
+  const params = await searchParams;
+  const asked = typeof params.account === 'string' ? params.account : null;
+  const account: Account | 'All' =
+    asked && (ACCOUNTS as readonly string[]).includes(asked) ? (asked as Account) : 'All';
+
+  const all = listTrades();
+  const accounts = accountsInUse(all);
+  const scoped = forAccount(all, account);
+  const events = listCashEvents();
+  const balance = balanceFor(all, events, account);
+  const visibleEvents = account === 'All' ? events : events.filter((e) => e.account === account);
+
+  const now = new Date();
+  const asMonth = typeof params.month === 'string' && /^\d{4}-\d{2}$/.test(params.month)
+    ? params.month
+    : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const year = Number(asMonth.slice(0, 4));
+  const month = Number(asMonth.slice(5, 7)) - 1;
+
+  /*
+    Rule breaks are derived from the checklist, the same as everywhere else, so
+    the marker on a square means what the Adherence panel means.
+  */
+  const broken = new Set(scoped.filter((t) => adherenceOf(t) === 'broken').map((t) => t.id));
+  const cells = cellsByDay(scoped, broken);
+
+  const grid = monthGrid(year, month);
+  const inMonth: DayCell[] = grid
+    .filter((d): d is string => d !== null)
+    .map((d) => cells.get(d))
+    .filter((c): c is DayCell => c !== undefined);
+  const summary = summarise(inMonth);
+
+  // Intensity is scaled to this month's own biggest day, so a quiet month is
+  // still readable and a brutal one does not saturate into one block of red.
+  const scale = Math.max(
+    ...inMonth.map((c) => Math.abs(c.pnl ?? c.totalR)),
+    0.0001,
+  );
+
+  const shift = (by: number) => {
+    const d = new Date(Date.UTC(year, month + by, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+  const href = (m: string) =>
+    `/calendar?${new URLSearchParams({ ...(account === 'All' ? {} : { account }), month: m })}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <TitleBar />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[72rem] px-6 pb-20 pt-4">
+          <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <h1 className="text-[22px] font-semibold tracking-tight">Calendar</h1>
+            <AccountSwitcher available={accounts} current={account} />
+          </header>
+
+          <div className="space-y-5">
+            <BalanceCard balance={balance} account={account} events={visibleEvents} />
+
+            <Panel
+              title={`${MONTHS[month]} ${year}`}
+              note="One square per day. Green and red are the day's money where it has any, and its R where it does not — a day logged before the P&L started saving still has a direction. An amber ✕ marks rule breaks, because a red day traded properly and a green day traded badly are not the same day."
+            >
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <NavLink href={href(shift(-1))} label="← Previous" />
+                <NavLink href={href(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)} label="This month" />
+                <NavLink href={href(shift(1))} label="Next →" />
+              </div>
+
+              <Calendar grid={grid} cells={cells} today={today} scale={scale} />
+            </Panel>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat
+                label="Month P&L"
+                value={summary.net == null ? '—' : usd(summary.net)}
+                sub={summary.unpriced > 0
+                  ? `${summary.unpriced} trade${summary.unpriced === 1 ? '' : 's'} with no money recorded`
+                  : `${summary.taken} taken`}
+                tone={(summary.net ?? 0) > 0 ? 'win' : (summary.net ?? 0) < 0 ? 'loss' : null}
+              />
+              <Stat
+                label="Month R"
+                value={`${summary.totalR > 0 ? '+' : ''}${summary.totalR.toFixed(1)}R`}
+                sub="What the plan did, regardless of size"
+                tone={summary.totalR > 0 ? 'win' : summary.totalR < 0 ? 'loss' : null}
+              />
+              <Stat
+                label="Green / red days"
+                value={`${summary.greenDays} / ${summary.redDays}`}
+                sub={summary.tradedDays ? `${summary.tradedDays} day${summary.tradedDays === 1 ? '' : 's'} traded` : 'Nothing traded'}
+              />
+              <Stat
+                label="Worst day"
+                value={summary.worstDayLoss == null ? '—' : usd(-summary.worstDayLoss)}
+                sub={summary.worst ? `${summary.worst.day} · ${summary.worst.taken} taken` : 'No losing day with money on it'}
+                tone={summary.worstDayLoss ? 'loss' : null}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href}
+      className="rounded-full border px-3.5 py-1.5 text-[12px] font-medium"
+      style={{
+        borderColor: 'var(--glass-stroke)',
+        background: 'var(--glass-fill)',
+        color: 'var(--text-dim)',
+      }}>
+      {label}
+    </Link>
+  );
+}

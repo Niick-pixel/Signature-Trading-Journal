@@ -1,4 +1,6 @@
 import { listTrades } from '@/db/trades';
+import { listCashEvents } from '@/db/cash';
+import { balanceFor } from '@/lib/balance';
 import { ACCOUNTS, MIN_SAMPLE, REASON_HUE, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
@@ -61,6 +63,9 @@ export default async function StatsPage(
   const m = money(trades);
   const e = edge(trades);
   const d = discipline(trades);
+  // Money movements are account-scoped but never filtered by ?pregraded — a
+  // deposit is not a trade and has no grade to be honest about.
+  const bal = balanceFor(scoped, listCashEvents(), account);
   const honesty = gradeHonesty(trades);
   const hes = hesitation(trades);
   const curves = equityCurves(trades);
@@ -195,11 +200,26 @@ export default async function StatsPage(
                 <EquityChart followed={curves.followed} broken={curves.broken} />
               </Panel>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {/*
+                  What the account is actually at, derived rather than stored.
+                  Every other figure here is R, and R is not money — an account
+                  can be up in R and down in dollars if the winners were small.
+                */}
+                <Stat
+                  label="Balance"
+                  value={bal.current == null ? '—' : usd(bal.current)}
+                  sub={bal.current == null
+                    ? 'Add it on the Calendar'
+                    : bal.unpriced > 0
+                      ? `${bal.unpriced} trade${bal.unpriced === 1 ? '' : 's'} missing a P&L`
+                      : bal.anchor ? `Since your check on ${bal.anchor.date}` : 'Paid in, plus what trading did'}
+                  tone={(bal.current ?? 0) > 0 ? 'win' : (bal.current ?? 0) < 0 ? 'loss' : null}
+                />
                 <Stat
                   label="Net P&L"
                   value={m.priced ? usd(m.net) : '—'}
-                  sub={m.priced ? `${usd(m.won)} won · ${usd(m.lost)} lost` : 'No risk amounts recorded yet'}
+                  sub={m.priced ? `${usd(m.won)} won · ${usd(m.lost)} lost` : 'No money recorded yet'}
                   tone={m.net > 0 ? 'win' : m.net < 0 ? 'loss' : null}
                 />
                 <Stat
@@ -218,6 +238,18 @@ export default async function StatsPage(
                   value={r2(e.expectancy)}
                   sub="Average R per trade taken"
                   tone={(e.expectancy ?? 0) > 0 ? 'win' : (e.expectancy ?? 0) < 0 ? 'loss' : null}
+                />
+                {/*
+                  Gross won over gross lost. One number, and the one that says
+                  whether the winners are actually paying for the losers — a
+                  60% win rate under 1.0 is a losing strategy with good manners.
+                */}
+                <Stat
+                  label="Profit factor"
+                  value={e.profitFactor == null ? '—' : e.profitFactor.toFixed(2)}
+                  sub={e.profitFactor == null ? 'Needs a win and a loss'
+                    : e.profitFactor >= 1 ? 'Winners cover the losers' : 'Losers outweigh the winners'}
+                  tone={e.profitFactor == null ? null : e.profitFactor >= 1 ? 'win' : 'loss'}
                 />
               </div>
 

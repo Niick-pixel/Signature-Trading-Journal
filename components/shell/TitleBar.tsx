@@ -10,6 +10,7 @@ import { Wordmark } from './Wordmark';
 const TABS = [
   { href: '/', label: 'Whiteboard' },
   { href: '/stats', label: 'Stats' },
+  { href: '/calendar', label: 'Calendar' },
 ] as const;
 
 /**

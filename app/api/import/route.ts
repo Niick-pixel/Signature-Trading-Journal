@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
+import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
 import { parseTradeInput } from '@/lib/validate';
 
 /**
@@ -15,7 +16,7 @@ import { parseTradeInput } from '@/lib/validate';
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as
-    { trades?: unknown; format?: unknown } | null;
+    { trades?: unknown; cash?: unknown; format?: unknown } | null;
 
   if (!body || !Array.isArray(body.trades)) {
     return NextResponse.json(
@@ -51,5 +52,26 @@ export async function POST(request: Request) {
     imported += 1;
   }
 
-  return NextResponse.json({ imported, skipped, rejected });
+  /*
+    Money movements, matched on id the same way trades are.
+
+    A version-1 export has no `cash` key, which is not an error — it is a file
+    written before the journal knew about money, and it restores exactly as
+    well as it ever did.
+  */
+  let cash = 0;
+  let cashSkipped = 0;
+  if (Array.isArray(body.cash)) {
+    const existing = new Set(listCashEvents().map((e) => e.id));
+    for (const raw of body.cash) {
+      const id = (raw as { id?: unknown })?.id;
+      if (typeof id !== 'string' || existing.has(id)) { cashSkipped += 1; continue; }
+      const check = parseCashInput(raw);
+      if (!check.ok) { rejected.push({ id, error: check.error }); continue; }
+      importCashEvent(id, check.value);
+      cash += 1;
+    }
+  }
+
+  return NextResponse.json({ imported, skipped, rejected, cash, cashSkipped });
 }

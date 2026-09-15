@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { listTrades } from '@/db/trades';
+import { listCashEvents } from '@/db/cash';
 import { SCREENSHOTS_DIR } from '@/lib/paths';
 import { makeZip } from '@/lib/zip';
 import type { Trade } from '@/lib/types';
@@ -48,19 +49,24 @@ function screenshotEntries(trades: Trade[]): Array<{ name: string; data: Buffer 
 
 /**
  * Everything, in one file: the trades as JSON, the same trades as CSV for a
- * spreadsheet, and every screenshot. Soft-deleted rows are included — an export
- * that quietly drops the trades I binned is not a backup.
+ * spreadsheet, every screenshot, and the money movements. Soft-deleted rows are
+ * included — an export that quietly drops the trades I binned is not a backup,
+ * and neither is one that restores the trades but forgets where the account was.
  */
 export async function GET() {
   const trades = listTrades({ bin: 'all' });
+  const cash = listCashEvents();
   const now = new Date();
 
   const payload = {
     format: 'signature-journal',
-    version: 1,
+    // Bumped when cash_events joined the payload. An older file has no `cash`
+    // key at all, which the importer reads as "none" rather than as an error.
+    version: 2,
     exported_at: now.toISOString(),
     count: trades.length,
     trades,
+    cash,
   };
 
   const zip = makeZip([

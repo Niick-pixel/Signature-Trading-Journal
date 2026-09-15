@@ -285,3 +285,24 @@ export const MIN_EXPLANATION = 160;
  * fiction, so a Planned entry is exempt until it settles.
  */
 export const MIN_LESSON = 160;
+
+/**
+ * A movement of real money, or a statement of where the account actually is.
+ *
+ * `amount` is always a magnitude; the direction lives in `kind`. A reconcile
+ * says "the broker shows exactly this on this date" and becomes the anchor the
+ * balance is computed forward from — which is what makes the figure usable
+ * while the P&L history behind it is still incomplete.
+ */
+export interface CashEvent {
+  id: string;
+  account: Account;
+  kind: 'deposit' | 'withdrawal' | 'reconcile';
+  amount: number;
+  date: string;
+  note: string | null;
+  created_at: string;
+}
+
+export const CASH_KINDS = ['deposit', 'withdrawal', 'reconcile'] as const;
+export type CashKind = (typeof CASH_KINDS)[number];
