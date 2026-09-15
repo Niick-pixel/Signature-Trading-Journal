@@ -103,15 +103,24 @@ export function Calendar({
                   )}
                 </div>
 
+                {/*
+                  Money is the headline; R is the footnote.
+
+                  It used to be the other way round on any day whose trades
+                  predate the P&L saving, which made the calendar read as an R
+                  chart with occasional dollars in it. A day with no money
+                  recorded says so with a dash rather than promoting its R into
+                  the slot dollars belong in — and still prints the R
+                  underneath, because that is the only thing it does know.
+                */}
                 <div className="min-w-0">
                   <div className="truncate tabular-nums text-[12px] font-semibold"
-                    style={{ color: `rgb(${hue})` }}>
-                    {cell.pnl != null ? money(cell.pnl)
-                      : `${cell.totalR > 0 ? '+' : ''}${cell.totalR.toFixed(1)}R`}
+                    style={{ color: cell.pnl == null ? 'var(--text-faint)' : `rgb(${hue})` }}>
+                    {cell.pnl == null ? '—' : money(cell.pnl)}
                   </div>
                   <div className="truncate text-[9px]" style={{ color: 'var(--text-faint)' }}>
                     {cell.pnl == null
-                      ? `${cell.taken} · R only`
+                      ? `${cell.taken} · ${cell.totalR > 0 ? '+' : ''}${cell.totalR.toFixed(1)}R`
                       : `${cell.taken} · ${cell.wins}W ${cell.losses}L`}
                   </div>
                 </div>

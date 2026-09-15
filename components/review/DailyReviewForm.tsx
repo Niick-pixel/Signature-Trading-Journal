@@ -91,9 +91,25 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button onClick={() => shift(-1)}>←</Button>
-          <Button onClick={() => shift(1)}>→</Button>
-          <Button onClick={() => { window.location.href = '/'; }}>Close</Button>
+          <Button title="The day before" onClick={() => shift(-1)}>←</Button>
+          <Button title="The day after" onClick={() => shift(1)}>→</Button>
+          {/*
+            Back to wherever this was opened from, not to the board.
+
+            This hardcoded '/', so opening a day from the calendar and closing
+            it dumped you on the whiteboard — a Close button that navigates
+            somewhere you were not is a Close button that loses your place.
+            history.back() returns to the calendar, on the month you were
+            looking at; the board is only the fallback for a day opened cold.
+          */}
+          <Button
+            onClick={() => {
+              if (window.history.length > 1) window.history.back();
+              else window.location.href = '/';
+            }}
+          >
+            Close
+          </Button>
         </div>
       </div>
 

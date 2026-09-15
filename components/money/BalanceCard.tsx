@@ -84,7 +84,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
   }
 
   const incomplete = balance.unpriced > 0;
-  const recent = events.slice(0, 4);
+  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <>
@@ -146,28 +146,68 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
           </p>
         )}
 
-        {recent.length > 0 && (
-          <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--glass-stroke)' }}>
-            {recent.map((e) => (
-              <div key={e.id} className="flex items-center justify-between gap-3 py-1 text-[12px]">
-                <span style={{ color: 'var(--text-dim)' }}>
-                  {e.kind === 'reconcile' ? 'Balance check' : e.kind === 'deposit' ? 'Paid in' : 'Taken out'}
-                  <span style={{ color: 'var(--text-faint)' }}>
-                    {' · '}{e.date}{e.note ? ` · ${e.note}` : ''}
-                  </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2.5">
-                  <span className="tabular-nums" style={{ color: 'var(--text)' }}>
-                    {e.kind === 'withdrawal' ? usd(-e.amount) : usd(e.amount)}
-                  </span>
-                  <button type="button" onClick={() => void remove(e.id)}
-                    className="text-[11px] underline underline-offset-2"
-                    style={{ color: 'var(--text-faint)' }}>
-                    remove
-                  </button>
-                </span>
-              </div>
-            ))}
+        {/*
+          Folded away by default.
+
+          The balance is the answer; the ledger behind it is reference. Four
+          rows of transfer history permanently under the number made the card
+          read as a bank statement, when the thing being asked is "where am I".
+        */}
+        {events.length > 0 && (
+          <div className="mt-5 border-t pt-3" style={{ borderColor: 'var(--glass-stroke)' }}>
+            <button
+              type="button"
+              onClick={() => setShowHistory((v) => !v)}
+              aria-expanded={showHistory}
+              className="flex w-full items-center gap-2 text-[11px] font-medium uppercase tracking-[0.07em]"
+              style={{ color: 'var(--text-faint)' }}
+            >
+              <motion.svg
+                width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden
+                animate={{ rotate: showHistory ? 90 : 0 }}
+                transition={spring}
+              >
+                <path d="M3 1.5L7 5L3 8.5" stroke="currentColor" strokeWidth="1.6"
+                  strokeLinecap="round" strokeLinejoin="round" />
+              </motion.svg>
+              Money in and out
+              <span style={{ color: 'var(--text-faint)' }}>· {events.length}</span>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {showHistory && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={springSoft}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-2.5">
+                    {events.map((e) => (
+                      <div key={e.id} className="flex items-center justify-between gap-3 py-1 text-[12px]">
+                        <span style={{ color: 'var(--text-dim)' }}>
+                          {e.kind === 'reconcile' ? 'Balance check' : e.kind === 'deposit' ? 'Paid in' : 'Taken out'}
+                          <span style={{ color: 'var(--text-faint)' }}>
+                            {' · '}{e.date}{e.note ? ` · ${e.note}` : ''}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2.5">
+                          <span className="tabular-nums" style={{ color: 'var(--text)' }}>
+                            {e.kind === 'withdrawal' ? usd(-e.amount) : usd(e.amount)}
+                          </span>
+                          <button type="button" onClick={() => void remove(e.id)}
+                            className="text-[11px] underline underline-offset-2"
+                            style={{ color: 'var(--text-faint)' }}>
+                            remove
+                          </button>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>

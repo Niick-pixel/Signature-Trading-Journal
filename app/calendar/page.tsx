@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
-import { ACCOUNTS, type Account } from '@/lib/domain';
+import { ACCOUNTS, ACCOUNT_VALUES, type Account } from '@/lib/domain';
 import { adherenceOf } from '@/lib/adherence';
 import { balanceFor } from '@/lib/balance';
 import { accountsInUse, forAccount } from '@/lib/stats';
@@ -34,13 +34,43 @@ export default async function CalendarPage(
 ) {
   const params = await searchParams;
   const asked = typeof params.account === 'string' ? params.account : null;
-  const account: Account | 'All' =
-    asked && (ACCOUNTS as readonly string[]).includes(asked) ? (asked as Account) : 'All';
 
   const all = listTrades();
-  const accounts = accountsInUse(all);
-  const scoped = forAccount(all, account);
   const events = listCashEvents();
+
+  /*
+    Accounts you can switch to: any with trades, plus any you have put money
+    into. A freshly funded account has no trades yet and would otherwise be
+    unreachable from here — which is exactly the moment you want to look at it.
+  */
+  const traded = accountsInUse(all);
+  const funded = [...new Set(events.map((e) => e.account))]
+    .filter((a) => !traded.some((t) => t.account === a))
+    .map((account) => ({ account, count: 0 }));
+  const accounts = [...traded, ...funded];
+
+  /*
+    Opens on a real account rather than on 'All'.
+
+    'All' has no balance — backtest dollars and live dollars are not the same
+    dollars — so defaulting to it meant the first thing this page ever showed
+    was an empty card explaining why it could not answer. It now opens on the
+    busiest account that is still OFFERED — landing on a retired backtest
+    account because it happens to hold the most history is the same mistake in
+    a different direction — then on wherever the money is, and only on 'All'
+    when that is explicitly asked for.
+  */
+  const offered = accounts.find((a) => ACCOUNTS.includes(a.account));
+  const fallback: Account = offered?.account
+    ?? events[0]?.account
+    ?? accounts[0]?.account
+    ?? 'Live';
+  const account: Account | 'All' = asked === 'All'
+    ? 'All'
+    : asked && (ACCOUNT_VALUES as readonly string[]).includes(asked)
+      ? (asked as Account)
+      : fallback;
+  const scoped = forAccount(all, account);
   const balance = balanceFor(all, events, account);
   const visibleEvents = account === 'All' ? events : events.filter((e) => e.account === account);
 
@@ -95,7 +125,7 @@ export default async function CalendarPage(
 
             <Panel
               title={`${MONTHS[month]} ${year}`}
-              note="One square per day. Green and red are the day's money where it has any, and its R where it does not — a day logged before the P&L started saving still has a direction. An amber ✕ marks rule breaks, because a red day traded properly and a green day traded badly are not the same day."
+              note="One square per day, coloured by what the day made or lost. A day whose trades were logged before the P&L started saving shows a dash with its R underneath — it has a direction but cannot state an amount. An amber ✕ marks rule breaks, because a red day traded properly and a green day traded badly are not the same day."
             >
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <NavLink href={href(shift(-1))} label="← Previous" />

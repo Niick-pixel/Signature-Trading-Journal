@@ -1,7 +1,5 @@
 import { listTrades } from '@/db/trades';
-import { listCashEvents } from '@/db/cash';
-import { balanceFor } from '@/lib/balance';
-import { ACCOUNTS, MIN_SAMPLE, REASON_HUE, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
@@ -46,7 +44,7 @@ export default async function StatsPage(
   const requested = typeof asked === 'string' ? asked : undefined;
   const account: Account | 'All' = requested === 'All'
     ? 'All'
-    : (ACCOUNTS as readonly string[]).includes(requested ?? '')
+    : (ACCOUNT_VALUES as readonly string[]).includes(requested ?? '')
       ? (requested as Account)
       : (accounts[0]?.account ?? 'Backtest (FX Replay)');
 
@@ -63,9 +61,6 @@ export default async function StatsPage(
   const m = money(trades);
   const e = edge(trades);
   const d = discipline(trades);
-  // Money movements are account-scoped but never filtered by ?pregraded — a
-  // deposit is not a trade and has no grade to be honest about.
-  const bal = balanceFor(scoped, listCashEvents(), account);
   const honesty = gradeHonesty(trades);
   const hes = hesitation(trades);
   const curves = equityCurves(trades);
@@ -200,22 +195,13 @@ export default async function StatsPage(
                 <EquityChart followed={curves.followed} broken={curves.broken} />
               </Panel>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {/*
-                  What the account is actually at, derived rather than stored.
-                  Every other figure here is R, and R is not money — an account
-                  can be up in R and down in dollars if the winners were small.
+                  No balance tile here. Where the account stands lives on the
+                  Calendar, next to the days that moved it and the button that
+                  funds it; repeating it on Stats gave the same number two homes
+                  and no single place that owns it.
                 */}
-                <Stat
-                  label="Balance"
-                  value={bal.current == null ? '—' : usd(bal.current)}
-                  sub={bal.current == null
-                    ? 'Add it on the Calendar'
-                    : bal.unpriced > 0
-                      ? `${bal.unpriced} trade${bal.unpriced === 1 ? '' : 's'} missing a P&L`
-                      : bal.anchor ? `Since your check on ${bal.anchor.date}` : 'Paid in, plus what trading did'}
-                  tone={(bal.current ?? 0) > 0 ? 'win' : (bal.current ?? 0) < 0 ? 'loss' : null}
-                />
                 <Stat
                   label="Net P&L"
                   value={m.priced ? usd(m.net) : '—'}

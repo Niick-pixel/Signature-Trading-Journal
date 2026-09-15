@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { OUTCOMES, SESSIONS, type Outcome, type Session } from '@/lib/domain';
-import { ACCOUNTS, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, type Account } from '@/lib/domain';
 import { GRADE_MAX } from '@/lib/grade';
 import { GROUP_LABELS, GROUP_MODES, type GroupMode } from '@/lib/layout';
 import { hasOpenFlags } from '@/lib/flags';
@@ -189,7 +189,7 @@ export function Toolbar({
         <span className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
           Account
         </span>
-        {(['All', ...ACCOUNTS] as const).map((a) => (
+        {(['All', ...ACCOUNT_VALUES] as const).map((a) => (
           <Chip
             key={a}
             label={a === 'Backtest (FX Replay)' ? 'Backtest' : a}

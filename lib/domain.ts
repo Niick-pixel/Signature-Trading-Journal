@@ -235,8 +235,34 @@ export type MistakeTag = (typeof MISTAKE_TAGS)[number];
  * Backtest R and live R must never sum into the same number. Replay fills are
  * not real fills, and a demo account has no fear in it.
  */
-export const ACCOUNTS = ['Backtest (FX Replay)', 'Demo', 'Live'] as const;
-export type Account = (typeof ACCOUNTS)[number];
+/**
+ * Every account label the schema will accept, including retired ones.
+ *
+ * Validation and display read this. 'Backtest (FX Replay)' is still here
+ * because trades were filed under it: dropping a value from the type because
+ * the form stopped offering it would make those rows fail validation on their
+ * next edit, which is the app refusing to save its own history.
+ */
+export const ACCOUNT_VALUES = ['Backtest (FX Replay)', 'Demo', 'Live', 'Funded'] as const;
+export type Account = (typeof ACCOUNT_VALUES)[number];
+
+/**
+ * What a new trade or deposit can be filed under.
+ *
+ * Backtesting moved out of this journal, so it is no longer offered — but see
+ * ACCOUNT_VALUES: not offered is not the same as not allowed.
+ */
+export const ACCOUNTS: readonly Account[] = ['Demo', 'Live', 'Funded'];
+
+/**
+ * The options a picker should show, given what is already selected.
+ *
+ * An edit of an old backtest trade has to be able to keep saying backtest, so
+ * the current value is always included even when it is no longer on offer.
+ */
+export function accountOptions(current: Account | null): readonly Account[] {
+  return current && !ACCOUNTS.includes(current) ? [current, ...ACCOUNTS] : ACCOUNTS;
+}
 
 /**
  * Two-stage logging, available but never required. 'Settled' is the default

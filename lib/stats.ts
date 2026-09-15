@@ -1,5 +1,5 @@
 import {
-  ACCOUNTS, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
+  ACCOUNT_VALUES, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
   SKIP_REASONS, TAKE_IT_THRESHOLD, TARGET_TYPES, isTaken,
   type Account, type ChecklistKey, type MistakeTag, type Reason, type SkipReason,
   type TargetType,
@@ -502,7 +502,9 @@ export function forAccount(trades: Trade[], account: Account | 'All'): Trade[] {
  * the live one has thirty-five is the wrong first thing to see.
  */
 export function accountsInUse(trades: Trade[]): Array<{ account: Account; count: number }> {
-  return ACCOUNTS
+  // ACCOUNT_VALUES, not ACCOUNTS: a retired label still has trades in it and
+  // has to stay switchable, or the history under it becomes unreachable.
+  return ACCOUNT_VALUES
     .map((account) => ({ account, count: trades.filter((t) => t.account === account).length }))
     .filter((a) => a.count > 0)
     .sort((a, b) => b.count - a.count);

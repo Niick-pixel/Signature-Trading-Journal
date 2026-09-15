@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ACCOUNTS, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  accountOptions, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TARGET_TYPES, TRADE_STATUSES,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -72,7 +72,7 @@ export function NewTradeForm({ trade }: { trade?: Trade }) {
   const [followedRules, setFollowedRules] = useState<Tri>(trade?.followed_rules ?? null);
   const [regrade, setRegrade] = useState<Regrade | null>(trade?.regrade ?? null);
   const [mistakeTags, setMistakeTags] = useState<MistakeTag[]>(trade?.mistake_tags ?? []);
-  const [account, setAccount] = useState<Account>(trade?.account ?? 'Backtest (FX Replay)');
+  const [account, setAccount] = useState<Account>(trade?.account ?? 'Live');
   const [accountLabel, setAccountLabel] = useState(trade?.account_label ?? '');
   const [status, setStatus] = useState<TradeStatus>(trade?.status ?? 'Settled');
   const [pnlDollars, setPnlDollars] = useState(trade?.pnl_dollars?.toString() ?? '');
@@ -441,7 +441,7 @@ export function NewTradeForm({ trade }: { trade?: Trade }) {
         */}
         <div className="mb-7 grid gap-5 sm:grid-cols-2">
           <Field label="Account" hint="Backtest R and live R never sum into the same number.">
-            <Select value={account} onChange={setAccount} options={ACCOUNTS} />
+            <Select value={account} onChange={setAccount} options={accountOptions(account)} />
           </Field>
           <Field label="Account label" hint="Optional — which prop firm, which phase.">
             <Input placeholder="—" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />

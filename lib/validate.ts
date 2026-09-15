@@ -1,5 +1,5 @@
 import {
-  ACCOUNTS, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
+  ACCOUNT_VALUES, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
   TARGET_TYPES, TRADE_STATUSES,
   type ChecklistKey, type ContextFlag, type MistakeTag, type Tri,
@@ -153,7 +153,7 @@ export function parseTradeInput(
             (v): v is MistakeTag => typeof v === 'string' && (MISTAKE_TAGS as readonly string[]).includes(v),
           ))
         : [],
-      account: oneOf('account', ACCOUNTS) ?? 'Backtest (FX Replay)',
+      account: oneOf('account', ACCOUNT_VALUES) ?? 'Live',
       account_label: typeof t.account_label === 'string' && t.account_label.trim()
         ? t.account_label.trim() : null,
       status: oneOf('status', TRADE_STATUSES) ?? 'Settled',

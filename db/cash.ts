@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import { getDb } from './index';
-import { ACCOUNTS, type Account } from '../lib/domain';
+import { ACCOUNT_VALUES, type Account } from '../lib/domain';
 import { CASH_KINDS, type CashEvent, type CashKind } from '../lib/types';
 
 /**
@@ -47,7 +47,8 @@ export function parseCashInput(raw: unknown): { ok: true; value: CashInput } | {
   if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'Malformed payload.' };
   const t = raw as Record<string, unknown>;
 
-  const account = typeof t.account === 'string' && (ACCOUNTS as readonly string[]).includes(t.account)
+  // Any legal label, retired ones included: a restored backup can carry one.
+  const account = typeof t.account === 'string' && (ACCOUNT_VALUES as readonly string[]).includes(t.account)
     ? (t.account as Account) : null;
   if (!account) return { ok: false, error: 'Pick which account this is for.' };
 
