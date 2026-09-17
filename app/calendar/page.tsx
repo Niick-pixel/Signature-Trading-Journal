@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
+import { journalDays } from '@/db/journal';
+import { listDailyReviews } from '@/db/reviews';
 import { ACCOUNTS, ACCOUNT_VALUES, type Account } from '@/lib/domain';
 import { adherenceOf } from '@/lib/adherence';
 import { balanceFor } from '@/lib/balance';
@@ -110,6 +112,12 @@ export default async function CalendarPage(
     `/calendar?${new URLSearchParams({ ...(account === 'All' ? {} : { account }), month: m })}`;
   const today = new Date().toISOString().slice(0, 10);
 
+  // A day counts as written on if it has a journal page or a daily review.
+  const written = new Set([
+    ...journalDays(),
+    ...listDailyReviews().map((r) => r.day),
+  ]);
+
   return (
     <div className="flex h-dvh flex-col">
       <TitleBar />
@@ -133,7 +141,7 @@ export default async function CalendarPage(
                 <NavLink href={href(shift(1))} label="Next →" />
               </div>
 
-              <Calendar grid={grid} cells={cells} today={today} scale={scale} />
+              <Calendar grid={grid} cells={cells} today={today} scale={scale} written={written} />
             </Panel>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

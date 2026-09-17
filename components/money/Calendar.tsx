@@ -22,12 +22,20 @@ const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * not saturate into a single block of red.
  */
 export function Calendar({
-  grid, cells, today, scale,
+  grid, cells, today, scale, written,
 }: {
   grid: Array<string | null>;
   cells: Map<string, DayCell>;
   today: string;
   scale: number;
+  /**
+   * Days with a journal page or a daily review on them.
+   *
+   * Consistency of writing is the one habit in here that is entirely mine, and
+   * a month of dots with a hole in the middle of it says more about a bad run
+   * than any of the numbers do.
+   */
+  written: ReadonlySet<string>;
 }) {
   return (
     <div>
@@ -57,9 +65,12 @@ export function Calendar({
                   borderColor: isToday ? 'rgb(var(--accent) / 0.55)' : 'var(--glass-stroke)',
                   background: 'var(--glass-fill)',
                 }}>
-                <span className="tabular-nums text-[11px]"
-                  style={{ color: isToday ? 'rgb(var(--accent))' : 'var(--text-faint)' }}>
-                  {num}
+                <span className="flex items-baseline justify-between gap-1">
+                  <span className="tabular-nums text-[11px]"
+                    style={{ color: isToday ? 'rgb(var(--accent))' : 'var(--text-faint)' }}>
+                    {num}
+                  </span>
+                  {written.has(day) && <WrittenDot />}
                 </span>
               </div>
             );
@@ -96,11 +107,14 @@ export function Calendar({
                     not are completely different days, and only one of them is
                     a problem.
                   */}
-                  {cell.broken > 0 && (
-                    <span className="text-[9px] font-semibold" style={{ color: 'rgb(var(--amber))' }}>
-                      {cell.broken}✕
-                    </span>
-                  )}
+                  <span className="flex shrink-0 items-center gap-1">
+                    {written.has(day) && <WrittenDot />}
+                    {cell.broken > 0 && (
+                      <span className="text-[9px] font-semibold" style={{ color: 'rgb(var(--amber))' }}>
+                        {cell.broken}✕
+                      </span>
+                    )}
+                  </span>
                 </div>
 
                 {/*
@@ -130,5 +144,16 @@ export function Calendar({
         })}
       </div>
     </div>
+  );
+}
+
+/** A day with writing on it. Small on purpose — it is a habit, not a score. */
+function WrittenDot() {
+  return (
+    <span
+      title="You wrote something on this day"
+      className="size-[5px] shrink-0 rounded-full"
+      style={{ background: 'rgb(var(--accent) / 0.75)' }}
+    />
   );
 }

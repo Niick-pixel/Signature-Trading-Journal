@@ -20,12 +20,28 @@ const TEXT_SCALE: Record<(typeof TEXT_SIZES)[number], number> = {
 };
 const DENSITIES = ['compact', 'normal', 'roomy'] as const;
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * A group of settings, with a line saying what the group is for.
+ *
+ * Every control in here used to be a bare label — "Reason lines", "Compact",
+ * "Reset" — which is fine if you wrote them and opaque if you did not. The
+ * hint is the sentence you would otherwise have to guess at, and the buttons
+ * below carry the same explanation as a hover title.
+ */
+function Section({ title, hint, children }: {
+  title: string; hint?: string; children: React.ReactNode;
+}) {
   return (
     <div className="mt-5">
-      <div className="mb-2.5 text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
+      <div className="mb-1 text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
         {title}
       </div>
+      {hint && (
+        <p className="mb-2.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+          {hint}
+        </p>
+      )}
+      {!hint && <div className="mb-2.5" />}
       {children}
     </div>
   );
@@ -103,20 +119,37 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           >
             <h2 className="text-[14px] font-semibold tracking-tight">Settings</h2>
 
-            <Section title="Text size">
+            <Section
+              title="Text size"
+              hint="Scales every bit of text in the app. Useful on a 1440p screen where the default reads small."
+            >
               <Segmented
                 value={currentSize}
                 onChange={(size) => update({ textScale: TEXT_SCALE[size] })}
                 options={TEXT_SIZES}
+                titleFor={(size) => ({
+                  small: 'Smaller text everywhere — fits the most on screen',
+                  normal: 'The default',
+                  large: 'Larger text everywhere — easier on a big monitor',
+                  huge: 'Largest text everywhere',
+                } as Record<string, string>)[size] ?? size}
               />
             </Section>
 
-            <Section title="Whiteboard">
+            <Section
+              title="Whiteboard"
+              hint="How tightly the board packs its cards. Compact fits more on screen; roomy is easier to read."
+            >
               <Segmented
                 value={prefs.boardDensity}
                 onChange={(boardDensity) => update({ boardDensity })}
                 options={DENSITIES}
                 labelFor={(d) => d[0].toUpperCase() + d.slice(1)}
+                titleFor={(d) => ({
+                  compact: 'Smaller cards — more of the board visible at once',
+                  normal: 'The default card size',
+                  roomy: 'Bigger cards — the charts are easier to read',
+                } as Record<string, string>)[d] ?? d}
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 <TogglePill
@@ -136,16 +169,21 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                   checked={prefs.showGrid}
                   onChange={(showGrid) => update({ showGrid })}
                   label="Dot grid"
+                  hint="The faint dots behind the board."
                 />
                 <TogglePill
                   checked={prefs.dimPassed}
                   onChange={(dimPassed) => update({ dimPassed })}
                   label="Fade passed trades"
+                  hint="Dims setups you journalled but never took, so the ones you did take stand out."
                 />
               </div>
             </Section>
 
-            <Section title="Motion">
+            <Section
+              title="Motion"
+              hint="Turn this on if the animations are distracting or the app feels heavy on your machine."
+            >
               <TogglePill
                 checked={prefs.reduceMotion}
                 onChange={(reduceMotion) => update({ reduceMotion })}
@@ -173,17 +211,36 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
             <div className="mt-5 flex flex-wrap gap-2">
               {typeof window !== 'undefined' && window.signature?.isDesktop && (
-                <Button onClick={() => window.signature?.openDataFolder()}>Open folder</Button>
+                <Button
+                  title="Opens the folder above in your file manager — the database and every screenshot are in there"
+                  onClick={() => window.signature?.openDataFolder()}
+                >
+                  Open folder
+                </Button>
               )}
               {/* One zip: trades.json, trades.csv, and every screenshot. */}
               <a href="/api/export" download className="outline-none">
-                <Button tabIndex={-1}>Export everything</Button>
+                <Button
+                  tabIndex={-1}
+                  title="Downloads one zip: every trade as JSON and as a spreadsheet, your money movements, the journal as a readable document, and every chart screenshot"
+                >
+                  Export everything
+                </Button>
               </a>
-              <Button onClick={() => importRef.current?.click()} disabled={importing}>
+              <Button
+                onClick={() => importRef.current?.click()}
+                disabled={importing}
+                title="Restores from a trades.json out of an export. Matched on id, so importing the same file twice changes nothing the second time"
+              >
                 {importing ? 'Importing…' : 'Import JSON'}
               </Button>
               <a href="/trash" className="outline-none">
-                <Button tabIndex={-1}>Trash</Button>
+                <Button
+                  tabIndex={-1}
+                  title="Trades you deleted. Nothing is destroyed until you purge it there"
+                >
+                  Trash
+                </Button>
               </a>
               <input
                 ref={importRef}
@@ -197,6 +254,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 }}
               />
               <Button
+                title="Copies the folder path above to the clipboard"
                 onClick={async () => {
                   if (!info?.dataDir) return;
                   try {
@@ -208,8 +266,13 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               >
                 {copied ? 'Copied' : 'Copy path'}
               </Button>
-              <Button onClick={reset}>Reset</Button>
-              <Button onClick={onClose} className="ml-auto">Done</Button>
+              <Button
+                onClick={reset}
+                title="Puts the settings on this panel back to their defaults. Touches no trade, no page and no money"
+              >
+                Reset
+              </Button>
+              <Button onClick={onClose} className="ml-auto" title="Closes this panel. Every setting here saved the moment you changed it">Done</Button>
             </div>
           </motion.div>
         </>

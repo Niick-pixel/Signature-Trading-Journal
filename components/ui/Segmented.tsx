@@ -10,6 +10,8 @@ interface SegmentedProps<T extends string> {
   /** Per-option colour, e.g. outcome hues. */
   accentFor?: (option: T) => string;
   labelFor?: (option: T) => string;
+  /** Hover text per option, for the places where the label alone is cryptic. */
+  titleFor?: (option: T) => string;
 }
 
 /**
@@ -18,7 +20,7 @@ interface SegmentedProps<T extends string> {
  * of all, which you know before you start writing anything down.
  */
 export function Segmented<T extends string>({
-  value, onChange, options, accentFor, labelFor,
+  value, onChange, options, accentFor, labelFor, titleFor,
 }: SegmentedProps<T>) {
   return (
     <div className="glass flex flex-wrap gap-1 rounded-[16px] p-1">
@@ -29,6 +31,7 @@ export function Segmented<T extends string>({
           <motion.button
             key={option}
             type="button"
+            title={titleFor?.(option)}
             onClick={() => onChange(option)}
             whileTap={press}
             animate={{

@@ -12,7 +12,7 @@ import {
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
 } from '@/lib/layout';
 import { spring, springBouncy } from '@/lib/motion';
-import type { BoardEdge, BoardNote, Trade } from '@/lib/types';
+import type { JournalPage, BoardEdge, BoardNote, Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { usePreferences } from '@/components/shell/PreferencesProvider';
 import { DENSITY_SCALE } from '@/lib/preferences';
@@ -20,6 +20,8 @@ import { BoardControls } from './BoardControls';
 import { BoardTitle } from './BoardTitle';
 import { ClusterNode } from './ClusterNode';
 import { DetailPanel } from './DetailPanel';
+import { StackNode } from './StackNode';
+import { GroupViewer } from './GroupViewer';
 import { Toolbar, EMPTY_FILTERS, applyFilters, filtersActive, type Filters } from './Toolbar';
 import { BulkBar } from './BulkBar';
 import { RiskBanner } from './RiskBanner';
@@ -30,13 +32,25 @@ import { StreakBadge } from './StreakBadge';
 import { SavedViews } from './SavedViews';
 import { OUTCOME_COLOR, TradeNode } from './TradeNode';
 
-const nodeTypes = { trade: TradeNode, cluster: ClusterNode, title: BoardTitle, note: NoteNode };
+const nodeTypes = {
+  trade: TradeNode, cluster: ClusterNode, title: BoardTitle, note: NoteNode, stack: StackNode,
+};
 
 function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[]; readOnly?: boolean }) {
   const flow = useReactFlow();
   const [trades, setTrades] = useState(initial);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [openId, setOpenId] = useState<string | null>(null);
+  /** Which group's stack has been opened into the full viewer. */
+  const [viewing, setViewing] = useState<string | null>(null);
+  /**
+   * Per-group nudges, keyed `${mode}::${key}`.
+   *
+   * Held locally as well as on the server so a drag lands immediately: a
+   * controlled node whose position comes only from the server snaps back on
+   * every render, which is the bug the sticky notes had.
+   */
+  const [offsets, setOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
 
   // An explicit mode rather than React Flow's own selection: on this board a
   // click already means "open this trade", and overloading it with
@@ -54,6 +68,34 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     if (res.ok) setBoard(await res.json());
   }, []);
   useEffect(() => { loadBoard(); }, [loadBoard]);
+
+  /*
+    Journal pages, for the search palette only.
+
+    Loaded here rather than passed from the server component because the board
+    is already client-side and the palette is the only consumer — the cost is
+    one request on mount, and the payoff is that "/" searches everything I
+    have written rather than only the trades.
+  */
+  const [pages, setPages] = useState<JournalPage[]>([]);
+  useEffect(() => {
+    if (readOnly) return;
+    let live = true;
+    void fetch('/api/journal')
+      .then((r) => r.json())
+      .then((ps) => { if (live) setPages(ps ?? []); })
+      .catch(() => { /* search still works over the trades */ });
+    return () => { live = false; };
+  }, [readOnly]);
+
+  useEffect(() => {
+    let live = true;
+    void fetch('/api/board/offsets')
+      .then((r) => r.json())
+      .then((o) => { if (live) setOffsets(o ?? {}); })
+      .catch(() => { /* an unreachable nudge is not worth a broken board */ });
+    return () => { live = false; };
+  }, []);
 
   /*
     Board shortcuts. Typing is always sacred — a key that means "new trade"
@@ -75,11 +117,15 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         window.location.href = '/new';
         return;
       }
-      if (e.key === 'Escape' && !searching) { setOpenId(null); }
+      if (e.key === 'Escape' && !searching) {
+        // Innermost first: the viewer sits over the board, the panel over both.
+        if (openId) setOpenId(null);
+        else if (viewing) setViewing(null);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [readOnly, searching]);
+  }, [readOnly, searching, openId, viewing]);
 
   /** Locked items refuse to move. Kept per machine — it is a working habit. */
   const [locked, setLocked] = useState<Set<string>>(new Set());
@@ -137,7 +183,10 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const scale = DENSITY_SCALE[prefs.boardDensity];
 
   const visible = useMemo(() => trades.filter(applyFilters(filters)), [trades, filters]);
-  const layout = useMemo(() => computeLayout(visible, scale, groupMode), [visible, scale, groupMode]);
+  const layout = useMemo(
+    () => computeLayout(visible, scale, groupMode, offsets),
+    [visible, scale, groupMode, offsets],
+  );
 
   /** Content bounding box plus a generous margin, for the pan wall. */
   const bounds = useMemo<[[number, number], [number, number]]>(() => {
@@ -232,7 +281,14 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       // A group moves as a group. Dragging the enclosure carries every card in
       // it — rearranging the board by reason is the point of the board, and
       // doing it one card at a time is not rearranging, it is tidying.
-      draggable: !readOnly && groupMode === 'reason' && !locked.has(`cluster-${cluster.key}`),
+      /*
+        Draggable in every grouping now. It used to be reason-only because the
+        drag rewrote each card's absolute position, so a nudge made while
+        grouped by setup would quietly rearrange the reason board. The offset
+        is keyed by grouping mode, so each view remembers its own arrangement
+        and none of them can corrupt another.
+      */
+      draggable: !readOnly && !locked.has(`cluster-${cluster.key}`),
       dragHandle: '.signature-cluster-handle',
       selectable: false,
       zIndex: 0,
@@ -255,10 +311,47 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         selectMode,
       },
       zIndex: 1,
-      // Only the grab handle moves a node. See TradeNode for why.
-      dragHandle: '.signature-drag-handle',
-      draggable: !readOnly && !locked.has(n.trade.id),
-      style: { width: NODE_W * scale, height: NODE_H * scale },
+      /*
+        Cards are placed by the layout and nothing else.
+
+        They used to be draggable, with the position stored per trade. That is
+        what made the board messy: a nudged card left a gap, the enclosure was
+        drawn around wherever the cards had ended up, and two cards could sit
+        on top of each other. Groups still move as groups — that is the
+        arrangement that carries meaning — but where a card sits inside its
+        group is not information, it is just tidiness, and the app is better at
+        tidiness than I am.
+      */
+      draggable: false,
+      /*
+        pointerEvents has to be stated.
+
+        React Flow sets `pointer-events: none` on a node that is neither
+        draggable nor connectable nor selectable — so the moment cards stopped
+        being draggable they also stopped being CLICKABLE, and opening a trade
+        silently died. The drag is gone on purpose; the click is the whole
+        point of the card.
+      */
+      style: { width: NODE_W * scale, height: NODE_H * scale, pointerEvents: 'auto' },
+    }));
+
+    const stackNodes: Node[] = layout.stacks.map((st) => ({
+      id: `stack-${st.key}`,
+      type: 'stack',
+      position: { x: st.x, y: st.y },
+      data: {
+        count: st.hidden.length,
+        accent: st.accent,
+        label: st.key,
+        scale,
+        onOpen: () => setViewing(st.key),
+      },
+      draggable: false,
+      selectable: false,
+      zIndex: 1,
+      // Same reason as the cards above: not draggable means not clickable
+      // unless pointer events are handed back explicitly.
+      style: { width: NODE_W * scale, height: NODE_H * scale, pointerEvents: 'auto' },
     }));
 
     const noteNodes: Node[] = board.notes.map((note) => ({
@@ -270,7 +363,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       zIndex: 5,
     }));
 
-    return [...titleNode, ...clusterNodes, ...tradeNodes, ...noteNodes];
+    return [...titleNode, ...clusterNodes, ...tradeNodes, ...stackNodes, ...noteNodes];
   }, [
     layout, openId, onOpen, scale, prefs.dimPassed, selectMode, selectedIds, groupMode,
     visible.length, board.notes, saveNote, removeNote, locked,
@@ -384,47 +477,41 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       }
 
       if (change.dragging !== false) continue;
-      if (groupMode !== 'reason') continue;
 
       /*
-        Dragging an enclosure drags its contents. React Flow reports only the
-        cluster's own move, so the delta is applied to each card inside it and
-        the whole group is written back in one request.
+        A group moves as a group, and what is stored is the OFFSET from where
+        the grid put it — not an absolute position, and not the cards.
+
+        Absolute positions per card were the old scheme, and they went stale
+        the moment a group gained a trade or was re-sorted: the arrangement was
+        pinned to coordinates that the layout had since moved on from. An
+        offset survives all of that. The cards themselves are placed entirely
+        by the layout now, so there is nothing else to write.
       */
       if (change.id.startsWith('cluster-')) {
         const key = change.id.slice(8);
         const cluster = layout.clusters.find((c) => c.key === key);
         if (!cluster) continue;
-        const dx = change.position.x - cluster.x;
-        const dy = change.position.y - cluster.y;
-        if (dx === 0 && dy === 0) continue;
+        const nudge = offsets[`${groupMode}::${key}`] ?? { dx: 0, dy: 0 };
+        const dx = nudge.dx + (change.position.x - cluster.x);
+        const dy = nudge.dy + (change.position.y - cluster.y);
+        if (dx === nudge.dx && dy === nudge.dy) continue;
 
-        const moved = cluster.trades.map((t) => {
-          const node = layout.nodes.find((n) => n.trade.id === t.id);
-          return { id: t.id, x: (node?.x ?? 0) + dx, y: (node?.y ?? 0) + dy };
-        });
-        setTrades((prev) => prev.map((t) => {
-          const m = moved.find((v) => v.id === t.id);
-          return m ? { ...t, position_x: m.x, position_y: m.y } : t;
-        }));
-        void fetch('/api/trades/positions', {
+        setOffsets((prev) => ({ ...prev, [`${groupMode}::${key}`]: { dx, dy } }));
+        void fetch('/api/board/offsets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions: moved }),
+          body: JSON.stringify({ mode: groupMode, key, dx, dy }),
         });
-        continue;
       }
-      const { position } = change;
-      const id = tradeIdFromKey(change.id);
-      setTrades((prev) => prev.map((t) =>
-        t.id === id ? { ...t, position_x: position.x, position_y: position.y } : t));
-      void fetch(`/api/trades/${id}/position`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ x: position.x, y: position.y }),
-      });
     }
-  }, [groupMode, moveNote, layout]);
+  }, [groupMode, moveNote, layout, offsets]);
+
+  /** Every group back where the grid puts it. */
+  const tidyUp = useCallback(async () => {
+    setOffsets({});
+    await fetch('/api/board/offsets', { method: 'DELETE' });
+  }, []);
 
   /**
    * Pin anything the layout just placed for the first time.
@@ -575,10 +662,8 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
           if (node.type === 'trade') {
             const id = tradeIdFromKey(node.id);
             items.push({ label: 'Open', onClick: () => setOpenId(id) });
-            items.push({
-              label: locked.has(id) ? 'Unlock position' : 'Lock in place',
-              onClick: () => toggleLock(id),
-            });
+            // No "lock in place" for a card: it has no place of its own to
+            // lock. The layout puts it where it goes.
             items.push({
               label: 'Move to Trash',
               danger: true,
@@ -627,6 +712,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
             items: [
               { label: 'Add a note here', onClick: () => void addNote() },
               { label: 'Fit everything', onClick: () => flow.fitView({ padding: 0.18, duration: 400 }) },
+              { label: 'Tidy up the groups', onClick: () => void tidyUp() },
             ],
           });
         }}
@@ -673,12 +759,26 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
 
       <SearchPalette
         trades={trades}
+        pages={pages}
         open={searching}
         onClose={() => setSearching(false)}
         onOpenTrade={(id) => setOpenId(id)}
       />
 
       {!readOnly && <DetailPanel trade={open} onClose={() => setOpenId(null)} onChanged={refresh} />}
+
+      {/*
+        The stack, opened. Reads the trades the board already has rather than
+        refetching: the group is right there in the layout.
+      */}
+      {!readOnly && (
+        <GroupViewer
+          label={viewing}
+          trades={viewing === null ? [] : (layout.clusters.find((c) => c.key === viewing)?.trades ?? [])}
+          onOpenTrade={(id) => { setViewing(null); setOpenId(id); }}
+          onClose={() => setViewing(null)}
+        />
+      )}
       </div>
     </div>
   );

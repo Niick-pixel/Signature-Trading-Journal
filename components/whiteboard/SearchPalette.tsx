@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { spring, springSoft, scrimExit } from '@/lib/motion';
 import { search, type Hit } from '@/lib/search';
 import { reasonAccent } from '@/lib/layout';
-import type { Trade } from '@/lib/types';
+import type { JournalPage, Trade } from '@/lib/types';
 
 /**
  * Find a trade by what I wrote about it.
@@ -13,8 +13,10 @@ import type { Trade } from '@/lib/types';
  * "That one where I said I was chasing it" is a real query, and no combination
  * of filters answers it — the explanation is the only place the thought exists.
  */
-export function SearchPalette({ trades, open, onClose, onOpenTrade }: {
+export function SearchPalette({ trades, pages = [], open, onClose, onOpenTrade }: {
   trades: Trade[];
+  /** Journal pages, searched alongside the trades. */
+  pages?: JournalPage[];
   open: boolean;
   onClose: () => void;
   onOpenTrade: (id: string) => void;
@@ -23,13 +25,27 @@ export function SearchPalette({ trades, open, onClose, onOpenTrade }: {
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hits = useMemo(() => search(trades, q), [trades, q]);
+  const hits = useMemo(() => search(trades, q, 40, pages), [trades, q, pages]);
 
   useEffect(() => {
     if (open) { setQ(''); setCursor(0); window.setTimeout(() => inputRef.current?.focus(), 40); }
   }, [open]);
 
   useEffect(() => { setCursor(0); }, [q]);
+
+  /*
+    A trade opens its detail panel; a page opens the journal.
+
+    The palette deliberately does not know which of those it is doing until
+    the moment it happens — mixing the two in one list is the point, because
+    "that thing I wrote about overtrading" is a memory of a sentence, not of
+    which screen it was on.
+  */
+  const pick = (hit: Hit) => {
+    if (hit.kind === 'trade') onOpenTrade(hit.trade.id);
+    else window.location.href = '/journal';
+    onClose();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -39,8 +55,7 @@ export function SearchPalette({ trades, open, onClose, onOpenTrade }: {
       if (e.key === 'ArrowUp') { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
       if (e.key === 'Enter' && hits[cursor]) {
         e.preventDefault();
-        onOpenTrade(hits[cursor].trade.id);
-        onClose();
+        pick(hits[cursor]);
       }
     };
     document.addEventListener('keydown', onKey);
@@ -89,8 +104,14 @@ export function SearchPalette({ trades, open, onClose, onOpenTrade }: {
                     Nothing matches “{q}”.
                   </p>
                 ) : (
-                  hits.map((hit, i) => <Row key={hit.trade.id} hit={hit} active={i === cursor}
-                    onPick={() => { onOpenTrade(hit.trade.id); onClose(); }} />)
+                  hits.map((hit, i) => (
+                    <Row
+                      key={hit.kind === 'trade' ? hit.trade.id : `page-${hit.page.id}`}
+                      hit={hit}
+                      active={i === cursor}
+                      onPick={() => pick(hit)}
+                    />
+                  ))
                 )}
               </div>
 
@@ -119,13 +140,27 @@ function Row({ hit, active, onPick }: { hit: Hit; active: boolean; onPick: () =>
       style={{ background: active ? 'var(--glass-fill-strong)' : 'transparent' }}
     >
       <div className="flex items-center gap-2">
-        <span className="size-1.5 shrink-0 rounded-full"
-          style={{ background: `rgb(${reasonAccent(hit.trade.reason)})` }} />
-        <span className="truncate text-[12px] font-medium">{hit.trade.reason}</span>
-        <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-faint)' }}>
-          {new Date(hit.trade.date).toLocaleDateString()} · {hit.trade.checklist_score}/100
-          {' · in '}{hit.field}
-        </span>
+        {hit.kind === 'trade' ? (
+          <>
+            <span className="size-1.5 shrink-0 rounded-full"
+              style={{ background: `rgb(${reasonAccent(hit.trade.reason)})` }} />
+            <span className="truncate text-[12px] font-medium">{hit.trade.reason}</span>
+            <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-faint)' }}>
+              {new Date(hit.trade.date).toLocaleDateString()} · {hit.trade.checklist_score}/100
+              {' · in '}{hit.field}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="shrink-0 text-[10px]" style={{ color: 'rgb(var(--accent))' }}>✎</span>
+            <span className="truncate text-[12px] font-medium">
+              {hit.page.title || 'Untitled page'}
+            </span>
+            <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-faint)' }}>
+              {hit.page.day}{' · journal'}
+            </span>
+          </>
+        )}
       </div>
       <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: 'var(--text-dim)' }}>
         {hit.excerpt}

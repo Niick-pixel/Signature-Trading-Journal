@@ -22,20 +22,15 @@ const BOARD_W = 2100;
 const MIN_CLUSTER_W = 430;
 
 /**
- * A stable pseudo-random number in [0,1) derived from a trade id.
+ * How many cards a group shows before the rest become a stack.
  *
- * The scatter inside a cluster has to look organic but must not move between
- * reloads — a whiteboard that reshuffles itself every time you open it is
- * useless for recognising your own patterns. Hashing the id gives both.
+ * Six fills a 3x2 grid exactly, which is why it is six. Past that the newest
+ * five stay on the board and everything older collapses into one tile with a
+ * count — a group of forty rendered as forty cards is not information, it is a
+ * wall, and the two you care about are the two you just took.
  */
-function seeded(id: string, salt: number): number {
-  let h = 2166136261 ^ salt;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return ((h >>> 0) % 10000) / 10000;
-}
+export const VISIBLE_PER_CLUSTER = 6;
+
 
 /**
  * What the board groups by.
@@ -95,9 +90,24 @@ export interface PositionedCluster {
   trades: Trade[];
 }
 
+/**
+ * The tile that stands in for the cards a group is not showing.
+ *
+ * Carries the ids rather than the trades: the board only needs a count to
+ * draw it, and the viewer that opens on click reads the trades it already has.
+ */
+export interface PositionedStack {
+  key: string;
+  x: number;
+  y: number;
+  accent: string;
+  hidden: string[];
+}
+
 export interface BoardLayout {
   clusters: PositionedCluster[];
   nodes: PositionedTrade[];
+  stacks: PositionedStack[];
   /** Chains through each reason cluster. */
   reasonEdges: Array<[string, string]>;
   /** Dashed cross-cluster edges: same target type, both lost. */
@@ -185,11 +195,18 @@ function groupsFor(trades: Trade[], mode: GroupMode): BoardGroup[] {
     .sort((a, b) => (mode === 'month' ? a.key.localeCompare(b.key) : a.stats.totalR - b.stats.totalR));
 }
 
-export function computeLayout(trades: Trade[], scale = 1, mode: GroupMode = 'reason'): BoardLayout {
+export function computeLayout(
+  trades: Trade[],
+  scale = 1,
+  mode: GroupMode = 'reason',
+  /** Per-group nudges, keyed `${mode}::${key}`. See db/boardlayout.ts. */
+  offsets: Record<string, { dx: number; dy: number }> = {},
+): BoardLayout {
   const groups = groupsFor(trades, mode);
 
   const clusters: PositionedCluster[] = [];
   const nodes: PositionedTrade[] = [];
+  const stacks: PositionedStack[] = [];
   const reasonEdges: Array<[string, string]> = [];
 
   const nodeW = NODE_W * scale;
@@ -201,7 +218,8 @@ export function computeLayout(trades: Trade[], scale = 1, mode: GroupMode = 'rea
   let nominalWidth = 0;
 
   for (const group of groups) {
-    const grid = clusterGrid(group.trades.length, scale);
+    // Sized for what is actually drawn: up to five cards plus a stack tile.
+    const grid = clusterGrid(Math.min(group.trades.length, VISIBLE_PER_CLUSTER), scale);
 
     // Wrap to the next row when this cluster would overflow the board width.
     if (cursorX > 0 && cursorX + grid.width > BOARD_W) {
@@ -210,31 +228,36 @@ export function computeLayout(trades: Trade[], scale = 1, mode: GroupMode = 'rea
       rowHeight = 0;
     }
 
-    // Newest first, so the most recent trade sits top-left inside its cluster.
+    /*
+      Newest first, and placed on an exact grid.
+
+      Both halves of this used to be wrong. Cards were scattered by up to 26px
+      "organically", and pinned drag positions were honoured on top of that, so
+      a group of two could render as two cards overlapping each other — the
+      board looked broken because it was being told to look loose. Placement is
+      now entirely the layout's job: same gaps everywhere, nothing to nudge out
+      of alignment, nothing to tidy up after.
+    */
+    const nudge = offsets[`${mode}::${group.key}`] ?? { dx: 0, dy: 0 };
+    const originX = cursorX + nudge.dx;
+    const originY = cursorY + nudge.dy;
+
     const ordered = [...group.trades].sort((a, b) => b.date.localeCompare(a.date));
+    const shown = ordered.length > VISIBLE_PER_CLUSTER
+      ? ordered.slice(0, VISIBLE_PER_CLUSTER - 1)
+      : ordered;
+    const hidden = ordered.slice(shown.length);
     const placed: PositionedTrade[] = [];
 
-    ordered.forEach((trade, i) => {
+    shown.forEach((trade, i) => {
       const col = i % grid.cols;
       const row = Math.floor(i / grid.cols);
-      // A loose organic scatter, not a rigid grid — but deterministic.
-      const jitterX = (seeded(trade.id, 1) - 0.5) * 26;
-      const jitterY = (seeded(trade.id, 2) - 0.5) * 22;
-
-      /*
-        A pinned position only means anything in the default grouping.
-        "Where I put this card" is a fact about my board, and my board is
-        organised by reason. Honouring it under every other grouping left the
-        cards where reason had put them, so the setup clusters were computed
-        around scattered nodes and drew straight through each other.
-      */
-      const pinned = mode === 'reason';
       placed.push({
         trade,
         reason: trade.reason,
         key: `${group.key}::${trade.id}`,
-        x: (pinned ? trade.position_x : null) ?? cursorX + PAD + col * (nodeW + GAP_X) + jitterX,
-        y: (pinned ? trade.position_y : null) ?? cursorY + HEADER_H + row * (nodeH + GAP_Y) + jitterY,
+        x: originX + PAD + col * (nodeW + GAP_X),
+        y: originY + HEADER_H + row * (nodeH + GAP_Y),
       });
 
       // Between placements, not between trades: the same pair of trades can be
@@ -243,23 +266,29 @@ export function computeLayout(trades: Trade[], scale = 1, mode: GroupMode = 'rea
       if (i > 0) reasonEdges.push([placed[i - 1].key, placed[i].key]);
     });
 
+    // The stack takes the slot after the last visible card.
+    if (hidden.length > 0) {
+      const i = shown.length;
+      stacks.push({
+        key: group.key,
+        x: originX + PAD + (i % grid.cols) * (nodeW + GAP_X),
+        y: originY + HEADER_H + Math.floor(i / grid.cols) * (nodeH + GAP_Y),
+        accent: group.accent,
+        hidden: hidden.map((t) => t.id),
+      });
+    }
+
     nodes.push(...placed);
 
     /*
-      The region is drawn around where the nodes actually ended up, not around
-      where the grid would have put them. Once positions are pinned — or a card
-      is dragged — a region derived from the grid no longer contains its own
-      trades, which looked like a rendering fault.
+      The region is the grid, because the grid is now the only thing placing
+      anything. It used to be derived from where the cards actually were, which
+      was necessary while they could be dragged and is exactly what made the
+      enclosure jump a pixel whenever one moved.
     */
-    const minX = Math.min(...placed.map((n) => n.x));
-    const minY = Math.min(...placed.map((n) => n.y));
-    const maxX = Math.max(...placed.map((n) => n.x + nodeW));
-    const maxY = Math.max(...placed.map((n) => n.y + nodeH));
-
-    const x = minX - PAD;
-    const y = minY - HEADER_H;
-    const width = Math.max(MIN_CLUSTER_W, maxX - minX + PAD * 2);
-    const height = maxY - minY + HEADER_H + PAD;
+    const x = originX;
+    const y = originY;
+    const { width, height } = grid;
 
     clusters.push({
       key: group.key, accent: group.accent, reason: group.reason,
@@ -271,7 +300,7 @@ export function computeLayout(trades: Trade[], scale = 1, mode: GroupMode = 'rea
     nominalWidth = Math.max(nominalWidth, cursorX - CLUSTER_GAP);
   }
 
-  return { clusters, nodes, reasonEdges, leakEdges: leakChains(trades), nominalWidth };
+  return { clusters, nodes, stacks, reasonEdges, leakEdges: leakChains(trades), nominalWidth };
 }
 
 /**

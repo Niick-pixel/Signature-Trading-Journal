@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
 import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
+import { getJournalPage, importJournalPage, parseJournalInput } from '@/db/journal';
 import { parseTradeInput } from '@/lib/validate';
 
 /**
@@ -16,7 +17,7 @@ import { parseTradeInput } from '@/lib/validate';
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as
-    { trades?: unknown; cash?: unknown; format?: unknown } | null;
+    { trades?: unknown; cash?: unknown; journal?: unknown; format?: unknown } | null;
 
   if (!body || !Array.isArray(body.trades)) {
     return NextResponse.json(
@@ -73,5 +74,24 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ imported, skipped, rejected, cash, cashSkipped });
+  /*
+    Journal pages, matched on id like everything else. A version-1 or -2 export
+    has no `journal` key, which is a file written before the journal existed
+    and restores exactly as well as it ever did.
+  */
+  let journal = 0;
+  let journalSkipped = 0;
+  if (Array.isArray(body.journal)) {
+    for (const raw of body.journal) {
+      const id = (raw as { id?: unknown })?.id;
+      if (typeof id !== 'string' || getJournalPage(id)) { journalSkipped += 1; continue; }
+      const check = parseJournalInput(raw);
+      if (!check.ok) { rejected.push({ id, error: check.error }); continue; }
+      const created = (raw as { created_at?: unknown }).created_at;
+      importJournalPage(id, check.value, typeof created === 'string' ? created : null);
+      journal += 1;
+    }
+  }
+
+  return NextResponse.json({ imported, skipped, rejected, cash, cashSkipped, journal, journalSkipped });
 }

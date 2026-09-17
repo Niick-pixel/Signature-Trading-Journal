@@ -419,3 +419,47 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 .titlebar-drag input {
   -webkit-app-region: no-drag;
 }
+
+/*
+  The journal page.
+
+  Typeset rather than styled: a generous measure, real paragraph spacing, and
+  headings that sit in the text instead of shouting over it. The rest of the
+  app is an instrument panel; this is the one screen meant to be read.
+*/
+.signature-page {
+  font-size: 17px;
+  line-height: 1.7;
+  max-width: 44rem;
+}
+.signature-page:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+}
+.signature-page > * + * { margin-top: 0.9em; }
+.signature-page h2 { font-size: 1.45em; font-weight: 650; letter-spacing: -0.01em; margin-top: 1.5em; }
+.signature-page h3 { font-size: 1.15em; font-weight: 600; margin-top: 1.4em; }
+.signature-page ul, .signature-page ol { padding-left: 1.4em; }
+.signature-page ul { list-style: disc; }
+.signature-page ol { list-style: decimal; }
+.signature-page li + li { margin-top: 0.3em; }
+.signature-page blockquote {
+  padding-left: 1em;
+  border-left: 2px solid rgb(var(--accent) / 0.4);
+  color: var(--text-dim);
+  font-style: italic;
+}
+.signature-page a { color: rgb(var(--accent)); text-decoration: underline; text-underline-offset: 2px; }
+.signature-page img {
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--glass-stroke);
+}
+.signature-page code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: var(--glass-fill-strong);
+}
+.signature-page hr { border: 0; border-top: 1px solid var(--glass-stroke); margin: 1.6em 0; }

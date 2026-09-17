@@ -306,3 +306,22 @@ export interface CashEvent {
 
 export const CASH_KINDS = ['deposit', 'withdrawal', 'reconcile'] as const;
 export type CashKind = (typeof CASH_KINDS)[number];
+
+/**
+ * A page of the journal proper — writing with no trade attached.
+ *
+ * `body` is sanitised HTML; `plain` is the same content as text, stored
+ * alongside so search does not strip tags at query time and a hit can be
+ * shown as a readable snippet. `day` is a date, not a key: several pages on
+ * one day is normal.
+ */
+export interface JournalPage {
+  id: string;
+  day: string;
+  title: string;
+  body: string;
+  plain: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
