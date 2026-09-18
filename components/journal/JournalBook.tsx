@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring, springSoft, riseIn } from '@/lib/motion';
+import { motion } from 'framer-motion';
+import { press, spring, riseIn } from '@/lib/motion';
 import { TEMPLATES } from '@/lib/journalTemplates';
 import type { JournalPage } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Field';
+import { Overlay } from '@/components/ui/Overlay';
 import { RichText } from './RichText';
 import { DayStrip, type DayTradeSummary } from './DayStrip';
 
@@ -275,53 +276,39 @@ export function JournalBook({ initial, tradesByDay }: {
       )}
 
       {/* -------------------------------------------------------- templates */}
-      <AnimatePresence>
-        {picking && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setPicking(false)}
-              className="fixed inset-0 z-[70]"
-              style={{ background: 'rgb(0 0 0 / 0.45)', backdropFilter: 'blur(3px)' }}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={springSoft}
-              className="glass fixed left-1/2 top-1/2 z-[71] w-[min(32rem,calc(100vw-2rem))]
-                -translate-x-1/2 -translate-y-1/2 rounded-[24px] p-6"
+      <Overlay
+        open={picking}
+        onClose={() => setPicking(false)}
+        className="w-[min(32rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)]
+          overflow-y-auto rounded-[24px] p-6"
+      >
+        <h2 className="text-[17px] font-semibold">Start a page</h2>
+        <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
+          A shape to write into, or nothing at all. Every one of these is editable down
+          to a blank page.
+        </p>
+        <div className="mt-5 space-y-2">
+          {TEMPLATES.map((t) => (
+            <motion.button
+              key={t.key}
+              type="button"
+              onClick={() => void startPage(t.key)}
+              whileTap={press}
+              transition={spring}
+              className="block w-full rounded-[14px] border px-4 py-3 text-left"
+              style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
             >
-              <h2 className="text-[17px] font-semibold">Start a page</h2>
-              <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
-                A shape to write into, or nothing at all. Every one of these is editable down
-                to a blank page.
-              </p>
-              <div className="mt-5 space-y-2">
-                {TEMPLATES.map((t) => (
-                  <motion.button
-                    key={t.key}
-                    type="button"
-                    onClick={() => void startPage(t.key)}
-                    whileTap={press}
-                    transition={spring}
-                    className="block w-full rounded-[14px] border px-4 py-3 text-left"
-                    style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
-                  >
-                    <span className="block text-[13px] font-medium">{t.label}</span>
-                    <span className="mt-0.5 block text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                      {t.hint}
-                    </span>
-                  </motion.button>
-                ))}
-              </div>
-              <div className="mt-5 flex justify-end">
-                <Button onClick={() => setPicking(false)}>Cancel</Button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <span className="block text-[13px] font-medium">{t.label}</span>
+              <span className="mt-0.5 block text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                {t.hint}
+              </span>
+            </motion.button>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button onClick={() => setPicking(false)}>Cancel</Button>
+        </div>
+      </Overlay>
     </div>
   );
 }

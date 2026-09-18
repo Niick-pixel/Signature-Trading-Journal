@@ -6,11 +6,12 @@ import { useRouter } from 'next/navigation';
 import { ACCOUNTS, type Account } from '@/lib/domain';
 import type { Balance } from '@/lib/balance';
 import type { CashEvent } from '@/lib/types';
-import { press, spring, springSoft, scrimExit } from '@/lib/motion';
+import { press, spring, springSoft } from '@/lib/motion';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/Segmented';
 import { Select } from '@/components/ui/Select';
+import { Overlay } from '@/components/ui/Overlay';
 
 const usd = (v: number) =>
   `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString(undefined, {
@@ -212,69 +213,54 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
         )}
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              exit={{ opacity: 0, pointerEvents: 'none', transition: scrimExit }}
-              onClick={() => setOpen(false)}
-              className="fixed inset-0 z-[70]"
-              style={{ background: 'rgb(0 0 0 / 0.45)', backdropFilter: 'blur(3px)' }}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98, transition: scrimExit }}
-              transition={springSoft}
-              className="glass fixed left-1/2 top-1/2 z-[71] w-[min(28rem,calc(100vw-2rem))]
-                -translate-x-1/2 -translate-y-1/2 rounded-[24px] p-6"
-            >
-              <h2 className="text-[17px] font-semibold">Add money</h2>
-              <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
-                A deposit or a withdrawal moves the balance. A balance check sets it to
-                exactly what the broker shows and counts forward from there.
-              </p>
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        className="w-[min(28rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)]
+          overflow-y-auto rounded-[24px] p-6"
+      >
+        <h2 className="text-[17px] font-semibold">Add money</h2>
+        <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
+          A deposit or a withdrawal moves the balance. A balance check sets it to
+          exactly what the broker shows and counts forward from there.
+        </p>
 
-              <div className="mt-5 space-y-4">
-                <Segmented value={kind} onChange={setKind} options={KINDS} />
+        <div className="mt-5 space-y-4">
+          <Segmented value={kind} onChange={setKind} options={KINDS} />
 
-                <Field label="Amount" hint="Always positive — the choice above says which way it went.">
-                  <Input type="number" step="0.01" inputMode="decimal" placeholder="0.00"
-                    value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
-                </Field>
+          <Field label="Amount" hint="Always positive — the choice above says which way it went.">
+            <Input type="number" step="0.01" inputMode="decimal" placeholder="0.00"
+              value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+          </Field>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Account">
-                    <Select value={target} onChange={setTarget} options={ACCOUNTS} />
-                  </Field>
-                  <Field label="Date">
-                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                  </Field>
-                </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Account">
+              <Select value={target} onChange={setTarget} options={ACCOUNTS} />
+            </Field>
+            <Field label="Date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+          </div>
 
-                <Field label="Note" hint="Optional — which broker, which transfer.">
-                  <Input placeholder="—" value={note} onChange={(e) => setNote(e.target.value)} />
-                </Field>
-              </div>
+          <Field label="Note" hint="Optional — which broker, which transfer.">
+            <Input placeholder="—" value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+        </div>
 
-              {error && (
-                <p className="mt-4 rounded-[12px] p-2.5 text-[12px]"
-                  style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
-                  {error}
-                </p>
-              )}
-
-              <div className="mt-6 flex items-center justify-end gap-3">
-                <Button onClick={() => setOpen(false)}>Cancel</Button>
-                <Button variant="primary" disabled={!canSave} onClick={() => void save()}>
-                  {busy ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-            </motion.div>
-          </>
+        {error && (
+          <p className="mt-4 rounded-[12px] p-2.5 text-[12px]"
+            style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
+            {error}
+          </p>
         )}
-      </AnimatePresence>
+
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="primary" disabled={!canSave} onClick={() => void save()}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </Overlay>
     </>
   );
 }

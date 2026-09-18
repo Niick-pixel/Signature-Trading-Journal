@@ -1,9 +1,10 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { GRADE_COLOR } from '@/lib/grade';
 import { adherenceOf } from '@/lib/adherence';
-import { press, spring, springSoft, scrimExit } from '@/lib/motion';
+import { press, spring } from '@/lib/motion';
+import { Overlay } from '@/components/ui/Overlay';
 import { OUTCOME_COLOR } from './TradeNode';
 import type { Trade } from '@/lib/types';
 
@@ -33,26 +34,13 @@ export function GroupViewer({
   const broken = trades.filter((t) => adherenceOf(t) === 'broken').length;
 
   return (
-    <AnimatePresence>
-      {label !== null && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            exit={{ opacity: 0, pointerEvents: 'none', transition: scrimExit }}
-            onClick={onClose}
-            className="fixed inset-0 z-[70]"
-            style={{ background: 'rgb(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}
-          />
-
-          <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98, transition: scrimExit }}
-            transition={springSoft}
-            className="glass fixed left-1/2 top-1/2 z-[71] flex max-h-[86vh]
-              w-[min(76rem,calc(100vw-3rem))] -translate-x-1/2 -translate-y-1/2
-              flex-col rounded-[26px] p-6"
-          >
+    <Overlay
+      open={label !== null}
+      onClose={onClose}
+      lift={18}
+      scrim={{ opacity: 0.5, blur: 4 }}
+      className="flex max-h-[86vh] w-[min(76rem,calc(100vw-3rem))] flex-col rounded-[26px] p-6"
+    >
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-[19px] font-semibold tracking-tight">{label}</h2>
@@ -147,9 +135,6 @@ export function GroupViewer({
                 ))}
               </div>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </Overlay>
   );
 }
