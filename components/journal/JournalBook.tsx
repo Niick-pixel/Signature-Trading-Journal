@@ -38,6 +38,8 @@ export function JournalBook({ initial, tradesByDay }: {
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  /** Something is typed but not yet written. The label must not claim otherwise. */
+  const [dirty, setDirty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const open = pages.find((p) => p.id === openId) ?? null;
@@ -58,30 +60,60 @@ export function JournalBook({ initial, tradesByDay }: {
     unlogged. The same is true here and more so: this is the screen you type
     three paragraphs into at midnight.
   */
-  const pendingRef = useRef<JournalPage | null>(null);
+  /*
+    Keyed by page id, not a single slot.
+
+    One slot meant editing page A and then page B inside the same 700ms threw
+    A's edit away: the debounce restarted, and the only pending page left was
+    B. Everything unwritten waits here until it has been written.
+  */
+  const pendingRef = useRef(new Map<string, JournalPage>());
+
+  const flush = useCallback(async () => {
+    const waiting = [...pendingRef.current.values()];
+    if (waiting.length === 0) return;
+    pendingRef.current.clear();
+    setSaving(true);
+    await Promise.all(waiting.map((page) => fetch(`/api/journal/${page.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      // so the write still goes out when this fires on the way off the screen
+      keepalive: true,
+      body: JSON.stringify({ day: page.day, title: page.title, body: page.body, pinned: page.pinned }),
+    })));
+    setSaving(false);
+    setDirty(false);
+    setSavedAt(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
+  }, []);
+
   useEffect(() => {
-    const page = pendingRef.current;
-    if (!page) return;
-    const id = window.setTimeout(async () => {
-      setSaving(true);
-      await fetch(`/api/journal/${page.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ day: page.day, title: page.title, body: page.body, pinned: page.pinned }),
-      });
-      setSaving(false);
-      setSavedAt(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
-      pendingRef.current = null;
-    }, 700);
+    if (pendingRef.current.size === 0) return;
+    const id = window.setTimeout(() => void flush(), 700);
     return () => window.clearTimeout(id);
-  }, [pages]);
+  }, [pages, flush]);
+
+  /*
+    The debounce is a 700ms window in which everything typed exists only in
+    this tab. Leaving the journal inside that window — switching tabs, closing
+    the app — used to drop it silently, while the spine still read "saved".
+  */
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') void flush(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      void flush();
+    };
+  }, [flush]);
 
   const patch = useCallback((id: string, change: Partial<JournalPage>) => {
     setPages((prev) => {
       const next = prev.map((p) => (p.id === id ? { ...p, ...change } : p));
-      pendingRef.current = next.find((p) => p.id === id) ?? null;
+      const updated = next.find((p) => p.id === id);
+      if (updated) pendingRef.current.set(id, updated);
       return next;
     });
+    setDirty(true);
   }, []);
 
   const startPage = useCallback(async (templateKey: string) => {
@@ -174,7 +206,7 @@ export function JournalBook({ initial, tradesByDay }: {
 
         <p className="mt-3 border-t pt-3 text-[11px]" style={{ borderColor: 'var(--glass-stroke)', color: 'var(--text-faint)' }}>
           {pages.length} page{pages.length === 1 ? '' : 's'}
-          {saving ? ' · saving…' : savedAt ? ` · saved ${savedAt}` : ''}
+          {saving ? ' · saving…' : dirty ? ' · unsaved' : savedAt ? ` · saved ${savedAt}` : ''}
         </p>
       </aside>
 

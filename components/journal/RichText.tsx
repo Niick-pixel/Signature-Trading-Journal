@@ -42,7 +42,6 @@ export function RichText({
   placeholder?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const lastPushed = useRef(value);
 
   /*
     The editor is not a controlled input.
@@ -51,7 +50,18 @@ export function RichText({
     to the start of the document on each character — the classic
     contentEditable mistake. The DOM is written only when the value changed
     somewhere OTHER than here, which is what `lastPushed` tracks.
+
+    It starts as null rather than as `value`, and that is the whole point.
+    Seeded with `value`, the very first run of the effect below compared the
+    incoming HTML against itself, matched, and returned WITHOUT ever writing it
+    into the div — so the editor mounted empty no matter what the page said.
+    The open page is keyed by id, so this happened on every page you opened,
+    and then the first keystroke pushed that empty div back as the page's body
+    and autosave wrote it to disk. It did not just fail to show your writing,
+    it destroyed it. null cannot equal a string, so the first sync always runs.
   */
+  const lastPushed = useRef<string | null>(null);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -67,6 +77,15 @@ export function RichText({
   const push = useCallback(() => {
     const el = ref.current;
     if (!el) return;
+    /*
+      Never report the contents of an editor that has not been filled in yet.
+
+      Clearing a page on purpose must still save — that is a legitimate edit —
+      so this cannot simply refuse empty HTML. What it refuses is a push from a
+      surface the sync effect has never written to, which is the only way an
+      empty div can be standing in for a page that is not empty.
+    */
+    if (lastPushed.current === null) return;
     lastPushed.current = el.innerHTML;
     onChange(el.innerHTML);
   }, [onChange]);
