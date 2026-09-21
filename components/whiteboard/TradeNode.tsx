@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 /** Both a source and a target on each face, so any direction has a short route. */
@@ -43,6 +43,16 @@ function TradeNodeInner({ data }: NodeProps) {
   // Descriptive, never blocking — it was saved exactly as written. The dot
   // just means there is a contradiction worth a look at review time.
   const flagged = hasOpenFlags(trade);
+
+  /*
+    A recorded screenshot whose file is not there any more.
+
+    The path is on the row, so the card rendered an <img> for it and got a 404
+    — which draws as nothing at all, and the card came out blank with no
+    indication why. Falling back to what the trade WAS is better than a hole,
+    and the note says the picture is the missing part, not the record.
+  */
+  const [shotBroken, setShotBroken] = useState(false);
 
   return (
     <>
@@ -96,42 +106,62 @@ function TradeNodeInner({ data }: NodeProps) {
       )}
 
       {/*
-        The grab bar.
-        This was a 24px button that only appeared on hover, which made moving a
-        card a game of hunt-the-pixel. It is now a full-width strip along the
-        top of every card, always visible: a card is dragged by its edge, the
-        way a window is dragged by its title bar. Clicking anywhere else still
-        opens the trade, which is what stops the board drifting just from being
-        read.
+        The date, where the grab bar used to be.
+
+        That strip carried six grip dots, a grab cursor and a "Drag to move"
+        tooltip — for a card that has not been draggable since the board
+        started arranging itself. It was six pixels of furniture promising
+        something the card cannot do. The date it also carried is worth
+        keeping, so that is all that is left.
       */}
       <div
-        className="signature-drag-handle absolute inset-x-0 top-0 z-[6] flex h-7 cursor-grab
-          items-center gap-1.5 px-2 active:cursor-grabbing"
-        title="Drag to move"
-        onClick={(event) => event.stopPropagation()}
+        className="absolute inset-x-0 top-0 z-[6] flex h-7 items-center px-2.5"
         style={{
           background: 'linear-gradient(to bottom, rgba(10,10,12,0.62), rgba(10,10,12,0))',
         }}
       >
-        <svg width="11" height="7" viewBox="0 0 11 7" fill="none" aria-hidden>
-          <g fill="rgba(255,255,255,0.55)">
-            <circle cx="1.4" cy="1.4" r="1" /><circle cx="5.5" cy="1.4" r="1" /><circle cx="9.6" cy="1.4" r="1" />
-            <circle cx="1.4" cy="5.5" r="1" /><circle cx="5.5" cy="5.5" r="1" /><circle cx="9.6" cy="5.5" r="1" />
-          </g>
-        </svg>
-        <span className="truncate text-[9px]" style={{ color: 'rgba(255,255,255,0.6)' }}>
+        <span className="truncate text-[9px] font-medium tracking-wide"
+          style={{ color: 'rgba(255,255,255,0.72)' }}>
           {new Date(trade.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
         </span>
       </div>
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/screenshots/${trade.screenshot_path}`}
-        alt=""
-        draggable={false}
-        className="absolute inset-0 size-full object-cover"
-        style={{ filter: passed && dimPassed ? 'grayscale(0.55) brightness(0.72)' : 'brightness(0.86)' }}
-      />
+      {/*
+        The chart, or what the trade was, when there is no chart.
+
+        A card with no screenshot was a blank rectangle with a date on it: the
+        setup, the session and the target were all recorded and none of them
+        were on the card. The image is the better answer when there is one —
+        it is the thing you actually recognise a trade by — but an empty card
+        should still say what it was.
+      */}
+      {trade.screenshot_path && !shotBroken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/screenshots/${trade.screenshot_path}`}
+          alt=""
+          draggable={false}
+          onError={() => setShotBroken(true)}
+          className="absolute inset-0 size-full object-cover"
+          style={{ filter: passed && dimPassed ? 'grayscale(0.55) brightness(0.72)' : 'brightness(0.86)' }}
+        />
+      ) : (
+        <div className="absolute inset-x-0 top-[28%] flex flex-col items-center gap-1 px-3 text-center">
+          <span className="max-w-full truncate text-[11px] font-medium"
+            style={{ color: 'rgba(255,255,255,0.86)' }}>
+            {trade.setup_type}
+          </span>
+          <span className="max-w-full truncate text-[9px]"
+            style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {[trade.session, trade.target_type].filter(Boolean).join(' · ')}
+          </span>
+          {shotBroken && (
+            <span className="mt-0.5 text-[8px]" style={{ color: 'rgb(var(--amber) / 0.85)' }}>
+              screenshot missing
+            </span>
+          )}
+        </div>
+      )}
 
       {/* A scrim so the corner chips stay legible over any chart. Fixed black
           regardless of theme on purpose: it sits over the screenshot, not over

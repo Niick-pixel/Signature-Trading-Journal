@@ -11,15 +11,24 @@ const GAP_X = 34;
 const GAP_Y = 30;
 const PAD = 30;
 const HEADER_H = 96;
-const CLUSTER_GAP = 76;
-/** Clusters wrap onto a new row past this width. */
+const CLUSTER_GAP = 60;
+/** Clusters wrap onto a new row past this width, when nothing better is known. */
 const BOARD_W = 2100;
 /**
  * Floor for cluster width. With the header on two rows the label no longer
- * competes with the stats, so this only has to fit the stats row — which is why
- * it is narrower than it was when they shared a line.
+ * competes with the stats, so this only has to fit the stats row — measured at
+ * 315px for the widest group, plus the header's own 28px of padding a side.
  */
-const MIN_CLUSTER_W = 430;
+const MIN_CLUSTER_W = 380;
+
+/** The screen the board is being laid out for, in CSS pixels. */
+export interface Fit { width: number; height: number }
+
+/*
+  React Flow's fitView leaves a margin of `padding` on each side, so the board
+  has to be this much smaller than the canvas to be shown at its true size.
+*/
+const FIT_PADDING = 1.16;
 
 /**
  * How many cards a group shows before the rest become a stack.
@@ -124,8 +133,18 @@ export interface BoardLayout {
   nominalWidth: number;
 }
 
-function clusterGrid(count: number, scale: number) {
-  const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+function clusterGrid(count: number, scale: number, maxCols?: number) {
+  /*
+    A group's cards can be arranged square-ish or laid out wide, and which is
+    better is not a property of the group — it is a property of the screen.
+    Height is almost always what limits how big the board can be drawn, and a
+    group two rows deep costs every row on the board that height. Letting the
+    arrangement be chosen per board, by bestPack, is worth more than any single
+    rule here could be.
+  */
+  const cols = maxCols
+    ? Math.max(1, Math.min(count, maxCols))
+    : Math.max(1, Math.ceil(Math.sqrt(count)));
   const rows = Math.ceil(count / cols);
   const w = NODE_W * scale;
   const h = NODE_H * scale;
@@ -195,12 +214,159 @@ function groupsFor(trades: Trade[], mode: GroupMode): BoardGroup[] {
     .sort((a, b) => (mode === 'month' ? a.key.localeCompare(b.key) : a.stats.totalR - b.stats.totalR));
 }
 
+/** Lays the regions out in rows, wrapping past `wrapWidth`. Pure geometry. */
+function pack(sizes: Array<{ width: number; height: number }>, wrapWidth: number) {
+  const at: Array<{ x: number; y: number }> = [];
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  let width = 0;
+
+  for (const size of sizes) {
+    if (x > 0 && x + size.width > wrapWidth) {
+      x = 0;
+      y += rowHeight + CLUSTER_GAP;
+      rowHeight = 0;
+    }
+    at.push({ x, y });
+    x += size.width + CLUSTER_GAP;
+    rowHeight = Math.max(rowHeight, size.height);
+    width = Math.max(width, x - CLUSTER_GAP);
+  }
+
+  return { at, width, height: y + rowHeight };
+}
+
+/**
+ * The arrangement that reads biggest on the screen you actually have.
+ *
+ * The board used to wrap at a flat 2100px whatever it was being shown on. Ten
+ * groups then came to roughly 2600 wide and 2400 tall, and fitView answered
+ * that by shrinking everything to 54% — at which point the chart on a card is
+ * 100px across and there is no reading it. The shape of the board is the only
+ * free variable here: the same ten groups laid out three-up instead of
+ * five-up is a completely different rectangle, and one of those rectangles
+ * matches the window far better than the others.
+ *
+ * So try each of them and keep whichever can be drawn largest, capping at 1:
+ * past full size there is nothing further to gain, and the tie-break prefers
+ * the shorter board because vertical scrolling is the one that loses you the
+ * overview.
+ */
+function bestPack(counts: number[], scale: number, fit?: Fit) {
+  const squares = counts.map((n) => clusterGrid(n, scale));
+  const fallback = () => ({ ...pack(squares, BOARD_W), grids: squares });
+  if (counts.length === 0) return fallback();
+  if (!fit || fit.width < 200 || fit.height < 200) return fallback();
+
+  const room = { width: fit.width / FIT_PADDING, height: fit.height / FIT_PADDING };
+
+  let best = fallback();
+  let bestScore = -Infinity;
+
+  // Every shape the groups can take, against every width they can wrap at.
+  const shapes: Array<number | undefined> = [undefined];
+  for (let c = 1; c <= VISIBLE_PER_CLUSTER; c++) shapes.push(c);
+
+  for (const maxCols of shapes) {
+    const grids = maxCols === undefined ? squares : counts.map((n) => clusterGrid(n, scale, maxCols));
+    const widest = Math.max(...grids.map((g) => g.width));
+
+    const candidates = new Set<number>([BOARD_W]);
+    let run = 0;
+    for (const g of grids) {
+      run += g.width + CLUSTER_GAP;
+      candidates.add(Math.max(widest, run - CLUSTER_GAP));
+    }
+
+    for (const wrapWidth of candidates) {
+      const laid = pack(grids, wrapWidth);
+      const zoom = Math.min(room.width / laid.width, room.height / laid.height, 1);
+      // Biggest first; a shorter board breaks the tie.
+      const score = zoom * 1e6 - laid.height;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { ...laid, grids };
+      }
+    }
+  }
+  return best;
+}
+
+/** Groups come to rest on this grid, so a hand-made arrangement still lines up. */
+export const SNAP = 20;
+/** And never closer than this to the next group. */
+const SETTLE_GAP = 24;
+
+export const snapTo = (n: number) => Math.round(n / SNAP) * SNAP;
+/*
+  Snapping a push has to round the way the push is going.
+
+  Rounding to nearest undid the correction: a group pushed clear to 824 was
+  snapped back to 820, four pixels inside the neighbour it had just been moved
+  out of, and the next pass computed the same four pixels and snapped back
+  again — it never converged and the drop stayed overlapping.
+*/
+const clearUpTo = (n: number) => Math.ceil(n / SNAP) * SNAP;
+const clearDownTo = (n: number) => Math.floor(n / SNAP) * SNAP;
+
+export interface Rect { x: number; y: number; width: number; height: number }
+
+/**
+ * Where a dragged group actually comes to rest.
+ *
+ * Dropping a group used to put it exactly where the pointer let go, which
+ * meant it could land squarely on top of another one — the board's own
+ * arrangement is careful about not overlapping and then hands you the ability
+ * to undo that with one careless drag, with nothing but "Tidy up" (which
+ * discards every other nudge too) to get out of it.
+ *
+ * So it snaps to a grid, and if it still lands on something it is pushed clear
+ * along whichever axis it is least buried in — the smallest correction that
+ * makes the drop legal, rather than a rearrangement you did not ask for.
+ */
+export function settle(moved: Rect, others: Rect[]): { x: number; y: number } {
+  let x = snapTo(moved.x);
+  let y = snapTo(moved.y);
+
+  for (let pass = 0; pass < 24; pass++) {
+    let pushed = false;
+    for (const other of others) {
+      const left = other.x - SETTLE_GAP;
+      const top = other.y - SETTLE_GAP;
+      const right = other.x + other.width + SETTLE_GAP;
+      const bottom = other.y + other.height + SETTLE_GAP;
+
+      const clear = x >= right || x + moved.width <= left
+        || y >= bottom || y + moved.height <= top;
+      if (clear) continue;
+
+      const outLeft = (x + moved.width) - left;
+      const outRight = right - x;
+      const outUp = (y + moved.height) - top;
+      const outDown = bottom - y;
+      const least = Math.min(outLeft, outRight, outUp, outDown);
+
+      if (least === outLeft) x = clearDownTo(left - moved.width);
+      else if (least === outRight) x = clearUpTo(right);
+      else if (least === outUp) y = clearDownTo(top - moved.height);
+      else y = clearUpTo(bottom);
+      pushed = true;
+    }
+    if (!pushed) break;
+  }
+
+  return { x, y };
+}
+
 export function computeLayout(
   trades: Trade[],
   scale = 1,
   mode: GroupMode = 'reason',
   /** Per-group nudges, keyed `${mode}::${key}`. See db/boardlayout.ts. */
   offsets: Record<string, { dx: number; dy: number }> = {},
+  /** The canvas this board is being drawn on, so it can be shaped to fit it. */
+  fit?: Fit,
 ): BoardLayout {
   const groups = groupsFor(trades, mode);
 
@@ -212,21 +378,16 @@ export function computeLayout(
   const nodeW = NODE_W * scale;
   const nodeH = NODE_H * scale;
 
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 0;
-  let nominalWidth = 0;
+  // Sized for what is actually drawn: up to five cards plus a stack tile.
+  const counts = groups.map((g) => Math.min(g.trades.length, VISIBLE_PER_CLUSTER));
+  const packed = bestPack(counts, scale, fit);
+  const grids = packed.grids;
+  const nominalWidth = packed.width;
 
-  for (const group of groups) {
-    // Sized for what is actually drawn: up to five cards plus a stack tile.
-    const grid = clusterGrid(Math.min(group.trades.length, VISIBLE_PER_CLUSTER), scale);
-
-    // Wrap to the next row when this cluster would overflow the board width.
-    if (cursorX > 0 && cursorX + grid.width > BOARD_W) {
-      cursorX = 0;
-      cursorY += rowHeight + CLUSTER_GAP;
-      rowHeight = 0;
-    }
+  groups.forEach((group, index) => {
+    const grid = grids[index];
+    const cursorX = packed.at[index].x;
+    const cursorY = packed.at[index].y;
 
     /*
       Newest first, and placed on an exact grid.
@@ -295,10 +456,7 @@ export function computeLayout(
       stats: group.stats, x, y, width, height, trades: group.trades,
     });
 
-    cursorX += grid.width + CLUSTER_GAP;
-    rowHeight = Math.max(rowHeight, grid.height);
-    nominalWidth = Math.max(nominalWidth, cursorX - CLUSTER_GAP);
-  }
+  });
 
   return { clusters, nodes, stacks, reasonEdges, leakEdges: leakChains(trades), nominalWidth };
 }

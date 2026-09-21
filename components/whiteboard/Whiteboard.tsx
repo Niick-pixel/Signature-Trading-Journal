@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, useReactFlow,
   type Edge, type Node, type NodeChange,
@@ -8,7 +8,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  computeLayout, reasonAccent, tradeIdFromKey,
+  computeLayout, reasonAccent, settle, tradeIdFromKey,
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
 } from '@/lib/layout';
 import { spring, springBouncy } from '@/lib/motion';
@@ -21,6 +21,7 @@ import { BoardTitle } from './BoardTitle';
 import { ClusterNode } from './ClusterNode';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
+import { EdgeKey } from './EdgeKey';
 import { GroupViewer } from './GroupViewer';
 import { Toolbar, EMPTY_FILTERS, applyFilters, filtersActive, type Filters } from './Toolbar';
 import { BulkBar } from './BulkBar';
@@ -183,9 +184,49 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const scale = DENSITY_SCALE[prefs.boardDensity];
 
   const visible = useMemo(() => trades.filter(applyFilters(filters)), [trades, filters]);
+
+  /*
+    Which node the pointer is on.
+
+    The board draws three kinds of derived line — the branch down to a group,
+    the chain through a group, and the repeating leak across groups — and with
+    ten groups all of them at full strength is a hairball that crosses every
+    card on the screen. They are drawn faint instead, and whatever you are
+    pointing at brings its own lines up to full. The board is then calm to look
+    at and still answers "what is this one connected to" on demand.
+  */
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  /*
+    The canvas, measured, so the board can be shaped to the screen it is on.
+
+    Without this the regions wrapped at a flat 2100px and ten groups came out
+    as a rectangle that fitView could only show at 54% — a card's chart at
+    100px across, which is not a chart. Rounded to 40px so an idle resize does
+    not re-lay the whole board a pixel at a time.
+  */
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ width: number; height: number } | undefined>(undefined);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const round = (n: number) => Math.round(n / 40) * 40;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setFit((prev) => {
+        const next = { width: round(r.width), height: round(r.height) };
+        return prev && prev.width === next.width && prev.height === next.height ? prev : next;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const layout = useMemo(
-    () => computeLayout(visible, scale, groupMode, offsets),
-    [visible, scale, groupMode, offsets],
+    () => computeLayout(visible, scale, groupMode, offsets, fit),
+    [visible, scale, groupMode, offsets, fit],
   );
 
   /** Content bounding box plus a generous margin, for the pan wall. */
@@ -388,6 +429,22 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     const placementOf = new Map<string, string>();
     for (const n of layout.nodes) if (!placementOf.has(n.trade.id)) placementOf.set(n.trade.id, n.key);
 
+    /*
+      How loudly a line is drawn.
+
+      Faint unless it touches whatever the pointer is on, or the trade that is
+      open. A line you asked about is worth seeing; twenty you did not ask
+      about are a mess laid over the cards.
+    */
+    const lit = (...ends: string[]) => {
+      if (hovered === null && openId === null) return false;
+      return ends.some((e) => {
+        if (e === hovered) return true;
+        if (openId === null) return false;
+        return e === openId || tradeIdFromKey(e) === openId;
+      });
+    };
+
     /** The two faces that point at each other, so no line loops the long way. */
     const facing = (aKey: string, bKey: string) => {
       const a = at.get(aKey);
@@ -414,12 +471,12 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         // Dotted, in the cluster's own hue: these say "same reason", which is a
         // quieter statement than the repeating-leak edges below.
         style: {
-          stroke: `rgb(${accent} / 0.55)`,
-          strokeWidth: 1.2,
+          stroke: `rgb(${accent} / ${lit(a, b) ? 0.9 : 0.22})`,
+          strokeWidth: lit(a, b) ? 2 : 1.2,
           strokeDasharray: '1 5',
           strokeLinecap: 'round',
         },
-        zIndex: 0,
+        zIndex: lit(a, b) ? 4 : 0,
       };
     });
 
@@ -430,15 +487,16 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         pair[0] != null && pair[1] != null && pair[0] !== pair[1])
       .map(([a, b]) => ({
       id: `leak-${a}-${b}`,
-      source: a, target: b, ...facing(a, b), type: 'default', animated: true,
-      // Heavier, dashed and moving — a repeating leak should be the loudest
-      // line on the board.
+      source: a, target: b, ...facing(a, b), type: 'default',
+      // Dashed, and moving only when it is the line you are asking about —
+      // twenty crawling dashes across the board is not emphasis, it is noise.
+      animated: lit(a, b),
       style: {
-        stroke: `rgb(${OUTCOME_COLOR.Loss} / 0.65)`,
-        strokeWidth: 1.6,
+        stroke: `rgb(${OUTCOME_COLOR.Loss} / ${lit(a, b) ? 0.85 : 0.2})`,
+        strokeWidth: lit(a, b) ? 2.2 : 1.4,
         strokeDasharray: '6 4',
       },
-      zIndex: 2,
+      zIndex: lit(a, b) ? 4 : 2,
     }));
 
     /*
@@ -472,8 +530,11 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       type: 'default',
       // Thicker than the derived edges: this is the board's skeleton, and it
       // has to read at the zoom where the whole board fits on screen.
-      style: { stroke: `rgb(${cluster.accent} / 0.7)`, strokeWidth: 2.5 },
-      zIndex: 0,
+      style: {
+        stroke: `rgb(${cluster.accent} / ${lit(`cluster-${cluster.key}`) ? 0.85 : 0.18})`,
+        strokeWidth: lit(`cluster-${cluster.key}`) ? 2.6 : 1.4,
+      },
+      zIndex: lit(`cluster-${cluster.key}`) ? 4 : 0,
     }));
 
     return [
@@ -482,7 +543,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       ...(prefs.showLeakEdges ? leaks : []),
       ...manual,
     ];
-  }, [layout, prefs.showReasonEdges, prefs.showLeakEdges, board.edges]);
+  }, [layout, prefs.showReasonEdges, prefs.showLeakEdges, board.edges, hovered, openId]);
 
   /*
     Persist a drag so a manual arrangement survives a reload — but only in the
@@ -533,8 +594,15 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         const cluster = layout.clusters.find((c) => c.key === key);
         if (!cluster) continue;
         const nudge = offsets[`${groupMode}::${key}`] ?? { dx: 0, dy: 0 };
-        const dx = nudge.dx + (change.position.x - cluster.x);
-        const dy = nudge.dy + (change.position.y - cluster.y);
+
+        // Snapped, and pushed clear of anything it was dropped on top of.
+        const rest = settle(
+          { x: change.position.x, y: change.position.y, width: cluster.width, height: cluster.height },
+          layout.clusters.filter((c) => c.key !== key),
+        );
+
+        const dx = nudge.dx + (rest.x - cluster.x);
+        const dy = nudge.dy + (rest.y - cluster.y);
         if (dx === nudge.dx && dy === nudge.dy) continue;
 
         setOffsets((prev) => ({ ...prev, [`${groupMode}::${key}`]: { dx, dy } }));
@@ -656,7 +724,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1">
+      <div ref={canvasRef} className="relative min-h-0 flex-1">
       {/* Bulk edit — the only practical way to backfill an account or a reason
           across a month of old entries. */}
       <AnimatePresence>
@@ -667,13 +735,18 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         )}
       </AnimatePresence>
 
+      {/* What the lines mean — bottom left, clear of the zoom controls. */}
+      <div className="pointer-events-none absolute bottom-5 left-[4.5rem] z-20">
+        <EdgeKey chains={prefs.showReasonEdges} leaks={prefs.showLeakEdges} />
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1 }}
+        fitViewOptions={{ padding: 0.08, maxZoom: 1 }}
         minZoom={0.12}
         maxZoom={2.2}
         /*
@@ -695,7 +768,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         zoomOnDoubleClick={!readOnly}
         panOnScroll={!readOnly}
         selectionOnDrag={false}
-        onPaneClick={() => { setOpenId(null); setMenu(null); }}
+        onPaneClick={() => { setOpenId(null); setMenu(null); setHovered(null); }}
+        onNodeMouseEnter={(_event, node) => setHovered(node.id)}
+        onNodeMouseLeave={() => setHovered(null)}
         onNodeContextMenu={(event, node) => {
           event.preventDefault();
           const items = [];
@@ -751,7 +826,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
             y: (event as MouseEvent).clientY,
             items: [
               { label: 'Add a note here', onClick: () => void addNote() },
-              { label: 'Fit everything', onClick: () => flow.fitView({ padding: 0.18, duration: 400 }) },
+              { label: 'Fit everything', onClick: () => flow.fitView({ padding: 0.08, duration: 400 }) },
               { label: 'Tidy up the groups', onClick: () => void tidyUp() },
             ],
           });

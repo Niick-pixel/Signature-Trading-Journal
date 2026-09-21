@@ -43,7 +43,7 @@ export function BoardControls({ onRecluster }: { onRecluster: () => void }) {
 
       <button
         type="button"
-        onClick={() => fitView({ padding: 0.18, duration: 320 })}
+        onClick={() => fitView({ padding: 0.08, duration: 320 })}
         title="Fit every trade on screen"
         className="min-w-[3.1rem] rounded-[10px] px-1 py-1 text-center tabular-nums text-[11px] font-medium"
         style={{ color: 'var(--text-dim)' }}
@@ -60,7 +60,7 @@ export function BoardControls({ onRecluster }: { onRecluster: () => void }) {
 
       <span className="mx-1 h-5 w-px" style={{ background: 'var(--glass-stroke)' }} />
 
-      <ControlButton label="Fit to screen" onClick={() => fitView({ padding: 0.18, duration: 320 })}>
+      <ControlButton label="Fit to screen" onClick={() => fitView({ padding: 0.08, duration: 320 })}>
         <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
           <path d="M3 7.5V3h4.5M16.5 7.5V3H12M3 12.5V17h4.5M16.5 12.5V17H12"
             stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
