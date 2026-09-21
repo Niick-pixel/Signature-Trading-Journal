@@ -87,6 +87,17 @@ function ClusterNodeInner({ data }: NodeProps) {
           {stats.passed > 0 && <Stat label="Passed" value={String(stats.passed)} />}
         </div>
       </div>
+
+      {/*
+        The anchor for the branch line from the board title.
+
+        Handle was imported here from the start and never actually rendered,
+        so React Flow had nowhere to land those edges and dropped every one of
+        them: the tree the board is described as drawing has never been on the
+        screen. Invisible, and out of the way of the drag handle above.
+      */}
+      <Handle type="target" position={Position.Top}
+        style={{ opacity: 0, pointerEvents: 'none' }} />
     </motion.div>
   );
 }

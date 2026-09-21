@@ -370,12 +370,47 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   ]);
 
   const edges = useMemo<Edge[]>(() => {
+    /*
+      Where each placement actually sits, and which placement stands for a
+      trade.
+
+      Both matter because a node's id is its PLACEMENT key, not its trade id.
+      Edges derived from trades — the repeating leaks, and the links drawn by
+      hand — were still being built from bare trade ids, so they named nodes
+      that do not exist and React Flow discarded every one of them. Neither
+      has been drawn since cards started being keyed by placement.
+
+      A trade can also have no placement at all: past the sixth in its group it
+      lives inside a stack. An edge to a card that is not on the board is not
+      drawn rather than drawn into space.
+    */
+    const at = new Map(layout.nodes.map((n) => [n.key, n]));
+    const placementOf = new Map<string, string>();
+    for (const n of layout.nodes) if (!placementOf.has(n.trade.id)) placementOf.set(n.trade.id, n.key);
+
+    /** The two faces that point at each other, so no line loops the long way. */
+    const facing = (aKey: string, bKey: string) => {
+      const a = at.get(aKey);
+      const b = at.get(bKey);
+      if (!a || !b) return { sourceHandle: 's-bottom', targetHandle: 't-top' };
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return dx >= 0
+          ? { sourceHandle: 's-right', targetHandle: 't-left' }
+          : { sourceHandle: 's-left', targetHandle: 't-right' };
+      }
+      return dy >= 0
+        ? { sourceHandle: 's-bottom', targetHandle: 't-top' }
+        : { sourceHandle: 's-top', targetHandle: 't-bottom' };
+    };
+
     const within: Edge[] = layout.reasonEdges.map(([a, b]) => {
       const reason = layout.nodes.find((n) => n.key === a)?.reason;
       const accent = reason ? reasonAccent(reason) : '140 140 150';
       return {
         id: `r-${a}-${b}`,
-        source: a, target: b, type: 'default', animated: false,
+        source: a, target: b, ...facing(a, b), type: 'default', animated: false,
         // Dotted, in the cluster's own hue: these say "same reason", which is a
         // quieter statement than the repeating-leak edges below.
         style: {
@@ -389,9 +424,13 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     });
 
     // The repeating leak: same target type, both lost. Deliberately loud.
-    const leaks: Edge[] = layout.leakEdges.map(([a, b]) => ({
+    const leaks: Edge[] = layout.leakEdges
+      .map(([a, b]) => [placementOf.get(a), placementOf.get(b)] as const)
+      .filter((pair): pair is readonly [string, string] =>
+        pair[0] != null && pair[1] != null && pair[0] !== pair[1])
+      .map(([a, b]) => ({
       id: `leak-${a}-${b}`,
-      source: a, target: b, type: 'default', animated: true,
+      source: a, target: b, ...facing(a, b), type: 'default', animated: true,
       // Heavier, dashed and moving — a repeating leak should be the loudest
       // line on the board.
       style: {
@@ -408,10 +447,11 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       on this board precisely because the app could not have found it.
     */
     const manual: Edge[] = board.edges
-      .filter((e) => visible.some((t) => t.id === e.from_id) && visible.some((t) => t.id === e.to_id))
-      .map((e) => ({
+      .map((e) => ({ e, a: placementOf.get(e.from_id), b: placementOf.get(e.to_id) }))
+      .filter((m): m is { e: BoardEdge; a: string; b: string } => m.a != null && m.b != null)
+      .map(({ e, a, b }) => ({
         id: `m-${e.id}`,
-        source: e.from_id, target: e.to_id, type: 'default',
+        source: a, target: b, ...facing(a, b), type: 'default',
         label: e.label ?? undefined,
         labelStyle: { fill: 'var(--text-dim)', fontSize: 10 },
         labelBgStyle: { fill: 'var(--bg-raised)' },
@@ -442,7 +482,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       ...(prefs.showLeakEdges ? leaks : []),
       ...manual,
     ];
-  }, [layout, prefs.showReasonEdges, prefs.showLeakEdges, board.edges, visible]);
+  }, [layout, prefs.showReasonEdges, prefs.showLeakEdges, board.edges]);
 
   /*
     Persist a drag so a manual arrangement survives a reload — but only in the

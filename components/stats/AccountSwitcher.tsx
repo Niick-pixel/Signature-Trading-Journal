@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
 
@@ -20,12 +20,21 @@ interface AccountSwitcherProps {
 export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
   const router = useRouter();
   const params = useSearchParams();
+  /*
+    Stay on the screen you are on.
+
+    This was written for the stats page and pushed to a hardcoded /stats. The
+    calendar reuses it, so picking an account there threw you onto stats —
+    which read as "the calendar does not work with demo data", when in fact
+    the calendar never got the chance to render it.
+  */
+  const here = usePathname();
 
   const go = (account: Account | 'All') => {
     const next = new URLSearchParams(params.toString());
     if (account === 'All') next.delete('account');
     else next.set('account', account);
-    router.push(`/stats${next.toString() ? `?${next}` : ''}`);
+    router.push(`${here}${next.toString() ? `?${next}` : ''}`);
   };
 
   const options: Array<{ key: Account | 'All'; label: string; count: number | null }> = [

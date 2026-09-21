@@ -2,6 +2,14 @@
 
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+
+/** Both a source and a target on each face, so any direction has a short route. */
+const SIDES: Array<[string, Position]> = [
+  ['t-top', Position.Top], ['s-top', Position.Top],
+  ['t-right', Position.Right], ['s-right', Position.Right],
+  ['t-bottom', Position.Bottom], ['s-bottom', Position.Bottom],
+  ['t-left', Position.Left], ['s-left', Position.Left],
+];
 import { motion } from 'framer-motion';
 import { GRADE_COLOR, gradeLetter } from '@/lib/grade';
 import { spring, springLayout } from '@/lib/motion';
@@ -66,9 +74,21 @@ function TradeNodeInner({ data }: NodeProps) {
         />
       )}
 
-      {/* React Flow needs handles to anchor edges, but they must not be seen. */}
-      <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
+      {/*
+        A handle on every side, invisible, so an edge can leave and arrive on
+        whichever face actually points at the other card.
+
+        There used to be exactly two — target on top, source on the bottom —
+        while the cards sit in a left-to-right grid. A line between two cards
+        side by side therefore left the bottom of one, looped out past the
+        cluster, and came back down into the top of the other. Those are the
+        faint strands that looked like they led nowhere: they were real chain
+        lines taking an absurd route around the outside of their own group.
+      */}
+      {SIDES.map(([id, position]) => (
+        <Handle key={id} id={id} type={id.startsWith('s-') ? 'source' : 'target'}
+          position={position} style={{ opacity: 0, pointerEvents: 'none' }} />
+      ))}
 
       {/*
         The grab bar.
