@@ -45,6 +45,27 @@ function TradeNodeInner({ data }: NodeProps) {
   const flagged = hasOpenFlags(trade);
 
   return (
+    <>
+    {/*
+      The handles sit OUTSIDE the animated card, as siblings of it.
+
+      Two reasons, and both of them were drawing lines in the wrong place.
+      A handle on every side lets an edge leave and arrive on the faces that
+      point at each other, instead of the old top/bottom-only pair that made a
+      link between two cards side by side loop out around the whole cluster.
+
+      And they cannot live inside the card, because the card is a motion.div
+      with `layout` and a hover that lifts it 3px and scales it. Framer draws
+      all of that as a transform, which carries anything inside it — so React
+      Flow measured handle positions that were mid-animation, and the lines
+      ended up anchored to where the card briefly was rather than where it is.
+      Out here, nothing Framer does to the card can move them.
+    */}
+    {SIDES.map(([id, position]) => (
+      <Handle key={id} id={id} type={id.startsWith('s-') ? 'source' : 'target'}
+        position={position} style={{ opacity: 0, pointerEvents: 'none' }} />
+    ))}
+
     <motion.div
       layout
       layoutId={`trade-${trade.id}`}
@@ -73,22 +94,6 @@ function TradeNodeInner({ data }: NodeProps) {
           }}
         />
       )}
-
-      {/*
-        A handle on every side, invisible, so an edge can leave and arrive on
-        whichever face actually points at the other card.
-
-        There used to be exactly two — target on top, source on the bottom —
-        while the cards sit in a left-to-right grid. A line between two cards
-        side by side therefore left the bottom of one, looped out past the
-        cluster, and came back down into the top of the other. Those are the
-        faint strands that looked like they led nowhere: they were real chain
-        lines taking an absurd route around the outside of their own group.
-      */}
-      {SIDES.map(([id, position]) => (
-        <Handle key={id} id={id} type={id.startsWith('s-') ? 'source' : 'target'}
-          position={position} style={{ opacity: 0, pointerEvents: 'none' }} />
-      ))}
 
       {/*
         The grab bar.
@@ -191,6 +196,7 @@ function TradeNodeInner({ data }: NodeProps) {
         </span>
       </div>
     </motion.div>
+    </>
   );
 }
 

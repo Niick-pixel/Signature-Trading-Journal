@@ -37,6 +37,21 @@ function ClusterNodeInner({ data }: NodeProps) {
   const rTone = stats.totalR > 0 ? 'var(--outcome-win)' : stats.totalR < 0 ? 'var(--outcome-loss)' : null;
 
   return (
+    <>
+    {/*
+      The anchor for the branch line down from the board title, as a sibling of
+      the region rather than a child of it.
+
+      Handle was imported here from the start and never actually rendered, so
+      React Flow had nowhere to land those edges and dropped every one of them:
+      the tree the board is described as drawing was never on the screen. And
+      it has to stay out of the motion.div, whose `layout` animation transforms
+      everything inside it — put it in there and the branch detaches from its
+      group the moment the group is dragged.
+    */}
+    <Handle type="target" position={Position.Top}
+      style={{ opacity: 0, pointerEvents: 'none' }} />
+
     <motion.div
       layout
       // Regions settle in worst-first, which is also the order you should read
@@ -88,17 +103,8 @@ function ClusterNodeInner({ data }: NodeProps) {
         </div>
       </div>
 
-      {/*
-        The anchor for the branch line from the board title.
-
-        Handle was imported here from the start and never actually rendered,
-        so React Flow had nowhere to land those edges and dropped every one of
-        them: the tree the board is described as drawing has never been on the
-        screen. Invisible, and out of the way of the drag handle above.
-      */}
-      <Handle type="target" position={Position.Top}
-        style={{ opacity: 0, pointerEvents: 'none' }} />
     </motion.div>
+    </>
   );
 }
 
