@@ -1,8 +1,16 @@
 name: Build Windows portable
 
-# Produces Signature-portable-<version>.exe — a single file that needs no
-# installer, no admin rights, and no Node on the target machine. Run it from
-# anywhere; it keeps its journal in a data/ folder beside itself.
+# Produces two shapes of the same build:
+#
+#   Signature-portable-<version>.exe   one file, no installer, no admin rights
+#   Signature-<version>-windows.zip    the same app as a plain folder
+#
+# Both keep their journal in a data/ folder beside the executable. The zip
+# exists because the portable .exe is an unsigned NSIS self-extracting archive,
+# which is one of the shapes antivirus and SmartScreen flag most readily — a
+# download that reports "virus scan failed" or vanishes from the Downloads
+# folder is usually that, not a real finding. A zip of an ordinary folder is
+# not self-extracting and generally comes through untouched.
 #
 # This runs on a Windows runner because a Windows executable cannot be built
 # reliably from Linux or macOS.
@@ -29,21 +37,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build the portable executable
+      - name: Build the portable executable and the zip
         run: npm run desktop:build
         env:
           # Nothing here is signed; skip electron-builder's signing discovery
           # rather than failing on a missing certificate.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Show what was produced
+      - name: Show what was produced, and checksum it
         shell: bash
-        run: ls -lh release/*.exe
+        run: |
+          ls -lh release/*.exe release/*.zip
+          cd release
+          sha256sum Signature-portable-*.exe Signature-*-windows.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: Signature-portable
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.zip
+            release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -56,16 +71,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
+          # Check every file is there BEFORE destroying the current release:
+          # deleting first and failing on a missing artifact would leave the
+          # repository with no download at all.
+          ls -l release/Signature-portable-*.exe \
+                release/Signature-*-windows.zip \
+                release/SHA256SUMS.txt
+
           gh release delete latest --cleanup-tag --yes || true
           # Deliberately not a prerelease: GitHub's /releases/latest URL skips
           # prereleases entirely, so marking it one made that link 404 and kept
           # the build off the front of the repository.
-          gh release create latest release/*.exe \
+          gh release create latest \
+            release/Signature-portable-*.exe \
+            release/Signature-*-windows.zip \
+            release/SHA256SUMS.txt \
             --title "Signature — latest build" \
             --latest \
-            --notes "Portable Windows build of Signature. Download the .exe below, put it in a folder of its own, and run it — it keeps its journal in a \`data\` folder beside itself.
+            --notes "Two downloads, same build. Either way it keeps its journal in a \`data\` folder beside the executable, and nothing is sent anywhere.
 
-          Windows SmartScreen will warn on first launch because the executable is not code-signed. Choose **More info → Run anyway**.
+          **\`Signature-<version>-windows.zip\`** — recommended. Unzip it anywhere and run \`Signature.exe\` inside.
+
+          **\`Signature-portable-<version>.exe\`** — one file, nothing to unzip.
+
+          Neither is code-signed, so Windows SmartScreen warns on first launch: choose **More info → Run anyway**. If a download fails with *virus scan failed*, or finishes and then disappears from your Downloads folder, that is Defender or the browser reacting to an unsigned executable rather than to anything found in it — take the **zip**, which is far less likely to be touched, or add an exclusion for the folder you keep it in.
+
+          \`SHA256SUMS.txt\` lists the checksum of both files so you can confirm what you got is what was built.
 
           Built from \`${{ github.sha }}\`."
 

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx --conditions=react-server db/cli-migrate.ts",
     "desktop": "electron .",
-    "desktop:build": "next build && node scripts/assemble-standalone.mjs && electron-builder --win portable",
+    "desktop:build": "next build && node scripts/assemble-standalone.mjs && electron-builder --win portable zip",
     "predesktop": "node scripts/ensure-electron.mjs"
   },
   "dependencies": {
@@ -44,7 +44,11 @@
     "asar": false,
     "win": {
       "icon": "assets/icon.ico",
-      "target": "portable"
+      "target": [
+        "portable",
+        "zip"
+      ],
+      "artifactName": "Signature-${version}-windows.${ext}"
     },
     "portable": {
       "artifactName": "Signature-portable-${version}.exe",
