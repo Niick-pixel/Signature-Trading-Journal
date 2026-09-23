@@ -13,6 +13,8 @@ import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Panel, Stat } from '@/components/stats/Bars';
 import { BalanceCard } from '@/components/money/BalanceCard';
 import { Calendar } from '@/components/money/Calendar';
+import { Mornings } from '@/components/money/Mornings';
+import { conditions } from '@/lib/conditions';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,10 +115,14 @@ export default async function CalendarPage(
   const today = new Date().toISOString().slice(0, 10);
 
   // A day counts as written on if it has a journal page or a daily review.
+  const reviews = listDailyReviews();
   const written = new Set([
     ...journalDays(),
-    ...listDailyReviews().map((r) => r.day),
+    ...reviews.map((r) => r.day),
   ]);
+
+  // Every morning ever reviewed, against this account's trades on those days.
+  const mornings = conditions(reviews, scoped);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -171,6 +177,13 @@ export default async function CalendarPage(
                 tone={summary.worstDayLoss ? 'loss' : null}
               />
             </div>
+
+            <Panel
+              title="Your mornings, against your trading"
+              note={`Every daily review you have written, not only this month's — a pattern needs more mornings than one month holds. The trades are ${account === 'All' ? 'every account' : `the ${account} account`}'s on those days. A bucket with fewer than five mornings is faded: that is an anecdote, not a pattern.`}
+            >
+              <Mornings data={mornings} />
+            </Panel>
           </div>
         </div>
       </div>

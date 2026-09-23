@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
 import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
 import { getJournalPage, importJournalPage, parseJournalInput } from '@/db/journal';
+import { getDailyReview, getWeeklyReview, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
 import { parseTradeInput } from '@/lib/validate';
 
 /**
@@ -17,7 +18,10 @@ import { parseTradeInput } from '@/lib/validate';
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as
-    { trades?: unknown; cash?: unknown; journal?: unknown; format?: unknown } | null;
+    {
+      trades?: unknown; cash?: unknown; journal?: unknown; format?: unknown;
+      daily_reviews?: unknown; weekly_reviews?: unknown;
+    } | null;
 
   if (!body || !Array.isArray(body.trades)) {
     return NextResponse.json(
@@ -93,5 +97,50 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ imported, skipped, rejected, cash, cashSkipped, journal, journalSkipped });
+  /*
+    Reviews, matched on the day (or the week) they are about. Like everything
+    else here an import never overwrites: a morning already written on this
+    machine is kept as it is. Files older than version 4 carry no reviews,
+    which reads as none rather than as an error.
+  */
+  const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const strOrNull = (v: unknown) => (typeof v === 'string' ? v : null);
+
+  let reviews = 0;
+  let reviewsSkipped = 0;
+  if (Array.isArray(body.daily_reviews)) {
+    for (const raw of body.daily_reviews as Record<string, unknown>[]) {
+      if (!raw || !isDay(raw.day) || getDailyReview(raw.day)) { reviewsSkipped += 1; continue; }
+      const mind = numOrNull(raw.state_of_mind);
+      saveDailyReview(raw.day, {
+        account: strOrNull(raw.account),
+        bias: strOrNull(raw.bias),
+        bias_screenshot: strOrNull(raw.bias_screenshot),
+        planned_killzones: strOrNull(raw.planned_killzones),
+        planned_levels: strOrNull(raw.planned_levels),
+        what_happened: strOrNull(raw.what_happened),
+        bias_held: raw.bias_held == null ? null : Boolean(raw.bias_held),
+        trades_planned: numOrNull(raw.trades_planned),
+        screen_minutes: numOrNull(raw.screen_minutes),
+        sleep_hours: numOrNull(raw.sleep_hours),
+        // The column only takes 1–5; a bad value is dropped, not the morning.
+        state_of_mind: mind != null && mind >= 1 && mind <= 5 ? Math.round(mind) : null,
+        notes: strOrNull(raw.notes),
+      });
+      reviews += 1;
+    }
+  }
+  if (Array.isArray(body.weekly_reviews)) {
+    for (const raw of body.weekly_reviews as Record<string, unknown>[]) {
+      if (!raw || !isDay(raw.week_start) || getWeeklyReview(raw.week_start)) { reviewsSkipped += 1; continue; }
+      const ids = Array.isArray(raw.reviewed_ids) ? raw.reviewed_ids.filter((x): x is string => typeof x === 'string') : [];
+      saveWeeklyReview(raw.week_start, strOrNull(raw.summary) ?? '', ids);
+      reviews += 1;
+    }
+  }
+
+  return NextResponse.json({
+    imported, skipped, rejected, cash, cashSkipped, journal, journalSkipped, reviews, reviewsSkipped,
+  });
 }

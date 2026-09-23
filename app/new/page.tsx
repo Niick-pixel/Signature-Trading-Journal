@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTrade, listTrades } from '@/db/trades';
 import { NewTradeForm } from '@/components/capture/NewTradeForm';
+import { lessonsBySetup } from '@/lib/lessons';
 import { Whiteboard } from '@/components/whiteboard/Whiteboard';
 import { TitleBar } from '@/components/shell/TitleBar';
 
@@ -62,7 +63,7 @@ export default async function NewTradePage({
           */}
           <div className="mx-auto w-full max-w-[96rem] px-4 pb-20 pt-4 sm:px-6
             2xl:max-w-[132rem] 2xl:pb-10">
-            <NewTradeForm trade={trade ?? undefined} />
+            <NewTradeForm trade={trade ?? undefined} pastLessons={lessonsBySetup(trades, trade ?? undefined)} />
           </div>
         </div>
       </div>

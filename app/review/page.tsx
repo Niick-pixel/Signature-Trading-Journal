@@ -2,6 +2,9 @@ import { listTrades } from '@/db/trades';
 import { getWeeklyReview } from '@/db/reviews';
 import { TitleBar } from '@/components/shell/TitleBar';
 import { WeeklyReviewFlow } from '@/components/review/WeeklyReviewFlow';
+import { RepeatedLessons } from '@/components/review/RepeatedLessons';
+import { Panel } from '@/components/stats/Bars';
+import { repeatedLessons } from '@/lib/lessons';
 import { TAKE_IT_THRESHOLD } from '@/lib/domain';
 import { hasOpenFlags } from '@/lib/flags';
 
@@ -33,7 +36,8 @@ export default async function ReviewPage(
   end.setUTCDate(end.getUTCDate() + 7);
   const endStr = end.toISOString().slice(0, 10);
 
-  const inWeek = listTrades().filter((t) => t.date.slice(0, 10) >= week && t.date.slice(0, 10) < endStr);
+  const all = listTrades();
+  const inWeek = all.filter((t) => t.date.slice(0, 10) >= week && t.date.slice(0, 10) < endStr);
   const worthReviewing = inWeek.filter(
     (t) => t.checklist_score < TAKE_IT_THRESHOLD || hasOpenFlags(t),
   );
@@ -49,6 +53,17 @@ export default async function ReviewPage(
             totalInWeek={inWeek.length}
             existing={getWeeklyReview(week)}
           />
+
+          {/* Not the week's — every lesson ever written, because a repeat can
+              be months apart and still be the same mistake. */}
+          <div className="mt-8">
+            <Panel
+              title="Lessons you keep writing"
+              note="Lessons from any date that share enough words to be the same lesson, written again. The words that matched are shown on each group, so you can judge the grouping yourself. Click any lesson to open its trade."
+            >
+              <RepeatedLessons groups={repeatedLessons(all)} />
+            </Panel>
+          </div>
         </div>
       </div>
     </div>

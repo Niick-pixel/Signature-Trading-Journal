@@ -31,6 +31,9 @@ import { Checklist } from './Checklist';
 import { clearDraft, readDraft, writeDraft } from '@/lib/draft';
 import { ExplanationField } from './ExplanationField';
 import { ScreenshotDropzone } from './ScreenshotDropzone';
+import { PastLessons } from './PastLessons';
+import { dialogIsOpen } from '@/components/ui/Overlay';
+import type { PastLesson } from '@/lib/lessons';
 
 /** `datetime-local` wants 'YYYY-MM-DDTHH:mm' in local time, not an ISO string. */
 function toLocalInput(date: Date): string {
@@ -38,7 +41,11 @@ function toLocalInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function NewTradeForm({ trade }: { trade?: Trade }) {
+export function NewTradeForm({ trade, pastLessons = {} }: {
+  trade?: Trade;
+  /** The latest lessons per setup type — worked out on the server, see lib/lessons. */
+  pastLessons?: Record<string, PastLesson[]>;
+}) {
   const editing = Boolean(trade);
   const [file, setFile] = useState<File | null>(null);
   const [reason, setReason] = useState<Reason | null>(trade?.reason ?? null);
@@ -197,7 +204,8 @@ export function NewTradeForm({ trade }: { trade?: Trade }) {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
       const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-      if (e.key === 'Escape' && !typing) window.location.href = '/';
+      // A dialog open over the form owns Escape; leaving would discard the entry.
+      if (e.key === 'Escape' && !typing && !dialogIsOpen()) window.location.href = '/';
       if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         submitRef.current?.();
@@ -464,18 +472,20 @@ export function NewTradeForm({ trade }: { trade?: Trade }) {
         {/* A Planned trade has no outcome yet, so it is not asked for. */}
         <AnimatePresence initial={false}>
           {planned ? (
-            <motion.p
+            <motion.div
               key="planned"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={springSoft}
-              className="overflow-hidden text-[12px] leading-relaxed"
-              style={{ color: 'var(--text-faint)' }}
+              className="overflow-hidden"
             >
-              Planned — the outcome is hidden until you settle it. The score you give it now is kept
-              as the entry grade, so hindsight cannot quietly rewrite it.
-            </motion.p>
+              <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
+                Planned — the outcome is hidden until you settle it. The score you give it now is kept
+                as the entry grade, so hindsight cannot quietly rewrite it.
+              </p>
+              <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline />
+            </motion.div>
           ) : (
             <motion.div
               key="outcome"
@@ -594,6 +604,9 @@ export function NewTradeForm({ trade }: { trade?: Trade }) {
           <Field label="Premium / discount"><Select value={premiumDiscount} onChange={setPremiumDiscount} options={PREMIUM_DISCOUNTS} /></Field>
           <Field label="Target type"><Select value={targetType} onChange={setTargetType} options={TARGET_TYPES} /></Field>
         </div>
+        {!planned && (
+          <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline={false} />
+        )}
 
         {/* What it paid. Numbers are facts about the trade, so they sit with
             the rest of the record rather than with the writing — and it keeps

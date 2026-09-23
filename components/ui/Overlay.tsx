@@ -26,6 +26,19 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { scrimExit, springSoft } from '@/lib/motion';
 
+/**
+ * Whether a dialog is on screen.
+ *
+ * Screen-level Escape handlers listen on `document`, which the event reaches
+ * BEFORE it reaches the dialog's own listener on `window` — so without asking
+ * this first, one Escape in a dialog on the trade form also ran the form's
+ * "leave without saving" and threw the half-written trade away. Anything that
+ * treats Escape as "leave this screen" should defer while this is true.
+ */
+export function dialogIsOpen(): boolean {
+  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
+}
+
 export function Overlay({
   open,
   onClose,
@@ -50,7 +63,13 @@ export function Overlay({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      // Something inside the dialog — an open dropdown — already used this
+      // Escape to close itself. One keypress, one layer.
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);

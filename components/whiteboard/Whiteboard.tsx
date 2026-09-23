@@ -22,6 +22,7 @@ import { ClusterNode } from './ClusterNode';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
 import { EdgeKey } from './EdgeKey';
+import { dialogIsOpen } from '@/components/ui/Overlay';
 import { GroupViewer } from './GroupViewer';
 import { Toolbar, EMPTY_FILTERS, applyFilters, filtersActive, type Filters } from './Toolbar';
 import { BulkBar } from './BulkBar';
@@ -118,7 +119,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         window.location.href = '/new';
         return;
       }
-      if (e.key === 'Escape' && !searching) {
+      // The stack viewer is a dialog and closes itself; this only handles what
+      // is not one, so a single Escape never closes two layers at once.
+      if (e.key === 'Escape' && !searching && !dialogIsOpen()) {
         // Innermost first: the viewer sits over the board, the panel over both.
         if (openId) setOpenId(null);
         else if (viewing) setViewing(null);

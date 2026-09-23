@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { listJournalPages } from '@/db/journal';
+import { listDailyReviews, listWeeklyReviews } from '@/db/reviews';
 import { SCREENSHOTS_DIR } from '@/lib/paths';
 import { makeZip } from '@/lib/zip';
 import type { JournalPage, Trade } from '@/lib/types';
@@ -91,19 +92,29 @@ export async function GET() {
   const trades = listTrades({ bin: 'all' });
   const cash = listCashEvents();
   const journal = listJournalPages();
+  /*
+    The reviews were never in the export at all — sleep, state of mind, whether
+    the bias held, every weekly summary. A backup restored from this file lost
+    them, and a month's export handed to someone (or something) to read had the
+    trades with none of the mornings they were taken on.
+  */
+  const dailyReviews = listDailyReviews();
+  const weeklyReviews = listWeeklyReviews();
   const now = new Date();
 
   const payload = {
     format: 'signature-journal',
-    // Bumped as the payload grew: 2 added cash, 3 added the journal. An older
-    // file simply has no key for the newer things, which the importer reads as
-    // "none" rather than as an error.
-    version: 3,
+    // Bumped as the payload grew: 2 added cash, 3 added the journal, 4 added the
+    // daily and weekly reviews. An older file simply has no key for the newer
+    // things, which the importer reads as "none" rather than as an error.
+    version: 4,
     exported_at: now.toISOString(),
     count: trades.length,
     trades,
     cash,
     journal,
+    daily_reviews: dailyReviews,
+    weekly_reviews: weeklyReviews,
   };
 
   const zip = makeZip([
