@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
 import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
 import { getJournalPage, importJournalPage, parseJournalInput } from '@/db/journal';
-import { getDailyReview, getWeeklyReview, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
+import { getDailyReview, getWeeklyReview, restoreCheckIn, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
+import { BIAS_DIRECTIONS, NEWS_LEVELS } from '@/lib/domain';
 import { parseTradeInput } from '@/lib/validate';
 
 /**
@@ -127,7 +128,12 @@ export async function POST(request: Request) {
         // The column only takes 1–5; a bad value is dropped, not the morning.
         state_of_mind: mind != null && mind >= 1 && mind <= 5 ? Math.round(mind) : null,
         notes: strOrNull(raw.notes),
+        bias_direction: BIAS_DIRECTIONS.find((d) => d === raw.bias_direction) ?? null,
+        news: NEWS_LEVELS.find((n) => n === raw.news) ?? null,
+        news_note: strOrNull(raw.news_note),
       });
+      // When the morning was written is part of what the morning says.
+      if (typeof raw.checked_in_at === 'string') restoreCheckIn(raw.day, raw.checked_in_at);
       reviews += 1;
     }
   }

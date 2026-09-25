@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { shortcutAllowed } from '@/lib/keys';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
@@ -41,6 +43,19 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
     ...available.map((a) => ({ key: a.account, label: a.account, count: a.count })),
   ];
   if (available.length > 1) options.push({ key: 'All', label: 'All (mixed)', count: null });
+
+  // [ and ] step through the accounts in the order shown, wrapping round.
+  useEffect(() => {
+    if (options.length <= 1) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key !== '[' && e.key !== ']') || !shortcutAllowed(e)) return;
+      e.preventDefault();
+      const i = Math.max(0, options.findIndex((o) => o.key === current));
+      go(options[(i + (e.key === ']' ? 1 : -1) + options.length) % options.length].key);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
 
   if (options.length <= 1) return null;
 

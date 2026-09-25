@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { shortcutAllowed } from '@/lib/keys';
 import { motion } from 'framer-motion';
 import { press, riseIn, spring } from '@/lib/motion';
 import type { DailyReview } from '@/lib/types';
@@ -8,36 +9,10 @@ import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Field';
 import { ExplanationField } from '@/components/capture/ExplanationField';
 import { TriState } from '@/components/ui/TriState';
+import { Scale } from '@/components/ui/Scale';
+import { Choice } from '@/components/ui/Choice';
+import { BIAS_DIRECTIONS, NEWS_LEVELS, type BiasDirection, type NewsLevel } from '@/lib/domain';
 import type { Tri } from '@/lib/domain';
-
-function Scale({ value, onChange, label, hint }: {
-  value: number | null; onChange: (v: number | null) => void; label: string; hint?: string;
-}) {
-  return (
-    <Field label={label} hint={hint}>
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <motion.button
-            key={n}
-            type="button"
-            aria-pressed={value === n}
-            onClick={() => onChange(value === n ? null : n)}
-            whileTap={press}
-            transition={spring}
-            animate={{
-              borderColor: value === n ? 'rgb(var(--accent) / 0.6)' : 'var(--glass-stroke)',
-              background: value === n ? 'rgb(var(--accent) / 0.12)' : 'var(--glass-fill)',
-            }}
-            className="flex-1 rounded-[calc(12px*var(--rk))] border py-2 text-[13px] font-medium"
-            style={{ color: value === n ? 'rgb(var(--accent))' : 'var(--text-faint)' }}
-          >
-            {n}
-          </motion.button>
-        ))}
-      </div>
-    </Field>
-  );
-}
 
 export function DailyReviewForm({ day, existing, tradesOnDay }: {
   day: string; existing: DailyReview | null; tradesOnDay: number;
@@ -52,6 +27,9 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
   const [sleep, setSleep] = useState(existing?.sleep_hours?.toString() ?? '');
   const [mind, setMind] = useState<number | null>(existing?.state_of_mind ?? null);
   const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [direction, setDirection] = useState<BiasDirection | null>(existing?.bias_direction ?? null);
+  const [news, setNews] = useState<NewsLevel | null>(existing?.news ?? null);
+  const [newsNote, setNewsNote] = useState(existing?.news_note ?? '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -66,6 +44,7 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
         day, bias, planned_killzones: killzones, planned_levels: levels,
         trades_planned: num(planned), what_happened: happened, bias_held: biasHeld,
         screen_minutes: num(screen), sleep_hours: num(sleep), state_of_mind: mind, notes,
+        bias_direction: direction, news, news_note: news === 'None' ? '' : newsNote,
       }),
     });
     setSaving(false); setSaved(true);
@@ -77,6 +56,17 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
     d.setUTCDate(d.getUTCDate() + delta);
     window.location.href = `/day?day=${d.toISOString().slice(0, 10)}`;
   };
+
+  // ← and → walk the days, like the buttons in the corner.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!shortcutAllowed(e) || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      e.preventDefault();
+      shift(e.key === 'ArrowLeft' ? -1 : 1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
 
   return (
     <motion.div {...riseIn} transition={spring} className="glass rounded-[calc(28px*var(--rk))] p-7 sm:p-9">
@@ -119,7 +109,17 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
             style={{ color: 'var(--text-faint)' }}>
             Before the session
           </span>
+          {existing?.checked_in_at && (
+            <p data-checked-in className="-mt-2 mb-4 text-[11px]" style={{ color: 'rgb(var(--outcome-win))' }}>
+              Checked in at {new Date(existing.checked_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {' — '}written before the session.
+            </p>
+          )}
           <div className="space-y-5">
+            <Field label="Which way" group>
+              <Choice name="Bias direction" value={direction} onChange={setDirection} options={BIAS_DIRECTIONS}
+                accentFor={(d) => (d === 'Bullish' ? 'var(--outcome-win)' : d === 'Bearish' ? 'var(--outcome-loss)' : 'var(--accent)')} />
+            </Field>
             <Field label="Bias" hint="What you expect, and why — written before you can be influenced by the result.">
               <ExplanationField value={bias} onChange={setBias} required={false} minRows={3}
                 placeholder="Daily is bullish into the weekly FVG, expecting a London sweep of the Asia low first…" />
@@ -130,6 +130,17 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
               <Field label="Trades planned"><Input type="number" min="0" step="1" placeholder="—"
                 value={planned} onChange={(e) => setPlanned(e.target.value)} /></Field>
             </div>
+            <Field label="News today" group>
+              <Choice name="News today" value={news} onChange={setNews} options={NEWS_LEVELS}
+                labelFor={(n) => (n === 'None' ? 'Nothing major' : n === 'High' ? 'High impact' : n)}
+                accentFor={(n) => (n === 'None' ? 'var(--outcome-win)' : n === 'High' ? 'var(--outcome-loss)' : 'var(--amber)')} />
+              {(news === 'Medium' || news === 'High') && (
+                <div className="mt-2">
+                  <Input placeholder="What and when — CPI 8:30" aria-label="Which news"
+                    value={newsNote} onChange={(e) => setNewsNote(e.target.value)} />
+                </div>
+              )}
+            </Field>
             <Field label="Levels to watch"><Input placeholder="PDH 20455, Asia low 20312, weekly FVG 20180–20240"
               value={levels} onChange={(e) => setLevels(e.target.value)} /></Field>
           </div>

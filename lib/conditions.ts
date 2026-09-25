@@ -41,7 +41,7 @@ export interface ConditionRow {
 }
 
 export interface ConditionFactor {
-  key: 'sleep' | 'mind' | 'bias';
+  key: 'sleep' | 'mind' | 'bias' | 'news' | 'checkin';
   title: string;
   /** Reviews that answered this question at all. */
   answered: number;
@@ -73,6 +73,12 @@ const MIND: Bucket<number>[] = [
 const BIAS: Bucket<boolean>[] = [
   { label: 'Bias held', test: (b) => b },
   { label: 'Bias was wrong', test: (b) => !b },
+];
+
+const NEWS: Bucket<string>[] = [
+  { label: 'High-impact news', test: (n) => n === 'High' },
+  { label: 'Medium news', test: (n) => n === 'Medium' },
+  { label: 'Nothing major', test: (n) => n === 'None' },
 ];
 
 const r = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}R`;
@@ -126,6 +132,32 @@ export function conditions(reviews: DailyReview[], trades: Trade[]): Conditions 
   const mindRows = MIND.map((b) => row(b.label, minded.filter((d) => b.test(d.state_of_mind!)), byDay));
   const biasRows = BIAS.map((b) => row(b.label, judged.filter((d) => b.test(d.bias_held!)), byDay));
 
+  const newsed = reviews.filter((d) => d.news != null);
+  const newsRows = NEWS.map((b) => row(b.label, newsed.filter((d) => b.test(d.news!)), byDay));
+
+  /*
+    Did answering the morning first change the day?
+
+    Counted from the first check-in ever made — every traded day before the
+    feature existed would otherwise pile into "skipped" and decide the answer.
+    "First" means before the day's first trade was logged: a check-in written
+    after trading has already started is not the morning it claims to be.
+  */
+  const firstCheckIn = reviews.map((d) => d.checked_in_at ? d.day : null).filter(Boolean).sort()[0] ?? null;
+  const reviewByDay = new Map(reviews.map((d) => [d.day, d]));
+  const checkedFirst: DailyReview[] = [];
+  const skipped: DailyReview[] = [];
+  if (firstCheckIn) {
+    for (const [day, list] of byDay) {
+      if (day < firstCheckIn || !list.some((t) => isTaken(t.outcome))) continue;
+      const rev = reviewByDay.get(day);
+      const firstLogged = list.map((t) => t.created_at).sort()[0];
+      const before = !!rev?.checked_in_at && (!firstLogged || rev.checked_in_at <= firstLogged);
+      (before ? checkedFirst : skipped).push(rev ?? ({ day } as DailyReview));
+    }
+  }
+  const checkinRows = [row('No check-in first', skipped, byDay), row('Checked in first', checkedFirst, byDay)];
+
   return {
     reviews: reviews.length,
     factors: [
@@ -142,6 +174,15 @@ export function conditions(reviews: DailyReview[], trades: Trade[]): Conditions 
         // Wrong first, so "low end" means the same thing in every factor.
         rows: [biasRows[1], biasRows[0]],
         finding: compare([biasRows[1], biasRows[0]], 'on days your bias was wrong', 'when it held'),
+      },
+      {
+        key: 'news', title: 'News', answered: newsed.length, rows: newsRows,
+        finding: compare(newsRows, 'on high-impact news days', 'on quiet ones'),
+      },
+      {
+        key: 'checkin', title: 'Morning check-in', answered: checkedFirst.length + skipped.length,
+        rows: checkinRows,
+        finding: compare(checkinRows, 'on days you traded without checking in', 'on days you checked in first'),
       },
     ],
   };

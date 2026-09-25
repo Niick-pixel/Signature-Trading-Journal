@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDailyReview, listDailyReviews, saveDailyReview } from '@/db/reviews';
+import { listTrades } from '@/db/trades';
+import { BIAS_DIRECTIONS, NEWS_LEVELS } from '@/lib/domain';
+import type { DailyReview } from '@/lib/types';
 
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
@@ -7,6 +10,12 @@ export async function GET(request: Request) {
   const day = new URL(request.url).searchParams.get('day');
   if (day) {
     if (!isDay(day)) return NextResponse.json({ error: 'Expected YYYY-MM-DD.' }, { status: 400 });
+    // The check-in asks with ?context=1: it also needs to know whether the
+    // session has already started, so it does not interrupt one in progress.
+    if (new URL(request.url).searchParams.get('context') === '1') {
+      const tradesToday = listTrades().filter((t) => t.date.slice(0, 10) === day).length;
+      return NextResponse.json({ review: getDailyReview(day), tradesToday });
+    }
     return NextResponse.json(getDailyReview(day));
   }
   return NextResponse.json(listDailyReviews());
@@ -24,18 +33,30 @@ export async function PUT(request: Request) {
     return n == null ? null : Math.min(5, Math.max(1, Math.round(n)));
   };
 
-  return NextResponse.json(saveDailyReview(body.day as string, {
-    account: str(body.account),
-    bias: str(body.bias),
-    bias_screenshot: str(body.bias_screenshot),
-    planned_killzones: str(body.planned_killzones),
-    planned_levels: str(body.planned_levels),
-    what_happened: str(body.what_happened),
-    bias_held: body.bias_held == null ? null : body.bias_held === true,
-    trades_planned: num(body.trades_planned),
-    screen_minutes: num(body.screen_minutes),
-    sleep_hours: num(body.sleep_hours),
-    state_of_mind: clamp(body.state_of_mind),
-    notes: str(body.notes),
-  }));
+  const pick = <T,>(v: unknown, list: readonly T[]) => (list.includes(v as T) ? v as T : null);
+
+  // Each field only when it was sent, so the morning check-in and the evening
+  // review can each save their half of the row without blanking the other's.
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k);
+  const fields: Partial<DailyReview> = {};
+  const take = <K extends keyof DailyReview>(k: K, read: (v: unknown) => DailyReview[K]) => {
+    if (has(k)) fields[k] = read(body[k]);
+  };
+  take('account', str);
+  take('bias', str);
+  take('bias_screenshot', str);
+  take('planned_killzones', str);
+  take('planned_levels', str);
+  take('what_happened', str);
+  take('bias_held', (v) => (v == null ? null : v === true));
+  take('trades_planned', num);
+  take('screen_minutes', num);
+  take('sleep_hours', num);
+  take('state_of_mind', clamp);
+  take('notes', str);
+  take('bias_direction', (v) => pick(v, BIAS_DIRECTIONS));
+  take('news', (v) => pick(v, NEWS_LEVELS));
+  take('news_note', str);
+
+  return NextResponse.json(saveDailyReview(body.day as string, fields, { checkIn: body.check_in === true }));
 }

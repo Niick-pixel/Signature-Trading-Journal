@@ -9,6 +9,7 @@ import { TogglePill } from '@/components/ui/TogglePill';
 import { usePreferences } from './PreferencesProvider';
 import type { Preferences } from '@/lib/preferences';
 import { ThemeGrid } from './ThemeGrid';
+import { SETTINGS_TOGGLE, SHEET_OPEN } from './Shortcuts';
 
 interface Info {
   dataDir: string;
@@ -189,6 +190,27 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Section>
 
             <Section
+              title="Morning check-in"
+              hint="Four questions before the session: sleep, state of mind, bias and news. Asked once on the first screen of a trading day, never while a trade is being written, and never again once the day has trades in it."
+            >
+              <TogglePill
+                checked={prefs.askCheckIn}
+                onChange={(askCheckIn) => update({ askCheckIn })}
+                label="Ask each morning"
+                hint="Off, it waits in the title bar until you open it (or press M)."
+              />
+            </Section>
+
+            <Section
+              title="Keyboard"
+              hint="Single keys move you around: N new trade, M the morning, 1–4 the tabs, J and K through the board's trades."
+            >
+              <Button title="Lists every keyboard shortcut in the app — or press ? anywhere" onClick={() => { onClose(); window.dispatchEvent(new Event(SHEET_OPEN)); }}>
+                Show every shortcut <span className="ml-1.5 opacity-60">?</span>
+              </Button>
+            </Section>
+
+            <Section
               title="Motion"
               hint="Turn this on if the animations are distracting or the app feels heavy on your machine."
             >
@@ -292,6 +314,11 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 /** The bottom-left cluster: theme above settings, on every screen. */
 export function BottomLeftControls({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const toggle = () => setOpen((o) => !o);
+    window.addEventListener(SETTINGS_TOGGLE, toggle);
+    return () => window.removeEventListener(SETTINGS_TOGGLE, toggle);
+  }, []);
 
   return (
     <div className="fixed bottom-4 left-4 z-30 flex flex-col items-start gap-2">

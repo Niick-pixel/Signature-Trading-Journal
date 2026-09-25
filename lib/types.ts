@@ -1,6 +1,7 @@
 import type {
   Account, ChecklistAnswer, Direction, HtfBias, Instrument, MistakeTag, Outcome, PremiumDiscount, Reason,
   Regrade, Session, SetupType, ShotSlot, SkipReason, TargetType, TradeStatus, Tri,
+  BiasDirection, NewsLevel,
 } from './domain';
 import type { FlagKey } from './flags';
 import type { GradeLetter } from './grade';
@@ -184,6 +185,14 @@ export interface DailyReview {
   sleep_hours: number | null;
   state_of_mind: number | null;
   notes: string | null;
+  /** Which way the morning read points. The `bias` text says why. */
+  bias_direction: BiasDirection | null;
+  /** What is on the economic calendar today. */
+  news: NewsLevel | null;
+  /** "CPI 8:30", "FOMC 14:00" — the event and when. */
+  news_note: string | null;
+  /** When the morning check-in was first saved. Set once, never rewritten. */
+  checked_in_at: string | null;
   created_at: string;
   updated_at: string;
 }

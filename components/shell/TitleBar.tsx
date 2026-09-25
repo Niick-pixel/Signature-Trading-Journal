@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 import { Wordmark } from './Wordmark';
+import { CheckInChip } from './MorningCheckIn';
 
 const TABS = [
   { href: '/', label: 'Whiteboard' },
@@ -78,6 +79,10 @@ export function TitleBar() {
         </div>
       </nav>
 
+      {/* Right-hand side, clear of the window buttons (see the padding above). */}
+      <div className="relative ml-auto flex items-center">
+        <CheckInChip />
+      </div>
     </header>
   );
 }

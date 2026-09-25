@@ -11,6 +11,9 @@ import { HypotheticalNote } from '@/components/money/MissedCard';
 import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/Bars';
 import { TitleBar } from '@/components/shell/TitleBar';
+import { MissedPatternsView } from '@/components/stats/MissedPatterns';
+import { missedPatterns } from '@/lib/missed';
+import { listDailyReviews } from '@/db/reviews';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,7 +141,16 @@ export default async function StatsPage(
           </header>
 
           {account !== 'All' && isHypothetical(account) && (
-            <div className="mb-5"><HypotheticalNote /></div>
+            <div className="mb-5 space-y-5">
+              <HypotheticalNote />
+              {/* Against every trade actually taken — a miss rate needs both sides. */}
+              <Panel
+                title="Where you hesitate"
+                note="Of the setups you saw under each condition, how many went without you — missed here, set against the trades you took in Demo, Live and Funded. The tick on each bar is your usual rate; a bar past it is a condition you freeze in. Faded rows have too few setups to mean anything yet."
+              >
+                <MissedPatternsView data={missedPatterns(all, listDailyReviews())} />
+              </Panel>
+            </div>
           )}
 
           {trades.length === 0 ? (

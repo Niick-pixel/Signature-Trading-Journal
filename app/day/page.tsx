@@ -3,10 +3,10 @@ import { getDailyReview } from '@/db/reviews';
 import { TitleBar } from '@/components/shell/TitleBar';
 import { DailyReviewForm } from '@/components/review/DailyReviewForm';
 import { DayTrades } from '@/components/review/DayTrades';
+import { localDay } from '@/lib/day';
 
 export const dynamic = 'force-dynamic';
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 /**
  * One record per trading day, independent of whether anything was traded.
@@ -20,7 +20,7 @@ export default async function DayPage(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const asked = (await searchParams).day;
-  const day = typeof asked === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : today();
+  const day = typeof asked === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : localDay();
   const onDay = listTrades()
     .filter((t) => t.date.slice(0, 10) === day)
     .sort((a, b) => a.date.localeCompare(b.date));

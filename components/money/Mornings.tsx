@@ -29,7 +29,7 @@ export function Mornings({ data }: { data: Conditions }) {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {data.factors.map((f) => <Factor key={f.key} factor={f} />)}
     </div>
   );
@@ -45,7 +45,8 @@ function Factor({ factor }: { factor: ConditionFactor }) {
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className="text-[13px] font-semibold">{factor.title}</h3>
         <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
-          {factor.answered} morning{factor.answered === 1 ? '' : 's'} answered
+          {factor.answered} {factor.key === 'checkin' ? 'traded day' : 'morning'}{factor.answered === 1 ? '' : 's'}
+          {factor.key === 'checkin' ? ' since the first' : ' answered'}
         </span>
       </div>
 

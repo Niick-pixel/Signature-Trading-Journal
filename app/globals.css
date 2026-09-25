@@ -540,6 +540,19 @@ h1, h2, h3 { letter-spacing: -0.022em; }
   will-change: transform;
 }
 
+/*
+  An explicit position beats the glass's own.
+
+  .glass sits outside any cascade layer, and unlayered CSS beats every Tailwind
+  utility — so `glass absolute` quietly rendered as position: relative. The
+  stack card's frosted overlay, the lightbox arrows, the screenshot's remove
+  button and the bottom-left popovers were all laid out in the flow instead of
+  where they were placed. Only position is handed back; everything else the
+  glass sets still wins, as the rest of the app expects.
+*/
+.glass.absolute { position: absolute; }
+.glass.fixed { position: fixed; }
+
 .glass::before {
   content: '';
   position: absolute;
@@ -698,3 +711,12 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
   background: var(--glass-fill-strong);
 }
 .signature-page hr { border: 0; border-top: 1px solid var(--glass-stroke); margin: 1.6em 0; }
+
+/* The morning check-in chip, until answered: one soft ring, not a siren. */
+@keyframes checkin-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
+}
+.checkin-ping { animation: checkin-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite; }
+[data-reduce-motion='true'] .checkin-ping { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .checkin-ping { animation: none; opacity: 0; } }

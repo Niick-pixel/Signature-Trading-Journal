@@ -320,6 +320,8 @@ function buildMenu() {
         { label: 'New Trade', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('signature:navigate', '/new') },
         { label: 'Whiteboard', accelerator: 'CmdOrCtrl+1', click: () => mainWindow?.webContents.send('signature:navigate', '/') },
         { label: 'Stats', accelerator: 'CmdOrCtrl+2', click: () => mainWindow?.webContents.send('signature:navigate', '/stats') },
+        { label: 'Calendar', accelerator: 'CmdOrCtrl+3', click: () => mainWindow?.webContents.send('signature:navigate', '/calendar') },
+        { label: 'Journal', accelerator: 'CmdOrCtrl+4', click: () => mainWindow?.webContents.send('signature:navigate', '/journal') },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],

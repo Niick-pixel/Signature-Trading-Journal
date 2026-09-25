@@ -313,6 +313,12 @@ export const REGRADES = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C', 'F'] as const;
 export type Regrade = (typeof REGRADES)[number];
 
 /** Why a valid setup was skipped. The plan calls this the most important sheet. */
+/** The morning check-in. See 013_morning_checkin.sql. */
+export const BIAS_DIRECTIONS = ['Bullish', 'Bearish', 'Neutral'] as const;
+export type BiasDirection = (typeof BIAS_DIRECTIONS)[number];
+export const NEWS_LEVELS = ['None', 'Medium', 'High'] as const;
+export type NewsLevel = (typeof NEWS_LEVELS)[number];
+
 export const SKIP_REASONS = ['Fear', 'Rule', 'Distracted', 'Missed it'] as const;
 export type SkipReason = (typeof SKIP_REASONS)[number];
 

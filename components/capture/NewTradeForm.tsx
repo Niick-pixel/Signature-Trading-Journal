@@ -206,7 +206,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
       // A dialog open over the form owns Escape; leaving would discard the entry.
       if (e.key === 'Escape' && !typing && !dialogIsOpen()) window.location.href = '/';
-      if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S' || e.key === 'Enter')) {
         e.preventDefault();
         submitRef.current?.();
       }
@@ -462,6 +462,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Field label="Account label" hint="Optional — which prop firm, which phase.">
             <Input placeholder="—" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
           </Field>
+          {/* A missed trade's most useful fact is why it was missed — the
+              hesitation patterns on Stats split by exactly this. */}
+          {isHypothetical(account) && outcome !== 'Not taken' && (
+            <Field label="Why you didn't take it" hint="Fear, a rule, not at the screen, or it simply went without you." className="sm:col-span-2">
+              <Select value={skipReason} onChange={setSkipReason} options={SKIP_REASONS} placeholder="Why really?" />
+            </Field>
+          )}
         </div>
 
         {/*

@@ -11,7 +11,7 @@ const asBool = (v: unknown) => (v == null ? null : v ? 1 : 0);
 const DAILY_FIELDS = [
   'account', 'bias', 'bias_screenshot', 'planned_killzones', 'planned_levels',
   'what_happened', 'bias_held', 'trades_planned', 'screen_minutes', 'sleep_hours',
-  'state_of_mind', 'notes',
+  'state_of_mind', 'notes', 'bias_direction', 'news', 'news_note',
 ] as const;
 
 function hydrateDaily(row: Record<string, unknown>): DailyReview {
@@ -36,23 +36,47 @@ export function listDailyReviews(): DailyReview[] {
  * these per trading day, and a second one would just be a way to disagree with
  * myself about what happened.
  */
-export function saveDailyReview(day: string, input: Partial<DailyReview>): DailyReview {
+export function saveDailyReview(
+  day: string, input: Partial<DailyReview>, opts: { checkIn?: boolean } = {},
+): DailyReview {
   const db = getDb();
   const values: Record<string, SQLInputValue> = { day };
   for (const f of DAILY_FIELDS) {
     const v = (input as Record<string, unknown>)[f];
     values[f] = f === 'bias_held' ? asBool(v) : (v === undefined ? null : v as SQLInputValue);
   }
+  /*
+    Only what was sent is overwritten.
+
+    The morning check-in writes five fields of a row the evening review
+    fills the rest of. Updating every column would have blanked "what the
+    market did" each time the morning was touched again — so a field the
+    caller left out keeps whatever the row already holds.
+  */
+  const sent = DAILY_FIELDS.filter((f) => (input as Record<string, unknown>)[f] !== undefined);
+  const sets = [
+    ...sent.map((f) => `${f} = excluded.${f}`),
+    // The first check-in is the one that counts: saving it again later, or
+    // after the session, must not make the morning look earlier than it was.
+    ...(opts.checkIn ? ['checked_in_at = COALESCE(daily_reviews.checked_in_at, excluded.checked_in_at)'] : []),
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+  ];
+  values.checked_in_at = opts.checkIn ? new Date().toISOString() : null;
 
   db.prepare(`
-    INSERT INTO daily_reviews (day, ${DAILY_FIELDS.join(', ')})
-    VALUES (@day, ${DAILY_FIELDS.map((f) => `@${f}`).join(', ')})
-    ON CONFLICT (day) DO UPDATE SET
-      ${DAILY_FIELDS.map((f) => `${f} = excluded.${f}`).join(', ')},
-      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    INSERT INTO daily_reviews (day, ${DAILY_FIELDS.join(', ')}, checked_in_at)
+    VALUES (@day, ${DAILY_FIELDS.map((f) => `@${f}`).join(', ')}, @checked_in_at)
+    ON CONFLICT (day) DO UPDATE SET ${sets.join(', ')}
   `).run(values);
 
   return getDailyReview(day)!;
+}
+
+/** A restored backup keeps the moment each morning was actually written. */
+export function restoreCheckIn(day: string, at: string): void {
+  if (Number.isNaN(Date.parse(at))) return;
+  getDb().prepare('UPDATE daily_reviews SET checked_in_at = ? WHERE day = ? AND checked_in_at IS NULL')
+    .run(at, day);
 }
 
 /* ---------------------------------------------------------- weekly review */

@@ -13,6 +13,8 @@ import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Panel, Stat } from '@/components/stats/Bars';
 import { BalanceCard } from '@/components/money/BalanceCard';
 import { HypotheticalNote, MissedCard } from '@/components/money/MissedCard';
+import { ReviewExport } from '@/components/money/ReviewExport';
+import { KeyNav } from '@/components/ui/KeyNav';
 import { Calendar } from '@/components/money/Calendar';
 import { Mornings } from '@/components/money/Mornings';
 import { conditions } from '@/lib/conditions';
@@ -154,6 +156,9 @@ export default async function CalendarPage(
                 <NavLink href={href(shift(-1))} label="← Previous" />
                 <NavLink href={href(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)} label="This month" />
                 <NavLink href={href(shift(1))} label="Next →" />
+                <ReviewExport month={asMonth} label={MONTHS[month]} />
+                <KeyNav prev={href(shift(-1))} next={href(shift(1))}
+                  home={href(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)} />
               </div>
 
               <Calendar grid={grid} cells={cells} today={today} scale={scale} written={written} />

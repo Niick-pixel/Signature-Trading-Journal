@@ -23,6 +23,8 @@ export interface Preferences {
   dimPassed: boolean;
   /** Skip entrance and layout animation. */
   reduceMotion: boolean;
+  /** Offer the morning check-in on the first screen of a trading day. */
+  askCheckIn: boolean;
   /**
    * Filter combinations worth returning to — "all rule breaks", "all A+
    * losers". Stored per machine with the rest of the furniture, because they
@@ -46,6 +48,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showGrid: true,
   dimPassed: true,
   reduceMotion: false,
+  askCheckIn: true,
   savedViews: [],
 };
 

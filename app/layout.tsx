@@ -5,6 +5,8 @@ import { BottomLeftControls } from '@/components/shell/SettingsPanel';
 import { PreferencesProvider } from '@/components/shell/PreferencesProvider';
 import { NewTradeButton } from '@/components/shell/NewTradeButton';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
+import { MorningCheckIn } from '@/components/shell/MorningCheckIn';
+import { Shortcuts } from '@/components/shell/Shortcuts';
 
 export const metadata: Metadata = {
   title: 'Signature',
@@ -32,6 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeToggle />
           </BottomLeftControls>
           <NewTradeButton />
+          <MorningCheckIn />
+          <Shortcuts />
         </PreferencesProvider>
       </body>
     </html>

@@ -5,17 +5,27 @@ import { motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
 
 export function Field({
-  label, hint, children, className = '',
-}: { label: string; hint?: string; children: React.ReactNode; className?: string }) {
+  label, hint, children, className = '', group = false,
+}: {
+  label: string; hint?: string; children: React.ReactNode; className?: string;
+  /**
+   * For a row of buttons rather than one control. A <label> labels only its
+   * FIRST labelable descendant — so around five buttons it named the first
+   * one after the whole field, and a click on the caption pressed it. A group
+   * names the row instead and a caption click does nothing.
+   */
+  group?: boolean;
+}) {
+  const Tag = group ? 'div' : 'label';
   return (
-    <label className={`block ${className}`}>
+    <Tag className={`block ${className}`} {...(group ? { role: 'group', 'aria-label': label } : {})}>
       <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.07em]"
         style={{ color: 'var(--text-faint)' }}>
         {label}
       </span>
       {children}
       {hint && <span className="mt-1.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{hint}</span>}
-    </label>
+    </Tag>
   );
 }
 

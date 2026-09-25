@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { press, spring, springSoft } from '@/lib/motion';
 import { currentTheme } from '@/lib/themes';
 import { ThemeGrid } from './ThemeGrid';
+import { THEME_TOGGLE } from './Shortcuts';
 
 /**
  * The theme button: opens the six themes, right where it sits.
@@ -27,6 +28,21 @@ export function ThemeToggle() {
     window.addEventListener('signature:theme', on);
     return () => window.removeEventListener('signature:theme', on);
   }, []);
+
+  // T opens it from the keyboard, with focus on the current theme so the
+  // arrow keys and Enter can pick another without the mouse.
+  useEffect(() => {
+    const toggle = () => setOpen((o) => !o);
+    window.addEventListener(THEME_TOGGLE, toggle);
+    return () => window.removeEventListener(THEME_TOGGLE, toggle);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => {
+      wrap.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   // Outside click and Escape close it.
   useEffect(() => {

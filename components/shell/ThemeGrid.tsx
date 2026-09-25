@@ -20,7 +20,20 @@ export function ThemeGrid({ compact = false }: { compact?: boolean }) {
   }, []);
 
   return (
-    <div className={`grid gap-2.5 ${compact ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`} role="radiogroup" aria-label="Theme">
+    <div className={`grid gap-2.5 ${compact ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`} role="radiogroup" aria-label="Theme"
+      onKeyDown={(e) => {
+        // A radio group moves with the arrows: the next theme is chosen and
+        // focused, and the reveal starts from the tile rather than the cursor.
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        if (!step) return;
+        e.preventDefault();
+        const i = THEMES.findIndex((t) => t.id === active);
+        const next = THEMES[(i + step + THEMES.length) % THEMES.length];
+        const tile = e.currentTarget.querySelector<HTMLElement>(`[data-theme-tile="${next.id}"]`);
+        const box = tile?.getBoundingClientRect();
+        applyTheme(next.id, box ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : undefined);
+        tile?.focus();
+      }}>
       {THEMES.map((t) => (
         <Tile key={t.id} theme={t} on={t.id === active} compact={compact} />
       ))}
@@ -35,13 +48,14 @@ function Tile({ theme: t, on, compact }: { theme: ThemeInfo; on: boolean; compac
       type="button"
       role="radio"
       aria-checked={on}
+      tabIndex={on ? 0 : -1}
       data-theme-tile={t.id}
       title={t.blurb}
       onClick={(e) => applyTheme(t.id, { x: e.clientX, y: e.clientY })}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
       transition={spring}
-      className="group rounded-[calc(14px*var(--rk))] p-1.5 text-left outline-none"
+      className="group rounded-[calc(14px*var(--rk))] p-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent)/0.5)]"
       style={{
         border: `1px solid ${on ? 'rgb(var(--accent) / 0.7)' : 'var(--glass-stroke)'}`,
         background: on ? 'rgb(var(--accent) / 0.08)' : 'transparent',

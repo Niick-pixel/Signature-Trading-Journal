@@ -127,32 +127,6 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     must never fire while I am halfway through writing an explanation, so every
     one of these bails out when focus is in a field.
   */
-  useEffect(() => {
-    if (readOnly) return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = document.activeElement;
-      const typing = el instanceof HTMLInputElement
-        || el instanceof HTMLTextAreaElement
-        || el instanceof HTMLSelectElement
-        || (el as HTMLElement | null)?.isContentEditable === true;
-
-      if (e.key === '/' && !typing) { e.preventDefault(); setSearching(true); return; }
-      if ((e.key === 'n' || e.key === 'N') && !typing && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        window.location.href = '/new';
-        return;
-      }
-      // The stack viewer is a dialog and closes itself; this only handles what
-      // is not one, so a single Escape never closes two layers at once.
-      if (e.key === 'Escape' && !searching && !dialogIsOpen()) {
-        // Innermost first: the viewer sits over the board, the panel over both.
-        if (openId) setOpenId(null);
-        else if (viewing) setViewing(null);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [readOnly, searching, openId, viewing]);
 
   /** Locked items refuse to move. Kept per machine — it is a working habit. */
   const [locked, setLocked] = useState<Set<string>>(new Set());
@@ -231,6 +205,83 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     () => computeLayout(visible, scale, groupMode, offsets),
     [visible, scale, groupMode, offsets],
   );
+
+  /*
+    Stepping through trades from the keyboard: J forward in time, K back.
+
+    It opens each trade in the panel and brings its card to the middle of
+    the board behind it, so closing the panel leaves you looking at the one
+    you were reading. From nothing open, J starts at the oldest and K at the
+    newest — the newest is usually where a review begins.
+  */
+  const stepTrade = useCallback((dir: 1 | -1) => {
+    const ordered = [...layout.nodes].sort((x, y) => x.trade.date.localeCompare(y.trade.date) || x.key.localeCompare(y.key));
+    if (ordered.length === 0) return;
+    const at = openId ? ordered.findIndex((n) => n.trade.id === openId) : -1;
+    const i = at === -1 ? (dir > 0 ? 0 : ordered.length - 1) : Math.min(ordered.length - 1, Math.max(0, at + dir));
+    const target = ordered[i];
+    setOpenId(target.trade.id);
+    const node = flow.getInternalNode(target.key);
+    if (node) {
+      const { x, y } = node.internals.positionAbsolute;
+      const w = node.measured.width ?? 0;
+      const h = node.measured.height ?? 0;
+      flow.setCenter(x + w / 2, y + h / 2, { zoom: Math.max(flow.getZoom(), 0.8), duration: 420 });
+    }
+  }, [layout.nodes, openId, flow]);
+
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      const typing = el instanceof HTMLInputElement
+        || el instanceof HTMLTextAreaElement
+        || el instanceof HTMLSelectElement
+        || (el as HTMLElement | null)?.isContentEditable === true;
+
+      if (e.key === '/' && !typing) { e.preventDefault(); setSearching(true); return; }
+      // N (new trade) is global now — see components/shell/Shortcuts.
+
+      if (!typing && !searching && !dialogIsOpen() && !e.ctrlKey && !e.metaKey && !e.altKey && !e.defaultPrevented) {
+        const pan = (dx: number, dy: number) => {
+          const v = flow.getViewport();
+          flow.setViewport({ ...v, x: v.x + dx, y: v.y + dy }, { duration: 160 });
+        };
+        // A focused card takes the arrows for itself (React Flow nudges it);
+        // everywhere else they move the view.
+        const onCard = (el as HTMLElement | null)?.closest?.('.react-flow__node') != null;
+        const handled = (() => {
+          switch (e.key) {
+            case 'j': case 'J': stepTrade(1); return true;
+            case 'k': case 'K': stepTrade(-1); return true;
+            case 'f': case 'F': if (openId) return false; flow.fitView({ padding: 0.08, duration: 400 }); return true;
+            case '0': flow.zoomTo(1, { duration: 320 }); return true;
+            case '+': case '=': flow.zoomIn({ duration: 220 }); return true;
+            case '-': case '_': flow.zoomOut({ duration: 220 }); return true;
+          }
+          if (openId || onCard) return false;
+          switch (e.key) {
+            case 'ArrowLeft': pan(140, 0); return true;
+            case 'ArrowRight': pan(-140, 0); return true;
+            case 'ArrowUp': pan(0, 140); return true;
+            case 'ArrowDown': pan(0, -140); return true;
+          }
+          return false;
+        })();
+        if (handled) { e.preventDefault(); return; }
+      }
+
+      // The stack viewer is a dialog and closes itself; this only handles what
+      // is not one, so a single Escape never closes two layers at once.
+      if (e.key === 'Escape' && !searching && !dialogIsOpen()) {
+        // Innermost first: the viewer sits over the board, the panel over both.
+        if (openId) setOpenId(null);
+        else if (viewing) setViewing(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [readOnly, searching, openId, viewing, flow, stepTrade]);
 
   /*
     Where you were looking, per grouping.
