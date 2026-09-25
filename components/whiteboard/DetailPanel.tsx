@@ -37,7 +37,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 function Group({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-[16px] px-4 py-2"
+      className="rounded-[calc(16px*var(--rk))] px-4 py-2"
       style={{ background: 'var(--glass-fill)', border: '1px solid var(--glass-stroke)' }}
     >
       {children}
@@ -156,7 +156,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
             <motion.div
               layoutId={`trade-${trade.id}`}
               transition={springSoft}
-              className="glass pointer-events-auto max-h-full w-full max-w-[54rem] overflow-y-auto rounded-[28px]"
+              className="glass pointer-events-auto max-h-full w-full max-w-[54rem] overflow-y-auto rounded-[calc(28px*var(--rk))]"
               style={{
                 borderColor: `rgb(${OUTCOME_COLOR[trade.outcome]} / 0.45)`,
                 boxShadow: `var(--shadow-panel), 0 0 60px -16px rgb(${OUTCOME_COLOR[trade.outcome]} / 0.5)`,
@@ -203,7 +203,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                     already know what Phase 3 is for. */}
                 {trade.outcome !== 'Not taken' && !trade.trigger_fired && (
                   <p
-                    className="mb-5 rounded-[14px] px-4 py-2.5 text-[12px] leading-snug"
+                    className="mb-5 rounded-[calc(14px*var(--rk))] px-4 py-2.5 text-[12px] leading-snug"
                     style={{
                       color: 'rgb(var(--outcome-loss))',
                       background: 'rgb(var(--outcome-loss) / 0.10)',
@@ -217,7 +217,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                 <p className="mb-6 whitespace-pre-wrap text-[13px] leading-relaxed">{trade.explanation}</p>
 
                 {trade.lesson && (
-                  <div className="mb-6 rounded-[16px] p-4"
+                  <div className="mb-6 rounded-[calc(16px*var(--rk))] p-4"
                     style={{ background: 'var(--glass-fill)', border: '1px solid var(--glass-stroke)' }}>
                     <div className="mb-1.5 text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
                       Lesson

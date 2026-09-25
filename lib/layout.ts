@@ -21,14 +21,18 @@ const BOARD_W = 2100;
  */
 const MIN_CLUSTER_W = 380;
 
-/** The screen the board is being laid out for, in CSS pixels. */
-export interface Fit { width: number; height: number }
-
-/*
-  React Flow's fitView leaves a margin of `padding` on each side, so the board
-  has to be this much smaller than the canvas to be shown at its true size.
-*/
-const FIT_PADDING = 1.16;
+/**
+ * The width the board is arranged to, in board pixels at 100%.
+ *
+ * Fixed on purpose. The board used to measure the window and re-pack to fit
+ * it, which meant anything that changed the window's size in CSS pixels —
+ * resizing it, or Ctrl +/- zoom — rebuilt the arrangement and moved groups
+ * between rows. An arrangement that shuffles when you zoom is not one you can
+ * learn, so this depends on the trades alone. 2300 is a 2560-wide screen with
+ * a margin each side, which is the screen this is used on: at 100% the whole
+ * width is in view and the board only ever scrolls downwards.
+ */
+export const BOARD_ROOM = 2300;
 
 /**
  * How many cards a group shows before the rest become a stack.
@@ -238,57 +242,31 @@ function pack(sizes: Array<{ width: number; height: number }>, wrapWidth: number
 }
 
 /**
- * The arrangement that reads biggest on the screen you actually have.
+ * The shortest board that fits BOARD_ROOM across.
  *
- * The board used to wrap at a flat 2100px whatever it was being shown on. Ten
- * groups then came to roughly 2600 wide and 2400 tall, and fitView answered
- * that by shrinking everything to 54% — at which point the chart on a card is
- * 100px across and there is no reading it. The shape of the board is the only
- * free variable here: the same ten groups laid out three-up instead of
- * five-up is a completely different rectangle, and one of those rectangles
- * matches the window far better than the others.
- *
- * So try each of them and keep whichever can be drawn largest, capping at 1:
- * past full size there is nothing further to gain, and the tie-break prefers
- * the shorter board because vertical scrolling is the one that loses you the
- * overview.
+ * A group's cards can be arranged square-ish or laid out wide, and which is
+ * better depends on its neighbours: a group two rows deep costs its whole row
+ * that height. So every shape the groups can take is tried, packed to the
+ * fixed width, and the shortest result wins, the narrower breaking a tie. It
+ * is deterministic — the same trades always give the same board.
  */
-function bestPack(counts: number[], scale: number, fit?: Fit) {
+function bestPack(counts: number[], scale: number) {
   const squares = counts.map((n) => clusterGrid(n, scale));
-  const fallback = () => ({ ...pack(squares, BOARD_W), grids: squares });
-  if (counts.length === 0) return fallback();
-  if (!fit || fit.width < 200 || fit.height < 200) return fallback();
+  let best = { ...pack(squares, BOARD_ROOM), grids: squares };
+  if (counts.length === 0) return best;
 
-  const room = { width: fit.width / FIT_PADDING, height: fit.height / FIT_PADDING };
-
-  let best = fallback();
-  let bestScore = -Infinity;
-
-  // Every shape the groups can take, against every width they can wrap at.
   const shapes: Array<number | undefined> = [undefined];
   for (let c = 1; c <= VISIBLE_PER_CLUSTER; c++) shapes.push(c);
 
   for (const maxCols of shapes) {
     const grids = maxCols === undefined ? squares : counts.map((n) => clusterGrid(n, scale, maxCols));
-    const widest = Math.max(...grids.map((g) => g.width));
-
-    const candidates = new Set<number>([BOARD_W]);
-    let run = 0;
-    for (const g of grids) {
-      run += g.width + CLUSTER_GAP;
-      candidates.add(Math.max(widest, run - CLUSTER_GAP));
-    }
-
-    for (const wrapWidth of candidates) {
-      const laid = pack(grids, wrapWidth);
-      const zoom = Math.min(room.width / laid.width, room.height / laid.height, 1);
-      // Biggest first; a shorter board breaks the tie.
-      const score = zoom * 1e6 - laid.height;
-      if (score > bestScore) {
-        bestScore = score;
-        best = { ...laid, grids };
-      }
-    }
+    const laid = pack(grids, BOARD_ROOM);
+    const fits = laid.width <= BOARD_ROOM;
+    const bestFits = best.width <= BOARD_ROOM;
+    const better = fits !== bestFits
+      ? fits
+      : laid.height < best.height || (laid.height === best.height && laid.width < best.width);
+    if (better) best = { ...laid, grids };
   }
   return best;
 }
@@ -365,8 +343,6 @@ export function computeLayout(
   mode: GroupMode = 'reason',
   /** Per-group nudges, keyed `${mode}::${key}`. See db/boardlayout.ts. */
   offsets: Record<string, { dx: number; dy: number }> = {},
-  /** The canvas this board is being drawn on, so it can be shaped to fit it. */
-  fit?: Fit,
 ): BoardLayout {
   const groups = groupsFor(trades, mode);
 
@@ -380,7 +356,7 @@ export function computeLayout(
 
   // Sized for what is actually drawn: up to five cards plus a stack tile.
   const counts = groups.map((g) => Math.min(g.trades.length, VISIBLE_PER_CLUSTER));
-  const packed = bestPack(counts, scale, fit);
+  const packed = bestPack(counts, scale);
   const grids = packed.grids;
   const nominalWidth = packed.width;
 

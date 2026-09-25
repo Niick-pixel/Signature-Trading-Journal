@@ -54,7 +54,7 @@ export function WhenHeatmap({ cells }: { cells: HeatCell[] }) {
                   onMouseEnter={() => cell && setHover(cell)}
                   onMouseLeave={() => setHover(null)}
                   title={cell ? `${DAYS[d]} ${h}:00 — ${cell.count} trade${cell.count === 1 ? '' : 's'}, ${cell.totalR < 0 ? '−' : '+'}${Math.abs(cell.totalR).toFixed(1)}R` : undefined}
-                  className="grid size-8 shrink-0 place-items-center rounded-[6px] text-[10px] tabular-nums"
+                  className="grid size-8 shrink-0 place-items-center rounded-[calc(6px*var(--rk))] text-[10px] tabular-nums"
                   style={{
                     background: hue
                       ? `rgb(${hue} / ${0.14 + intensity * 0.55})`

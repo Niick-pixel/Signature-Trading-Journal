@@ -31,7 +31,7 @@ export function TrashList({ trades }: { trades: Trade[] }) {
 
   if (trades.length === 0) {
     return (
-      <div className="glass rounded-[24px] p-8 text-center text-[13px]" style={{ color: 'var(--text-dim)' }}>
+      <div className="glass rounded-[calc(24px*var(--rk))] p-8 text-center text-[13px]" style={{ color: 'var(--text-dim)' }}>
         Nothing in the Trash.
       </div>
     );
@@ -48,13 +48,13 @@ export function TrashList({ trades }: { trades: Trade[] }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={spring}
-            className="glass flex flex-wrap items-center gap-4 rounded-[18px] p-4"
+            className="glass flex flex-wrap items-center gap-4 rounded-[calc(18px*var(--rk))] p-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/screenshots/${trade.screenshot_path}`}
               alt=""
-              className="size-14 shrink-0 rounded-[10px] object-cover"
+              className="size-14 shrink-0 rounded-[calc(10px*var(--rk))] object-cover"
               style={{ background: 'var(--letterbox)' }}
             />
 

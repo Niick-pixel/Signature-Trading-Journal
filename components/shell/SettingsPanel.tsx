@@ -8,6 +8,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { TogglePill } from '@/components/ui/TogglePill';
 import { usePreferences } from './PreferencesProvider';
 import type { Preferences } from '@/lib/preferences';
+import { ThemeGrid } from './ThemeGrid';
 
 interface Info {
   dataDir: string;
@@ -115,9 +116,16 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)',
             }}
             className="glass absolute bottom-full left-0 z-50 mb-3 max-h-[78vh] w-[24rem]
-              overflow-y-auto rounded-[22px] p-5"
+              overflow-y-auto rounded-[calc(22px*var(--rk))] p-5"
           >
             <h2 className="text-[14px] font-semibold tracking-tight">Settings</h2>
+
+            <Section
+              title="Theme"
+              hint="Six, all in warm creams. Each changes the surfaces, corners and headings, not only the colours."
+            >
+              <ThemeGrid />
+            </Section>
 
             <Section
               title="Text size"
@@ -193,7 +201,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Section>
 
             <Section title="Your journal lives here">
-              <p className="break-all rounded-[12px] p-2.5 text-[11px] leading-relaxed"
+              <p className="break-all rounded-[calc(12px*var(--rk))] p-2.5 text-[11px] leading-relaxed"
                 style={{ background: 'var(--glass-fill)', border: '1px solid var(--glass-stroke)' }}>
                 {info?.dataDir ?? 'Loading…'}
               </p>

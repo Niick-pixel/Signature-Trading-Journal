@@ -37,7 +37,7 @@ function NoteNodeInner({ data, selected }: NodeProps) {
 
   return (
     <div
-      className="group w-56 overflow-hidden rounded-[16px] p-3"
+      className="group w-56 overflow-hidden rounded-[calc(16px*var(--rk))] p-3"
       style={{
         background: 'rgb(var(--amber) / 0.14)',
         border: `1px solid rgb(var(--amber) / ${selected ? 0.7 : 0.35})`,
@@ -51,7 +51,7 @@ function NoteNodeInner({ data, selected }: NodeProps) {
         on screen the textarea is almost the entire note. Without a bar with
         actual height, moving a note is hunt-the-pixel.
       */}
-      <div className="-mx-3 -mt-3 mb-1.5 flex h-7 items-center justify-between rounded-t-[16px] px-3"
+      <div className="-mx-3 -mt-3 mb-1.5 flex h-7 items-center justify-between rounded-t-[calc(16px*var(--rk))] px-3"
         style={{ background: 'rgb(var(--amber) / 0.14)', cursor: locked ? 'default' : 'grab' }}>
         <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.1em]"
           style={{ color: 'var(--text-faint)' }}>
@@ -86,4 +86,14 @@ function NoteNodeInner({ data, selected }: NodeProps) {
   );
 }
 
-export const NoteNode = memo(NoteNodeInner);
+
+/*
+  Re-render only when what the node shows changes.
+
+  React Flow hands every node its absolute position as a prop, so moving a
+  group gave each card inside it new props on every frame of the drag — and
+  each card re-rendered, with Framer measuring its layout each time. That was
+  most of the 55ms of script per pointer move. What a node draws depends on its
+  data alone; its position is applied by React Flow to the wrapper around it.
+*/
+export const NoteNode = memo(NoteNodeInner, (a, b) => a.data === b.data && a.selected === b.selected);

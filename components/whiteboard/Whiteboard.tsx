@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Background, BackgroundVariant, ReactFlow, ReactFlowProvider, useReactFlow,
+  Background, BackgroundVariant, ReactFlowProvider, useReactFlow,
   type Edge, type Node, type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -22,6 +22,8 @@ import { ClusterNode } from './ClusterNode';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
 import { EdgeKey } from './EdgeKey';
+import { isHypothetical } from '@/lib/domain';
+import { LiveFlow } from './LiveFlow';
 import { dialogIsOpen } from '@/components/ui/Overlay';
 import { GroupViewer } from './GroupViewer';
 import { Toolbar, EMPTY_FILTERS, applyFilters, filtersActive, type Filters } from './Toolbar';
@@ -33,6 +35,27 @@ import { SearchPalette } from './SearchPalette';
 import { StreakBadge } from './StreakBadge';
 import { SavedViews } from './SavedViews';
 import { OUTCOME_COLOR, TradeNode } from './TradeNode';
+
+/** How far below the top of the canvas the board starts, clear of the floating toolbar. */
+const TOP_CLEARANCE = 150;
+
+type View = { x: number; y: number; zoom: number };
+const viewKey = (mode: string) => `signature.board.view.${mode}`;
+
+/** Storage can be unavailable or hold junk; either way the board just opens at 100%. */
+function readView(mode: string): View | null {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(viewKey(mode)) ?? 'null') as Partial<View> | null;
+    if (v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.zoom) && (v.zoom as number) > 0) {
+      return v as View;
+    }
+  } catch { /* fall through to the default view */ }
+  return null;
+}
+
+function writeView(mode: string, v: View) {
+  try { window.localStorage.setItem(viewKey(mode), JSON.stringify(v)); } catch { /* a view is a convenience */ }
+}
 
 const nodeTypes = {
   trade: TradeNode, cluster: ClusterNode, title: BoardTitle, note: NoteNode, stack: StackNode,
@@ -187,6 +210,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const scale = DENSITY_SCALE[prefs.boardDensity];
 
   const visible = useMemo(() => trades.filter(applyFilters(filters)), [trades, filters]);
+  const realTrades = useMemo(() => trades.filter((t) => !isHypothetical(t.account)), [trades]);
 
   /*
     Which node the pointer is on.
@@ -200,37 +224,44 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   */
   const [hovered, setHovered] = useState<string | null>(null);
 
-  /*
-    The canvas, measured, so the board can be shaped to the screen it is on.
-
-    Without this the regions wrapped at a flat 2100px and ten groups came out
-    as a rectangle that fitView could only show at 54% — a card's chart at
-    100px across, which is not a chart. Rounded to 40px so an idle resize does
-    not re-lay the whole board a pixel at a time.
-  */
+  /** The canvas, for placing the opening view. Never used to lay the board out. */
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<{ width: number; height: number } | undefined>(undefined);
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const round = (n: number) => Math.round(n / 40) * 40;
-    const measure = () => {
-      const r = el.getBoundingClientRect();
-      setFit((prev) => {
-        const next = { width: round(r.width), height: round(r.height) };
-        return prev && prev.width === next.width && prev.height === next.height ? prev : next;
-      });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const layout = useMemo(
-    () => computeLayout(visible, scale, groupMode, offsets, fit),
-    [visible, scale, groupMode, offsets, fit],
+    () => computeLayout(visible, scale, groupMode, offsets),
+    [visible, scale, groupMode, offsets],
   );
+
+  /*
+    Where you were looking, per grouping.
+
+    The board used to fitView on every load, so it opened at whatever zoom made
+    everything fit — 54%, 75%, never the same twice — and forgot any zoom you
+    had chosen. It now opens at 100% the first time, centred, with the title
+    clear of the toolbar, and after that exactly where you left it. Each
+    grouping keeps its own, since the reason board and the month board are
+    different shapes. Kept per machine, like the locks: a view is a working
+    habit, not part of the journal.
+  */
+  const [flowReady, setFlowReady] = useState(false);
+  const placedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!flowReady || layout.clusters.length === 0) return;
+    if (placedFor.current === groupMode) return;
+    placedFor.current = groupMode;
+    const saved = readOnly ? null : readView(groupMode);
+    if (saved) {
+      flow.setViewport(saved);
+      return;
+    }
+    const width = canvasRef.current?.getBoundingClientRect().width ?? 1600;
+    flow.setViewport({
+      x: Math.round(width / 2 - layout.nominalWidth / 2),
+      // The title sits 200 above the first row; this puts it just under the toolbar.
+      y: TOP_CLEARANCE + 200,
+      zoom: 1,
+    });
+  }, [flowReady, groupMode, layout.clusters.length, layout.nominalWidth, readOnly, flow]);
 
   /** Content bounding box plus a generous margin, for the pan wall. */
   const bounds = useMemo<[[number, number], [number, number]]>(() => {
@@ -339,13 +370,26 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       style: { width: cluster.width, height: cluster.height },
     }));
 
+    /*
+      Cards and stacks are children of their group, positioned relative to it.
+      Dragging a group then moves one node — React Flow carries the children —
+      instead of re-rendering every card in it on every frame of the drag.
+    */
+    const groupAt = new Map(layout.clusters.map((c) => [c.key, c]));
+    const inGroup = (groupKey: string, x: number, y: number) => {
+      const g = groupAt.get(groupKey);
+      return g
+        ? { parentId: `cluster-${groupKey}`, position: { x: x - g.x, y: y - g.y } }
+        : { position: { x, y } };
+    };
+
     const tradeNodes: Node[] = layout.nodes.map((n) => ({
       // The placement, not the trade: under 'mistake' one trade is legitimately
       // on the board more than once. Everything that acts on a card reads the
       // trade back out of the key, or off the node's own data.
       id: n.key,
       type: 'trade',
-      position: { x: n.x, y: n.y },
+      ...inGroup(n.key.slice(0, n.key.lastIndexOf('::')), n.x, n.y),
       data: {
         trade: n.trade,
         selected: selectMode ? selectedIds.has(n.trade.id) : openId === n.trade.id,
@@ -382,7 +426,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     const stackNodes: Node[] = layout.stacks.map((st) => ({
       id: `stack-${st.key}`,
       type: 'stack',
-      position: { x: st.x, y: st.y },
+      ...inGroup(st.key, st.x, st.y),
       data: {
         count: st.hidden.length,
         accent: st.accent,
@@ -537,7 +581,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         stroke: `rgb(${cluster.accent} / ${lit(`cluster-${cluster.key}`) ? 0.85 : 0.18})`,
         strokeWidth: lit(`cluster-${cluster.key}`) ? 2.6 : 1.4,
       },
-      zIndex: lit(`cluster-${cluster.key}`) ? 4 : 0,
+      // Always beneath the cards, lit or not: a branch to a lower row has to
+      // cross the rows above it, and drawn on top it cut straight through them.
+      zIndex: 0,
     }));
 
     return [
@@ -570,13 +616,14 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         arrangement, so it keeps its place whatever is being grouped by.
       */
       if (change.id.startsWith('note-')) {
+        // Held by LiveFlow while it moves; this is the drop.
         const noteId = change.id.slice(5);
         const { x, y } = change.position;
         setBoard((prev) => ({
           ...prev,
           notes: prev.notes.map((n) => (n.id === noteId ? { ...n, x, y } : n)),
         }));
-        if (change.dragging === false) moveNote(noteId, x, y);
+        moveNote(noteId, x, y);
         continue;
       }
 
@@ -608,6 +655,8 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         const dy = nudge.dy + (rest.y - cluster.y);
         if (dx === nudge.dx && dy === nudge.dy) continue;
 
+        // One render: the new offset lands as the held position is let go, so the
+        // group never flashes back to where it started.
         setOffsets((prev) => ({ ...prev, [`${groupMode}::${key}`]: { dx, dy } }));
         void fetch('/api/board/offsets', {
           method: 'POST',
@@ -667,12 +716,12 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       <div className="grid h-full place-items-center">
         <motion.div
           initial={{ opacity: 0, y: 12, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={springBouncy} className="glass max-w-sm rounded-[28px] p-9 text-center"
+          transition={springBouncy} className="glass max-w-sm rounded-[calc(28px*var(--rk))] p-9 text-center"
         >
           <motion.div
             initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             transition={{ ...springBouncy, delay: 0.08 }}
-            className="mx-auto mb-5 grid size-12 place-items-center rounded-[16px]"
+            className="mx-auto mb-5 grid size-12 place-items-center rounded-[calc(16px*var(--rk))]"
             style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-faint)' }}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -702,8 +751,10 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       {!readOnly && (
         <div className="shrink-0 px-4 pb-2">
           <div className="mb-2 flex items-center justify-center gap-2.5">
-            <StreakBadge trades={trades} />
-            <RiskBanner trades={trades} />
+            {/* Real trades only: a trade you did not take cannot break a daily
+                limit or a clean streak. */}
+            <StreakBadge trades={realTrades} />
+            <RiskBanner trades={realTrades} />
           </div>
           <Toolbar
             filters={filters}
@@ -739,17 +790,26 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       </AnimatePresence>
 
       {/* What the lines mean — bottom left, clear of the zoom controls. */}
-      <div className="pointer-events-none absolute bottom-5 left-[4.5rem] z-20">
+      <div className="pointer-events-none absolute bottom-5 left-[4.5rem] z-20 [&>*]:pointer-events-auto">
         <EdgeKey chains={prefs.showReasonEdges} leaks={prefs.showLeakEdges} />
       </div>
 
-      <ReactFlow
+      <LiveFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        fitView
-        fitViewOptions={{ padding: 0.08, maxZoom: 1 }}
+        onInit={() => setFlowReady(true)}
+        // An attribute on the canvas rather than state: toggling it must not
+        // re-render the board, or the thing meant to make moving cheap costs a
+        // render at the start and end of every pan.
+        onMoveStart={() => canvasRef.current?.setAttribute('data-moving', '')}
+        onMoveEnd={(_event, viewport) => {
+          canvasRef.current?.removeAttribute('data-moving');
+          if (!readOnly) writeView(groupMode, viewport);
+        }}
+        onNodeDragStart={() => canvasRef.current?.setAttribute('data-moving', '')}
+        onNodeDragStop={() => canvasRef.current?.removeAttribute('data-moving')}
         minZoom={0.12}
         maxZoom={2.2}
         /*
@@ -840,7 +900,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         {prefs.showGrid && (
           <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--board-dots)" />
         )}
-      </ReactFlow>
+      </LiveFlow>
 
       {/* Filtering to nothing used to leave a blank canvas with no explanation. */}
       <AnimatePresence>
@@ -852,7 +912,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
             transition={spring}
             className="pointer-events-none absolute inset-0 grid place-items-center"
           >
-            <div className="glass pointer-events-auto rounded-[24px] px-7 py-6 text-center">
+            <div className="glass pointer-events-auto rounded-[calc(24px*var(--rk))] px-7 py-6 text-center">
               <p className="text-[14px] font-medium">No trades match these filters</p>
               <p className="mt-1.5 text-[12px]" style={{ color: 'var(--text-dim)' }}>
                 {trades.length} trade{trades.length === 1 ? '' : 's'} are hidden.

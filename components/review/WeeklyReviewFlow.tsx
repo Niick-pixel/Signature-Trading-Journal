@@ -70,7 +70,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
   };
 
   return (
-    <motion.div {...riseIn} transition={spring} className="glass rounded-[28px] p-7 sm:p-9">
+    <motion.div {...riseIn} transition={spring} className="glass rounded-[calc(28px*var(--rk))] p-7 sm:p-9">
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Weekly review</h1>
@@ -128,7 +128,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
 
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`/api/screenshots/${trade.screenshot_path}`} alt="Chart"
-                className="mb-4 max-h-[38vh] w-full rounded-[16px] object-contain"
+                className="mb-4 max-h-[38vh] w-full rounded-[calc(16px*var(--rk))] object-contain"
                 style={{ background: 'var(--letterbox)' }} />
 
               {flagsFor(trade).length > 0 && (

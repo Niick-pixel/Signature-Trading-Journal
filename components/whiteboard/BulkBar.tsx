@@ -38,7 +38,7 @@ export function BulkBar({ count, onApply, onCancel }: BulkBarProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16 }}
       transition={spring}
-      className="glass pointer-events-auto flex flex-wrap items-center gap-3 rounded-[20px] px-4 py-3"
+      className="glass pointer-events-auto flex flex-wrap items-center gap-3 rounded-[calc(20px*var(--rk))] px-4 py-3"
     >
       <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'rgb(var(--accent))' }}>
         {count} selected

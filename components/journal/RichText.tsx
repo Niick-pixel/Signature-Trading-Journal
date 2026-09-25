@@ -171,7 +171,7 @@ export function RichText({
         onBlur={push}
         onPaste={onPaste}
         data-placeholder={placeholder}
-        className="signature-page min-h-[24rem] rounded-[18px] px-1 outline-none"
+        className="signature-page min-h-[24rem] rounded-[calc(18px*var(--rk))] px-1 outline-none"
         style={{ color: 'var(--text)' }}
       />
     </div>
@@ -180,7 +180,7 @@ export function RichText({
 
 function Group({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-0.5 rounded-[11px] p-0.5"
+    <div className="flex items-center gap-0.5 rounded-[calc(11px*var(--rk))] p-0.5"
       style={{ background: 'var(--glass-fill)', border: '1px solid var(--glass-stroke)' }}>
       {children}
     </div>
@@ -206,7 +206,7 @@ function Tool({
       onMouseDown={(e) => { if (onMouseDown) onMouseDown(e); else { e.preventDefault(); onClick(); } }}
       whileTap={press}
       transition={spring}
-      className="grid size-7 place-items-center rounded-[9px] text-[12px]"
+      className="grid size-7 place-items-center rounded-[calc(9px*var(--rk))] text-[12px]"
       style={{
         color: 'var(--text-dim)',
         fontWeight: bold ? 700 : 500,

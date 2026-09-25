@@ -59,7 +59,7 @@ export function TriState({ value, onChange, label, hint }: TriStateProps) {
                 boxShadow: on && accent ? `0 0 16px rgb(${accent} / 0.22)` : '0 0 0 rgb(0 0 0 / 0)',
               }}
               transition={spring}
-              className="flex-1 rounded-[12px] border px-3 py-2 text-[12px] font-medium"
+              className="flex-1 rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12px] font-medium"
               style={{
                 color: on
                   ? (accent ? `rgb(${accent})` : 'var(--text)')

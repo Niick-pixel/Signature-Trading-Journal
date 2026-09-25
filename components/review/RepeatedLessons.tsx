@@ -28,7 +28,7 @@ export function RepeatedLessons({ groups }: { groups: LessonGroup[] }) {
   return (
     <div className="space-y-4">
       {groups.slice(0, SHOW).map((g) => (
-        <div key={g.lessons[0].id} data-lesson-group className="rounded-[16px] border p-4"
+        <div key={g.lessons[0].id} data-lesson-group className="rounded-[calc(16px*var(--rk))] border p-4"
           style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}>
           <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <span className="text-[13px] font-semibold">

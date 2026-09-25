@@ -50,7 +50,7 @@ export function DayStrip({ trades }: { trades: DayTradeSummary[] }) {
 
   return (
     <div
-      className="mb-6 rounded-[16px] border px-4 py-3"
+      className="mb-6 rounded-[calc(16px*var(--rk))] border px-4 py-3"
       style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
     >
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -80,11 +80,11 @@ export function DayStrip({ trades }: { trades: DayTradeSummary[] }) {
             title={`${t.reason} · ${t.instrument} ${t.direction} · ${t.setup_type}${
               t.mistake_tags.length ? ` · ${t.mistake_tags.join(', ')}` : ''
             }`}
-            className="flex items-center gap-2 rounded-[11px] border px-2.5 py-1.5
+            className="flex items-center gap-2 rounded-[calc(11px*var(--rk))] border px-2.5 py-1.5
               transition-transform hover:scale-[1.03]"
             style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill-strong)' }}
           >
-            <span className="grid size-5 shrink-0 place-items-center rounded-[6px] text-[10px] font-semibold"
+            <span className="grid size-5 shrink-0 place-items-center rounded-[calc(6px*var(--rk))] text-[10px] font-semibold"
               style={{
                 color: `rgb(${GRADE_COLOR[t.grade_letter]})`,
                 background: `rgb(${GRADE_COLOR[t.grade_letter]} / 0.16)`,

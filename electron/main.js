@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
 const http = require('node:http');
+const { restoreWindowState, trackWindowState, rememberGround } = require('./window-state');
 
 const isDev = !app.isPackaged;
 const ROOT = path.join(__dirname, '..');
@@ -180,17 +181,17 @@ function startNext(port) {
 }
 
 function createWindow(port) {
+  const state = restoreWindowState(DATA_DIR);
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    ...state.options,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: SHELL_BG,
+    backgroundColor: state.ground ?? SHELL_BG,
     // Let the glass surfaces run to the edge; the traffic lights float over them.
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     titleBarOverlay: process.platform === 'darwin'
       ? undefined
-      : { ...TITLE_BAR.light, height: 44 },
+      : { ...(state.ground ? { color: state.ground, symbolColor: state.symbol } : TITLE_BAR.light), height: 44 },
     trafficLightPosition: process.platform === 'darwin' ? { x: 18, y: 20 } : undefined,
     show: false,
     webPreferences: {
@@ -201,8 +202,21 @@ function createWindow(port) {
     },
   });
 
-  // No white flash: wait until the first frame is actually ready.
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  // No white flash: wait until the first frame is actually ready — and come
+  // back the way the window was left.
+  mainWindow.once('ready-to-show', () => {
+    if (state.fullscreen) mainWindow.setFullScreen(true);
+    else if (state.maximize) mainWindow.maximize();
+    mainWindow.show();
+  });
+  // The saved zoom, once, on the first load. After that Chromium keeps
+  // whatever zoom is set for the rest of the session; re-applying the startup
+  // value on a later reload would undo a zoom made from the View menu, which
+  // reports no event.
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.setZoomFactor(state.zoomFactor);
+  });
+  trackWindowState(mainWindow, state.file);
 
   // Any real link opens in the user's browser, not inside the app frame.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -246,9 +260,17 @@ const TITLE_BAR = {
 };
 
 ipcMain.on('signature:titlebar-theme', (_event, theme) => {
+  // Six themes send their own colours; the old 'light' | 'dark' still works.
+  const valid = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+  const palette = theme && typeof theme === 'object' && valid(theme.color) && valid(theme.symbolColor)
+    ? { color: theme.color, symbolColor: theme.symbolColor }
+    : TITLE_BAR[theme === 'dark' ? 'dark' : 'light'];
+  // Remembered so the next launch opens on the right ground instead of
+  // flashing cream before a dark theme paints.
+  rememberGround(DATA_DIR, palette.color);
   if (process.platform === 'darwin' || !mainWindow || mainWindow.isDestroyed()) return;
-  const palette = TITLE_BAR[theme === 'dark' ? 'dark' : 'light'];
   try {
+    mainWindow.setBackgroundColor(palette.color);
     mainWindow.setTitleBarOverlay({ ...palette, height: 44 });
   } catch {
     /* not every platform supports a title bar overlay */

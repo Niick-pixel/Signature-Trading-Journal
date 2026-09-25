@@ -28,7 +28,7 @@ function Scale({ value, onChange, label, hint }: {
               borderColor: value === n ? 'rgb(var(--accent) / 0.6)' : 'var(--glass-stroke)',
               background: value === n ? 'rgb(var(--accent) / 0.12)' : 'var(--glass-fill)',
             }}
-            className="flex-1 rounded-[12px] border py-2 text-[13px] font-medium"
+            className="flex-1 rounded-[calc(12px*var(--rk))] border py-2 text-[13px] font-medium"
             style={{ color: value === n ? 'rgb(var(--accent))' : 'var(--text-faint)' }}
           >
             {n}
@@ -79,7 +79,7 @@ export function DailyReviewForm({ day, existing, tradesOnDay }: {
   };
 
   return (
-    <motion.div {...riseIn} transition={spring} className="glass rounded-[28px] p-7 sm:p-9">
+    <motion.div {...riseIn} transition={spring} className="glass rounded-[calc(28px*var(--rk))] p-7 sm:p-9">
       <div className="mb-7 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Daily review</h1>

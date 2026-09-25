@@ -59,7 +59,7 @@ export function Input({
     <motion.div
       animate={glow.animate}
       transition={glow.transition}
-      className={`glass overflow-hidden rounded-[14px] ${className}`}
+      className={`glass overflow-hidden rounded-[calc(14px*var(--rk))] ${className}`}
     >
       <input
         {...rest}

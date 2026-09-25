@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
+import { CountUp } from '@/components/ui/CountUp';
 
 const WIN = 'var(--outcome-win)';
 const LOSS = 'var(--outcome-loss)';
@@ -44,7 +45,7 @@ export function SignedBars({ rows }: { rows: BarRow[] }) {
         return (
           <div
             key={row.label}
-            className="relative rounded-[12px] px-2 py-1.5"
+            className="relative rounded-[calc(12px*var(--rk))] px-2 py-1.5"
             style={row.highlight
               ? { background: 'rgb(var(--accent) / 0.09)', boxShadow: 'inset 0 0 0 1px rgb(var(--accent) / 0.35)' }
               : undefined}
@@ -130,13 +131,13 @@ export function Stat({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={spring}
-      className="glass rounded-[18px] px-4 py-3.5"
+      className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5"
     >
       <div className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
         {label}
       </div>
       <div className="mt-1.5 tabular-nums text-[19px] font-semibold leading-none" style={{ color }}>
-        {value}
+        <CountUp text={value} />
       </div>
       {sub && (
         <div className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{sub}</div>
@@ -166,7 +167,7 @@ export function Panel({ title, note, children }: { title: string; note?: string;
       initial={{ opacity: 0, y: 10, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={spring}
-      className="glass rounded-[24px] p-6"
+      className="glass rounded-[calc(24px*var(--rk))] p-6"
     >
       <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
       {note && <p className="mb-4 mt-1 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{note}</p>}

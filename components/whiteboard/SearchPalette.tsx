@@ -81,7 +81,7 @@ export function SearchPalette({ trades, pages = [], open, onClose, onOpenTrade }
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.99 }}
               transition={springSoft}
-              className="glass pointer-events-auto w-full max-w-[40rem] overflow-hidden rounded-[22px]"
+              className="glass pointer-events-auto w-full max-w-[40rem] overflow-hidden rounded-[calc(22px*var(--rk))]"
               style={{ background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)' }}
             >
               <input

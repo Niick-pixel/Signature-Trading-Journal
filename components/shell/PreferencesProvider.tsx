@@ -25,6 +25,10 @@ export function usePreferences() {
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
 
+  // Everything rendered after this point arrived by navigation, not with the
+  // page — see CountUp, which only counts figures that arrive.
+  useEffect(() => { window.__signatureHydrated = true; }, []);
+
   useEffect(() => {
     const stored = readPreferences();
     setPrefs(stored);

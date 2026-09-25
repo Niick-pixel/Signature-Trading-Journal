@@ -20,22 +20,22 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
   return (
     <div className="grid h-dvh place-items-center p-8">
-      <div className="glass w-full max-w-lg rounded-[24px] p-7">
+      <div className="glass w-full max-w-lg rounded-[calc(24px*var(--rk))] p-7">
         <h1 className="text-[17px] font-semibold tracking-tight">This screen hit an error</h1>
         <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--text-dim)' }}>
           Your journal is untouched — this is a display problem, not a data one.
         </p>
-        <pre className="mt-4 max-h-52 overflow-auto whitespace-pre-wrap rounded-[14px] p-3 text-[11px] leading-relaxed"
+        <pre className="mt-4 max-h-52 overflow-auto whitespace-pre-wrap rounded-[calc(14px*var(--rk))] p-3 text-[11px] leading-relaxed"
           style={{ background: 'var(--glass-fill)', border: '1px solid var(--glass-stroke)', color: 'var(--text-dim)' }}>
           {error.message}{error.digest ? `\n\ndigest: ${error.digest}` : ''}
         </pre>
         <div className="mt-5 flex gap-2">
           <button type="button" onClick={reset}
-            className="rounded-[14px] px-5 py-2.5 text-[13px] font-semibold"
+            className="rounded-[calc(14px*var(--rk))] px-5 py-2.5 text-[13px] font-semibold"
             style={{ background: 'rgb(var(--accent))', color: 'var(--bg-raised)' }}>
             Try again
           </button>
-          <a href="/" className="glass rounded-[14px] px-5 py-2.5 text-[13px] font-medium">Back to the board</a>
+          <a href="/" className="glass rounded-[calc(14px*var(--rk))] px-5 py-2.5 text-[13px] font-medium">Back to the board</a>
         </div>
         <p className="mt-4 text-[11px]" style={{ color: 'var(--text-faint)' }}>
           Also written to errors.log next to your journal.

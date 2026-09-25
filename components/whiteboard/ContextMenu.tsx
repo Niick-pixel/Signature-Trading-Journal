@@ -29,7 +29,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState | null; onClose
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={springSoft}
-            className="glass fixed z-[61] min-w-[9.5rem] overflow-hidden rounded-[14px] py-1"
+            className="glass fixed z-[61] min-w-[9.5rem] overflow-hidden rounded-[calc(14px*var(--rk))] py-1"
             style={{
               // Kept inside the window: a menu opened near the right edge used
               // to run off it.

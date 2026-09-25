@@ -16,7 +16,7 @@ function ControlButton({
       transition={spring}
       aria-label={label}
       title={label}
-      className="grid size-8 place-items-center rounded-[10px]"
+      className="grid size-8 place-items-center rounded-[calc(10px*var(--rk))]"
       style={{ color: 'var(--text-dim)' }}
     >
       {children}
@@ -29,11 +29,11 @@ function ControlButton({
  * fixed scale, and scroll-wheel zoom alone is not discoverable.
  */
 export function BoardControls({ onRecluster }: { onRecluster: () => void }) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
 
   return (
-    <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-[14px] p-1">
+    <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-[calc(14px*var(--rk))] p-1">
       <ControlButton label="Zoom out" onClick={() => zoomOut({ duration: 220 })}>
         <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
           <circle cx="9" cy="9" r="5.6" stroke="currentColor" strokeWidth="1.5" />
@@ -43,9 +43,12 @@ export function BoardControls({ onRecluster }: { onRecluster: () => void }) {
 
       <button
         type="button"
-        onClick={() => fitView({ padding: 0.08, duration: 320 })}
-        title="Fit every trade on screen"
-        className="min-w-[3.1rem] rounded-[10px] px-1 py-1 text-center tabular-nums text-[11px] font-medium"
+        // 100% is where the board opens and the size it is laid out for, so
+        // the readout is also the way back to it. Fitting everything is the
+        // button beside it.
+        onClick={() => zoomTo(1, { duration: 320 })}
+        title="Back to 100%"
+        className="min-w-[3.1rem] rounded-[calc(10px*var(--rk))] px-1 py-1 text-center tabular-nums text-[11px] font-medium"
         style={{ color: 'var(--text-dim)' }}
       >
         {Math.round(zoom * 100)}%

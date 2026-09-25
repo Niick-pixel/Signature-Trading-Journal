@@ -122,7 +122,7 @@ export function Select<T extends string>({
             : 'var(--shadow-card), 0 0 0px rgb(0 0 0 / 0)',
           borderColor: glowing ? `rgb(${activeAccent} / 0.55)` : 'var(--glass-stroke)',
         }}
-        className="glass flex w-full items-center justify-between gap-3 rounded-[14px] px-4 py-2.5
+        className="glass flex w-full items-center justify-between gap-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5
           text-left text-[13px] disabled:opacity-40"
         style={{ color: value ? 'var(--text)' : 'var(--text-faint)' }}
       >
@@ -156,7 +156,7 @@ export function Select<T extends string>({
                 boxShadow: 'var(--shadow-panel)',
                 background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)',
               }}
-              className="glass z-[100] max-h-72 overflow-y-auto rounded-[18px] p-1.5"
+              className="glass z-[100] max-h-72 overflow-y-auto rounded-[calc(18px*var(--rk))] p-1.5"
             >
               {options.map((option, i) => {
                 const optionAccent = accentFor?.(option) ?? accent;
@@ -171,7 +171,7 @@ export function Select<T extends string>({
                     transition={stagger(i)}
                     onPointerEnter={() => setActive(i)}
                     onClick={() => commit(option)}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-[11px] px-3 py-2 text-[13px]"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-[calc(11px*var(--rk))] px-3 py-2 text-[13px]"
                     style={{
                       background: i === active ? `rgb(${optionAccent} / 0.16)` : 'transparent',
                       color: selected ? `rgb(${optionAccent})` : 'var(--text)',

@@ -3,7 +3,7 @@ import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { journalDays } from '@/db/journal';
 import { listDailyReviews } from '@/db/reviews';
-import { ACCOUNTS, ACCOUNT_VALUES, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MONEY_ACCOUNTS, isHypothetical, type Account } from '@/lib/domain';
 import { adherenceOf } from '@/lib/adherence';
 import { balanceFor } from '@/lib/balance';
 import { accountsInUse, forAccount } from '@/lib/stats';
@@ -12,6 +12,7 @@ import { TitleBar } from '@/components/shell/TitleBar';
 import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Panel, Stat } from '@/components/stats/Bars';
 import { BalanceCard } from '@/components/money/BalanceCard';
+import { HypotheticalNote, MissedCard } from '@/components/money/MissedCard';
 import { Calendar } from '@/components/money/Calendar';
 import { Mornings } from '@/components/money/Mornings';
 import { conditions } from '@/lib/conditions';
@@ -64,7 +65,8 @@ export default async function CalendarPage(
     a different direction — then on wherever the money is, and only on 'All'
     when that is explicitly asked for.
   */
-  const offered = accounts.find((a) => ACCOUNTS.includes(a.account));
+  // A real account, never Missed: the calendar opens on money that moved.
+  const offered = accounts.find((a) => MONEY_ACCOUNTS.includes(a.account));
   const fallback: Account = offered?.account
     ?? events[0]?.account
     ?? accounts[0]?.account
@@ -127,7 +129,7 @@ export default async function CalendarPage(
   return (
     <div className="flex h-dvh flex-col">
       <TitleBar />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="signature-enter min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[72rem] px-6 pb-20 pt-4">
           <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-[22px] font-semibold tracking-tight">Calendar</h1>
@@ -135,7 +137,14 @@ export default async function CalendarPage(
           </header>
 
           <div className="space-y-5">
-            <BalanceCard balance={balance} account={account} events={visibleEvents} />
+            {account !== 'All' && isHypothetical(account) ? (
+              <>
+                <HypotheticalNote />
+                <MissedCard trades={scoped} />
+              </>
+            ) : (
+              <BalanceCard balance={balance} account={account} events={visibleEvents} />
+            )}
 
             <Panel
               title={`${MONTHS[month]} ${year}`}

@@ -1,5 +1,5 @@
 import { listTrades } from '@/db/trades';
-import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isHypothetical, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
@@ -7,6 +7,7 @@ import {
   preGradedOnly, rByMistakeTag, rByReason,
 } from '@/lib/stats';
 import { EquityChart } from '@/components/stats/EquityChart';
+import { HypotheticalNote } from '@/components/money/MissedCard';
 import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/Bars';
 import { TitleBar } from '@/components/shell/TitleBar';
@@ -46,7 +47,9 @@ export default async function StatsPage(
     ? 'All'
     : (ACCOUNT_VALUES as readonly string[]).includes(requested ?? '')
       ? (requested as Account)
-      : (accounts[0]?.account ?? 'Backtest (FX Replay)');
+      // The busiest REAL account: Missed is opened only by choosing it.
+      : (accounts.find((a) => !isHypothetical(a.account))?.account
+        ?? accounts[0]?.account ?? 'Live');
 
   const scoped = forAccount(all, account);
 
@@ -110,7 +113,7 @@ export default async function StatsPage(
   return (
     <div className="flex h-dvh flex-col">
       <TitleBar />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="signature-enter min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[68rem] px-6 pb-20 pt-4">
           <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-[22px] font-semibold tracking-tight">Stats</h1>
@@ -134,8 +137,12 @@ export default async function StatsPage(
             </div>
           </header>
 
+          {account !== 'All' && isHypothetical(account) && (
+            <div className="mb-5"><HypotheticalNote /></div>
+          )}
+
           {trades.length === 0 ? (
-            <div className="glass rounded-[24px] p-8 text-center text-[13px]" style={{ color: 'var(--text-dim)' }}>
+            <div className="glass rounded-[calc(24px*var(--rk))] p-8 text-center text-[13px]" style={{ color: 'var(--text-dim)' }}>
               Nothing to measure yet.
             </div>
           ) : (

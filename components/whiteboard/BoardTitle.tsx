@@ -26,7 +26,7 @@ function BoardTitleInner({ data }: NodeProps) {
       initial={{ opacity: 0, y: -10, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={springBouncy}
-      className="glass rounded-[26px] px-10 py-6 text-center"
+      className="glass rounded-[calc(26px*var(--rk))] px-10 py-6 text-center"
       style={{
         borderColor: 'rgb(var(--accent) / 0.4)',
         boxShadow: 'var(--shadow-panel), 0 0 50px -14px rgb(var(--accent) / 0.5)',
@@ -53,4 +53,14 @@ function BoardTitleInner({ data }: NodeProps) {
   );
 }
 
-export const BoardTitle = memo(BoardTitleInner);
+
+/*
+  Re-render only when what the node shows changes.
+
+  React Flow hands every node its absolute position as a prop, so moving a
+  group gave each card inside it new props on every frame of the drag — and
+  each card re-rendered, with Framer measuring its layout each time. That was
+  most of the 55ms of script per pointer move. What a node draws depends on its
+  data alone; its position is applied by React Flow to the wrapper around it.
+*/
+export const BoardTitle = memo(BoardTitleInner, (a, b) => a.data === b.data);

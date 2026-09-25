@@ -37,7 +37,11 @@
 }
 
 /*
-  Light is the default. Dark is opt-in via data-theme="dark" on <html>.
+  Light is the default. There are six themes in two families: data-mode is
+  the family (light or dark palette for grades, outcomes and reasons, which
+  must differ between a pale and a dark ground), and data-theme is the theme,
+  which layers its own ground, type, surface and shape on top. See
+  lib/themes.ts.
 
   System preference is deliberately NOT consulted: the app should open light on
   a machine set to dark, and only go dark if you ask it to.
@@ -58,7 +62,10 @@
   /* The specular top edge — on light surfaces it is pure white, and it is
      still the line that sells the glass. */
   --glass-specular: rgba(255, 255, 255, 0.95);
-  --glass-blur: blur(24px) saturate(180%);
+  /* None, on purpose — see .glass. The originals are translucent, not frosted. */
+  --glass-blur: none;
+  /* Glass on the whiteboard, where there is no blur — see .react-flow__node below. */
+  --node-fill: rgba(251, 247, 238, 0.94);
 
   /* Layered shadows: one tight, one wide and soft. Never a single flat one. */
   --shadow-card:
@@ -70,9 +77,19 @@
 
   /* Amber. 4.95:1 on the parchment ground — measured, not guessed. */
   --accent: 138 82 5;
+
+  /*
+    Shape and type, per theme.
+
+    --rk scales every corner in the app: each one is written as its own pixel
+    size times this, so a theme can make the whole interface sharp or soft
+    without any component knowing. --font-display is the heading face.
+  */
+  --rk: 1;
+  --font-display: var(--font-sans);
 }
 
-:root[data-theme='dark'] {
+:root[data-mode='dark'] {
   color-scheme: dark;
 
   --bg: #131009;
@@ -89,6 +106,7 @@
   --glass-fill-strong: rgba(255, 238, 210, 0.10);
   --glass-stroke: rgba(255, 226, 178, 0.15);
   --glass-specular: rgba(255, 240, 214, 0.44);
+  --node-fill: rgba(36, 30, 22, 0.94);
 
   --shadow-card:
     0 1px 2px rgba(0, 0, 0, 0.55),
@@ -164,7 +182,7 @@
   --scrollbar-hover: rgba(88, 66, 38, 0.4);
 }
 
-:root[data-theme='dark'] {
+:root[data-mode='dark'] {
   --reason-0: 98 218 162;
   --reason-1: 98 218 194;
   --reason-2: 218 106 98;
@@ -204,6 +222,178 @@
   --scrollbar: rgba(255, 226, 178, 0.18);
   --scrollbar-hover: rgba(255, 226, 178, 0.3);
 }
+
+
+/* ======================================================================
+   The themes.
+
+   Every text/ground pair below was measured against WCAG before it was
+   written down: body text is at least 12.5:1 and the faintest small label at
+   least 4.5:1 in all six (the script lives with the tests). Cream and
+   Espresso are the two original themes and need nothing here.
+   ====================================================================== */
+
+/* LEDGER — an accountant's book. Flat ruled paper, hairlines instead of glass,
+   near-square corners and a serif for the headings. */
+:root[data-theme='ledger'] {
+  --bg: #efe8d8;
+  --bg-raised: #fbf7ee;
+  --text: #1c1914;
+  --text-dim: #443b2e;
+  --text-faint: #665a47;
+  --glass-fill: rgba(251, 247, 238, 0.97);
+  --glass-fill-strong: rgba(253, 250, 243, 0.99);
+  --glass-stroke: rgba(60, 45, 25, 0.24);
+  --glass-specular: transparent;
+  --glass-blur: none;
+  --node-fill: rgba(251, 247, 238, 0.98);
+  --shadow-card: 0 1px 0 rgba(60, 42, 22, 0.10);
+  --shadow-panel: 0 1px 0 rgba(60, 42, 22, 0.12), 0 12px 28px -18px rgba(60, 42, 22, 0.28);
+  --accent: 128 34 34;
+  --board-dots: rgba(60, 45, 25, 0.16);
+  --mark-ground: #1c1914;
+  --mark-ink: #efe8d8;
+  --rk: 0.3;
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+}
+:root[data-theme='ledger'] body::before {
+  inset: 0;
+  filter: none;
+  background:
+    linear-gradient(to right, transparent 71px, rgba(168, 58, 48, 0.16) 71px 72px, transparent 72px),
+    repeating-linear-gradient(to bottom, transparent 0 31px, rgba(70, 104, 150, 0.09) 31px 32px);
+}
+:root[data-theme='ledger'] h1,
+:root[data-theme='ledger'] h2,
+:root[data-theme='ledger'] h3 { letter-spacing: -0.005em; font-weight: 600; }
+
+/* SAGE — soft frost on a green-tinged cream. Rounder, gentler, quieter. */
+:root[data-theme='sage'] {
+  --bg: #e6e6d6;
+  --bg-raised: #f4f4e8;
+  --text: #1d2319;
+  --text-dim: #414c37;
+  --text-faint: #5a654e;
+  --glass-fill: rgba(248, 248, 238, 0.66);
+  --glass-fill-strong: rgba(250, 250, 242, 0.86);
+  --glass-stroke: rgba(60, 80, 45, 0.14);
+  --glass-specular: rgba(255, 255, 250, 0.9);
+  --glass-blur: blur(14px) saturate(130%);
+  --node-fill: rgba(247, 247, 237, 0.95);
+  --shadow-card: 0 2px 4px rgba(45, 60, 35, 0.06), 0 22px 48px -20px rgba(45, 60, 35, 0.22);
+  --shadow-panel: 0 4px 10px rgba(45, 60, 35, 0.08), 0 44px 96px -30px rgba(45, 60, 35, 0.28);
+  --accent: 66 98 52;
+  --board-dots: rgba(60, 80, 45, 0.22);
+  --mark-ground: #1d2319;
+  --mark-ink: #c9d8a8;
+  --rk: 1.3;
+}
+:root[data-theme='sage'] body::before {
+  background:
+    radial-gradient(42rem 34rem at 16% 10%, rgba(138, 168, 110, 0.24), transparent 62%),
+    radial-gradient(38rem 30rem at 86% 18%, rgba(196, 184, 120, 0.18), transparent 62%),
+    radial-gradient(46rem 36rem at 60% 96%, rgba(110, 140, 110, 0.18), transparent 62%);
+}
+
+/* TERRACOTTA — sun-baked sand and clay. Flat and matte, bold condensed
+   headings, a firm offset shadow instead of a soft glow. */
+:root[data-theme='terracotta'] {
+  --bg: #ecdcc6;
+  --bg-raised: #f8efe2;
+  --text: #2a1911;
+  --text-dim: #583828;
+  --text-faint: #704e3b;
+  --glass-fill: rgba(248, 239, 226, 0.96);
+  --glass-fill-strong: rgba(250, 243, 233, 0.99);
+  --glass-stroke: rgba(120, 58, 28, 0.22);
+  --glass-specular: rgba(255, 250, 242, 0.7);
+  --glass-blur: none;
+  --node-fill: rgba(248, 239, 226, 0.98);
+  --shadow-card: 0 2px 0 rgba(120, 58, 28, 0.14);
+  --shadow-panel: 0 3px 0 rgba(120, 58, 28, 0.16), 0 20px 40px -24px rgba(120, 58, 28, 0.3);
+  --accent: 158 62 30;
+  --board-dots: rgba(120, 58, 28, 0.2);
+  --mark-ground: #2a1911;
+  --mark-ink: #e7a37c;
+  --rk: 0.7;
+  --font-display: Bahnschrift, 'DIN Alternate', 'DIN 2014', 'Segoe UI', system-ui, sans-serif;
+}
+:root[data-theme='terracotta'] body::before {
+  filter: blur(40px);
+  background:
+    radial-gradient(40rem 30rem at 20% 6%, rgba(214, 120, 70, 0.22), transparent 60%),
+    radial-gradient(44rem 32rem at 90% 30%, rgba(222, 168, 96, 0.2), transparent 62%),
+    radial-gradient(40rem 34rem at 50% 100%, rgba(170, 92, 60, 0.16), transparent 62%);
+}
+:root[data-theme='terracotta'] h1,
+:root[data-theme='terracotta'] h2,
+:root[data-theme='terracotta'] h3 { letter-spacing: 0.005em; font-weight: 650; }
+
+/* NIGHTFALL — ink-blue night with cream type and brass. Glass after dark. */
+:root[data-theme='nightfall'] {
+  --bg: #0e1220;
+  --bg-raised: #161b2b;
+  --text: #f1e8d6;
+  --text-dim: #c9bb9c;
+  --text-faint: #a3977b;
+  --glass-fill: rgba(226, 214, 190, 0.06);
+  --glass-fill-strong: rgba(226, 214, 190, 0.1);
+  --glass-stroke: rgba(226, 204, 160, 0.15);
+  --glass-specular: rgba(240, 226, 196, 0.4);
+  --glass-blur: blur(22px) saturate(160%);
+  --node-fill: rgba(24, 30, 46, 0.95);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+  --shadow-panel: 0 2px 4px rgba(0, 0, 0, 0.62), 0 40px 96px -24px rgba(0, 0, 0, 0.85);
+  --accent: 218 174 96;
+  --board-dots: rgba(226, 204, 160, 0.14);
+  --mark-ground: #0e1220;
+  --mark-ink: #dab060;
+  --scrollbar: rgba(226, 204, 160, 0.18);
+  --scrollbar-hover: rgba(226, 204, 160, 0.3);
+}
+:root[data-theme='nightfall'] body::before {
+  background:
+    radial-gradient(42rem 34rem at 18% 8%,  rgba(64, 96, 170, 0.22), transparent 62%),
+    radial-gradient(38rem 30rem at 88% 22%, rgba(196, 150, 70, 0.12), transparent 62%),
+    radial-gradient(46rem 36rem at 62% 96%, rgba(60, 120, 140, 0.14), transparent 62%);
+}
+
+/*
+  Switching theme: the new theme opens out as a circle from the click (see
+  applyTheme). The browser's default cross-fade is switched off so it does
+  not blend the two themes into a muddy middle frame underneath the circle.
+*/
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+  Arriving on a page.
+
+  Each tab's content rises a few pixels and fades in, its first sections a
+  beat apart, so switching tabs reads as moving to a place rather than as the
+  screen being replaced. CSS only, on plain wrappers — never on an element
+  Framer is animating, where two animations would fight over the transform.
+  The title bar is outside the wrapper and stays perfectly still.
+*/
+@keyframes signature-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.signature-enter > * { animation: signature-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.signature-enter > * > * { animation: signature-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.signature-enter > * > *:nth-child(2) { animation-delay: 40ms; }
+.signature-enter > * > *:nth-child(3) { animation-delay: 80ms; }
+.signature-enter > * > *:nth-child(4) { animation-delay: 120ms; }
+.signature-enter > * > *:nth-child(n + 5) { animation-delay: 150ms; }
+@media (prefers-reduced-motion: reduce) {
+  .signature-enter > *, .signature-enter > * > * { animation: none; }
+}
+
+/* Headings take the theme's face. */
+h1, h2, h3 { font-family: var(--font-display); }
 
 html, body {
   height: 100%;
@@ -267,7 +457,7 @@ body::before {
   filter: blur(28px);
 }
 
-:root[data-theme='dark'] body::before {
+:root[data-mode='dark'] body::before {
   background:
     radial-gradient(42rem 34rem at 18% 8%,  rgba(232, 158, 52, 0.16), transparent 62%),
     radial-gradient(38rem 30rem at 88% 22%, rgba(186, 104, 40, 0.13), transparent 62%),
@@ -300,11 +490,56 @@ h1, h2, h3 { letter-spacing: -0.022em; }
 .glass {
   position: relative;
   background: var(--glass-fill);
+  /*
+    Unprefixed only. Written as a prefixed/unprefixed pair, the CSS compiler
+    kept just -webkit-backdrop-filter, which Chromium ignores — so from the
+    day this became a desktop app, no glass surface was ever actually blurred.
+    The originals (Cream, Espresso) are kept exactly as they have been seen
+    since, with --glass-blur: none; real frost is what Sage and Nightfall add.
+  */
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-stroke);
   box-shadow: var(--shadow-card);
 }
+/*
+  No backdrop blur on the whiteboard.
+
+  A backdrop-filter has to re-read and re-blur whatever is behind it every time
+  that changes — and on the board, panning or dragging changes it on every
+  frame, for every card, badge, chip and region at once. Thirty-nine of them
+  took a pan to about twelve frames a second. Inside the canvas the glass is a
+  near-opaque fill instead: it reads as the same frosted surface at rest, and
+  moves as a flat texture. Everywhere outside the board keeps real glass.
+*/
+.react-flow__node .glass,
+.react-flow__node [class*='backdrop-blur'],
+.react-flow__node [style*='backdrop-filter'] {
+  /*
+    Unprefixed only. Written as a prefixed/unprefixed pair, the CSS compiler
+    collapsed the two into just -webkit-backdrop-filter — which Chromium does
+    not read — and the whole override silently did nothing. Electron is
+    Chromium, so the unprefixed property is the one that counts.
+  */
+  backdrop-filter: none !important;
+}
+.react-flow__node .glass {
+  background: var(--node-fill);
+}
+
+/*
+  The board as one moving picture, but only while it moves.
+
+  Promoted to its own layer, a pan slides the already-drawn board instead of
+  repainting it: about a quarter of the paint per frame. Left on permanently,
+  though, the browser keeps the board at the resolution it was first drawn at,
+  and text goes soft after zooming in — so data-moving is set on the canvas
+  while a pan, zoom or drag is under way and cleared the moment it stops, when
+  the board is redrawn crisp at whatever zoom it landed on.
+*/
+[data-moving] .react-flow__viewport {
+  will-change: transform;
+}
+
 .glass::before {
   content: '';
   position: absolute;
@@ -378,8 +613,8 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
   opacity: 0.45;
   cursor: pointer;
 }
-:root[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
-:root[data-theme='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator {
+:root[data-mode='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+:root[data-mode='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.55;
 }

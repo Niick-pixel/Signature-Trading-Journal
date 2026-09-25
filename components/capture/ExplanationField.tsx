@@ -47,7 +47,7 @@ export function ExplanationField({
   return (
     <div>
       <motion.div
-        className="glass overflow-hidden rounded-[18px]"
+        className="glass overflow-hidden rounded-[calc(18px*var(--rk))]"
         animate={glow.animate}
         transition={glow.transition}
       >

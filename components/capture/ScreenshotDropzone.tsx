@@ -99,7 +99,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
         }}
         transition={spring}
         className="glass relative grid min-h-[220px] cursor-pointer place-items-center
-          overflow-hidden rounded-[24px] p-4"
+          overflow-hidden rounded-[calc(24px*var(--rk))] p-4"
       >
         <AnimatePresence mode="wait">
           {shown ? (
@@ -112,7 +112,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
               className="relative w-full"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={shown} alt="Chart screenshot" className="max-h-[420px] w-full rounded-[16px] object-contain" />
+              <img src={shown} alt="Chart screenshot" className="max-h-[420px] w-full rounded-[calc(16px*var(--rk))] object-contain" />
               <motion.button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onFile(null); }}
@@ -140,7 +140,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
               <motion.div
                 animate={{ y: dragging ? -4 : 0, scale: dragging ? 1.08 : 1 }}
                 transition={spring}
-                className="mx-auto mb-3.5 grid size-11 place-items-center rounded-[14px]"
+                className="mx-auto mb-3.5 grid size-11 place-items-center rounded-[calc(14px*var(--rk))]"
                 style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-dim)' }}
               >
                 <svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden>

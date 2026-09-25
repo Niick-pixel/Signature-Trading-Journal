@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 
@@ -19,7 +20,7 @@ export interface StackNodeData {
  * cards is a wall, not information — the two that matter are the two you just
  * took, and the rest are one click away.
  */
-export function StackNode({ data }: { data: StackNodeData }) {
+function StackNodeInner({ data }: { data: StackNodeData }) {
   const { count, accent, label, onOpen, scale } = data as unknown as StackNodeData;
 
   return (
@@ -33,13 +34,13 @@ export function StackNode({ data }: { data: StackNodeData }) {
       className="relative block h-full w-full text-left"
     >
       {/* Two offset plates behind the face, so the depth is the affordance. */}
-      <span className="absolute inset-x-2 -bottom-1.5 top-3 rounded-[16px]"
+      <span className="absolute inset-x-2 -bottom-1.5 top-3 rounded-[calc(16px*var(--rk))]"
         style={{ background: `rgb(${accent} / 0.10)`, border: `1px solid rgb(${accent} / 0.18)` }} />
-      <span className="absolute inset-x-1 -bottom-0.5 top-1.5 rounded-[16px]"
+      <span className="absolute inset-x-1 -bottom-0.5 top-1.5 rounded-[calc(16px*var(--rk))]"
         style={{ background: `rgb(${accent} / 0.14)`, border: `1px solid rgb(${accent} / 0.24)` }} />
 
       <span
-        className="glass absolute inset-0 grid place-items-center rounded-[16px]"
+        className="glass absolute inset-0 grid place-items-center rounded-[calc(16px*var(--rk))]"
         style={{ borderColor: `rgb(${accent} / 0.4)` }}
       >
         <span className="text-center leading-none">
@@ -58,3 +59,14 @@ export function StackNode({ data }: { data: StackNodeData }) {
     </motion.button>
   );
 }
+
+/*
+  Re-render only when what the node shows changes.
+
+  React Flow hands every node its absolute position as a prop, so moving a
+  group gave each card inside it new props on every frame of the drag — and
+  each card re-rendered, with Framer measuring its layout each time. That was
+  most of the 55ms of script per pointer move. What a node draws depends on its
+  data alone; its position is applied by React Flow to the wrapper around it.
+*/
+export const StackNode = memo(StackNodeInner, (a, b) => a.data === b.data);

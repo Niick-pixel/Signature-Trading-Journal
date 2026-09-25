@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  accountOptions, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TARGET_TYPES, TRADE_STATUSES,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -338,7 +338,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   useEffect(() => { submitRef.current = () => { void submit(); }; });
 
   return (
-    <motion.div {...riseIn} transition={spring} className="glass mx-auto rounded-[28px] p-6 sm:p-8 xl:p-10 2xl:p-8">
+    <motion.div {...riseIn} transition={spring} className="glass mx-auto rounded-[calc(28px*var(--rk))] p-6 sm:p-8 xl:p-10 2xl:p-8">
       <div className="mb-7 flex items-start justify-between gap-4 2xl:mb-5">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold">{editing ? 'Edit trade' : 'New trade'}</h1>
@@ -376,7 +376,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       {restored && (
         <motion.div
           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={spring}
-          className="mb-6 flex flex-wrap items-center gap-3 rounded-[14px] px-4 py-2.5 text-[12px]"
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5 text-[12px]"
           style={{
             background: 'rgb(var(--accent) / 0.10)',
             border: '1px solid rgb(var(--accent) / 0.3)',
@@ -448,7 +448,15 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           figure in the app a lie.
         */}
         <div className="mb-7 grid gap-5 sm:grid-cols-2">
-          <Field label="Account" hint="Backtest R and live R never sum into the same number.">
+          <Field
+            label="Account"
+            hint={isHypothetical(account)
+              // Missed is not Passed: Passed is a setup you chose not to take,
+              // which is often the right call. Missed is one you wanted and
+              // did not take — and its outcome is the price of that.
+              ? 'Missed: a setup you hesitated on or missed. Log it as if you had taken it — the outcome and R it would have had. It never joins a real total.'
+              : 'Backtest R and live R never sum into the same number.'}
+          >
             <Select value={account} onChange={setAccount} options={accountOptions(account)} />
           </Field>
           <Field label="Account label" hint="Optional — which prop firm, which phase.">
@@ -773,7 +781,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                       borderColor: confidence === n ? `rgb(${accent} / 0.6)` : 'var(--glass-stroke)',
                       background: confidence === n ? `rgb(${accent} / 0.12)` : 'var(--glass-fill)',
                     }}
-                    className="flex-1 rounded-[12px] border py-2 text-[13px] font-medium"
+                    className="flex-1 rounded-[calc(12px*var(--rk))] border py-2 text-[13px] font-medium"
                     style={{ color: confidence === n ? `rgb(${accent})` : 'var(--text-faint)' }}
                   >
                     {'★'.repeat(n)}
@@ -815,7 +823,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         {error && (
           <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             transition={spring}
-            className="mt-4 whitespace-pre-wrap break-words rounded-[14px] p-3 text-[12px] leading-relaxed"
+            className="mt-4 whitespace-pre-wrap break-words rounded-[calc(14px*var(--rk))] p-3 text-[12px] leading-relaxed"
             style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
             {error}
           </motion.p>

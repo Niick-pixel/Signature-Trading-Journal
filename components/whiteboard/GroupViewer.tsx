@@ -39,7 +39,7 @@ export function GroupViewer({
       onClose={onClose}
       lift={18}
       scrim={{ opacity: 0.5, blur: 4 }}
-      className="flex max-h-[86vh] w-[min(76rem,calc(100vw-3rem))] flex-col rounded-[26px] p-6"
+      className="flex max-h-[86vh] w-[min(76rem,calc(100vw-3rem))] flex-col rounded-[calc(26px*var(--rk))] p-6"
     >
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
@@ -89,7 +89,7 @@ export function GroupViewer({
                     whileHover={{ scale: 1.02 }}
                     whileTap={press}
                     transition={spring}
-                    className="overflow-hidden rounded-[18px] border text-left"
+                    className="overflow-hidden rounded-[calc(18px*var(--rk))] border text-left"
                     style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -108,7 +108,7 @@ export function GroupViewer({
                             {' · '}{t.instrument} {t.direction}{' · '}{t.setup_type}
                           </span>
                         </span>
-                        <span className="grid size-7 shrink-0 place-items-center rounded-[9px] text-[11px] font-semibold"
+                        <span className="grid size-7 shrink-0 place-items-center rounded-[calc(9px*var(--rk))] text-[11px] font-semibold"
                           style={{
                             color: `rgb(${GRADE_COLOR[t.grade_letter]})`,
                             background: `rgb(${GRADE_COLOR[t.grade_letter]} / 0.14)`,

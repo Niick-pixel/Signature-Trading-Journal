@@ -155,7 +155,7 @@ export function JournalBook({ initial, tradesByDay }: {
   return (
     <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
       {/* ------------------------------------------------------------ spine */}
-      <aside className="glass flex max-h-[calc(100dvh-8rem)] flex-col rounded-[24px] p-4">
+      <aside className="glass flex max-h-[calc(100dvh-8rem)] flex-col rounded-[calc(24px*var(--rk))] p-4">
         <Button variant="primary" onClick={() => setPicking(true)} className="w-full">
           New page
         </Button>
@@ -182,7 +182,7 @@ export function JournalBook({ initial, tradesByDay }: {
                   key={p.id}
                   type="button"
                   onClick={() => setOpenId(p.id)}
-                  className="block w-full rounded-[13px] border px-3 py-2.5 text-left"
+                  className="block w-full rounded-[calc(13px*var(--rk))] border px-3 py-2.5 text-left"
                   style={{
                     borderColor: p.id === openId ? 'rgb(var(--accent) / 0.5)' : 'transparent',
                     background: p.id === openId ? 'rgb(var(--accent) / 0.10)' : 'transparent',
@@ -212,7 +212,7 @@ export function JournalBook({ initial, tradesByDay }: {
 
       {/* ------------------------------------------------------------- page */}
       {open === null ? (
-        <div className="glass grid place-items-center rounded-[24px] p-10 text-center">
+        <div className="glass grid place-items-center rounded-[calc(24px*var(--rk))] p-10 text-center">
           <div>
             <p className="text-[15px] font-medium">Nothing open</p>
             <p className="mt-1.5 max-w-sm text-[13px]" style={{ color: 'var(--text-dim)' }}>
@@ -224,7 +224,7 @@ export function JournalBook({ initial, tradesByDay }: {
         </div>
       ) : (
         <motion.article {...riseIn} transition={spring} key={open.id}
-          className="glass rounded-[24px] p-7 sm:p-9">
+          className="glass rounded-[calc(24px*var(--rk))] p-7 sm:p-9">
           {/*
             Explicit keys on the direct children.
 
@@ -263,7 +263,7 @@ export function JournalBook({ initial, tradesByDay }: {
                 value={open.day}
                 onChange={(e) => e.target.value && patch(open.id, { day: e.target.value })}
                 title="The date this page is about"
-                className="rounded-[11px] border px-2.5 py-1.5 text-[12px] outline-none"
+                className="rounded-[calc(11px*var(--rk))] border px-2.5 py-1.5 text-[12px] outline-none"
                 style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)', color: 'var(--text-dim)' }}
               />
               <Button
@@ -312,7 +312,7 @@ export function JournalBook({ initial, tradesByDay }: {
         open={picking}
         onClose={() => setPicking(false)}
         className="w-[min(32rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)]
-          overflow-y-auto rounded-[24px] p-6"
+          overflow-y-auto rounded-[calc(24px*var(--rk))] p-6"
       >
         <h2 className="text-[17px] font-semibold">Start a page</h2>
         <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
@@ -327,7 +327,7 @@ export function JournalBook({ initial, tradesByDay }: {
               onClick={() => void startPage(t.key)}
               whileTap={press}
               transition={spring}
-              className="block w-full rounded-[14px] border px-4 py-3 text-left"
+              className="block w-full rounded-[calc(14px*var(--rk))] border px-4 py-3 text-left"
               style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
             >
               <span className="block text-[13px] font-medium">{t.label}</span>

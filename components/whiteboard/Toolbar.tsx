@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { OUTCOMES, SESSIONS, type Outcome, type Session } from '@/lib/domain';
-import { ACCOUNT_VALUES, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, isHypothetical, type Account } from '@/lib/domain';
 import { GRADE_MAX } from '@/lib/grade';
 import { GROUP_LABELS, GROUP_MODES, type GroupMode } from '@/lib/layout';
 import { hasOpenFlags } from '@/lib/flags';
@@ -48,7 +48,10 @@ export function applyFilters(filters: Filters) {
     // The starting list for a weekly review: every record that argues with
     // itself and has not been explained away.
     if (filters.onlyFlagged && !hasOpenFlags(t)) return false;
-    if (filters.account !== 'All' && t.account !== filters.account) return false;
+    // 'All' is every account that traded. Missed trades are on the board only
+    // when Missed is chosen: in a reason cluster their hypothetical R would sit
+    // inside the real total and move it.
+    if (filters.account === 'All' ? isHypothetical(t.account) : t.account !== filters.account) return false;
     return true;
   };
 }
@@ -60,7 +63,7 @@ function DateField({ value, onChange }: { value: string; onChange: (v: string) =
     <motion.div
       animate={glow.animate}
       transition={glow.transition}
-      className="glass overflow-hidden rounded-[11px]"
+      className="glass overflow-hidden rounded-[calc(11px*var(--rk))]"
     >
       <input
         type="date"
@@ -128,7 +131,7 @@ export function Toolbar({
         one long ragged line with a hole in the middle.
       */
       className="glass pointer-events-auto mx-auto flex max-w-[92rem] flex-wrap items-center
-        justify-center gap-x-5 gap-y-2.5 rounded-[20px] px-5 py-2.5"
+        justify-center gap-x-5 gap-y-2.5 rounded-[calc(20px*var(--rk))] px-5 py-2.5"
     >
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>

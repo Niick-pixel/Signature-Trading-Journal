@@ -58,7 +58,7 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
           return (
             <div
               key={flag.key}
-              className="rounded-[14px] px-4 py-3"
+              className="rounded-[calc(14px*var(--rk))] px-4 py-3"
               style={{
                 background: isDismissed ? 'var(--glass-fill)' : `rgb(${AMBER} / 0.09)`,
                 border: `1px solid ${isDismissed ? 'var(--glass-stroke)' : `rgb(${AMBER} / 0.30)`}`,

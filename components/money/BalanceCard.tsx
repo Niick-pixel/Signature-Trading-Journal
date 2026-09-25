@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ACCOUNTS, type Account } from '@/lib/domain';
+import { MONEY_ACCOUNTS, type Account } from '@/lib/domain';
 import type { Balance } from '@/lib/balance';
 import type { CashEvent } from '@/lib/types';
 import { press, spring, springSoft } from '@/lib/motion';
@@ -12,6 +12,7 @@ import { Field, Input } from '@/components/ui/Field';
 import { Segmented } from '@/components/ui/Segmented';
 import { Select } from '@/components/ui/Select';
 import { Overlay } from '@/components/ui/Overlay';
+import { CountUp } from '@/components/ui/CountUp';
 
 const usd = (v: number) =>
   `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString(undefined, {
@@ -89,7 +90,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
 
   return (
     <>
-      <div className="glass rounded-[24px] p-6">
+      <div className="glass rounded-[calc(24px*var(--rk))] p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <span className="text-[11px] font-medium uppercase tracking-[0.07em]"
@@ -101,7 +102,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
                 color: balance.current == null ? 'var(--text-faint)'
                   : balance.current >= 0 ? 'var(--text)' : 'rgb(var(--outcome-loss))',
               }}>
-              {balance.current == null ? '—' : usd(balance.current)}
+              {balance.current == null ? '—' : <CountUp text={usd(balance.current)} />}
             </div>
             <p className="mt-2.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
               {account === 'All'
@@ -135,7 +136,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
           stop checking against the broker.
         */}
         {incomplete && (
-          <p className="mt-4 rounded-[14px] px-3.5 py-2.5 text-[11px] leading-relaxed"
+          <p className="mt-4 rounded-[calc(14px*var(--rk))] px-3.5 py-2.5 text-[11px] leading-relaxed"
             style={{
               background: 'rgb(var(--amber) / 0.10)',
               border: '1px solid rgb(var(--amber) / 0.28)',
@@ -217,7 +218,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
         open={open}
         onClose={() => setOpen(false)}
         className="w-[min(28rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)]
-          overflow-y-auto rounded-[24px] p-6"
+          overflow-y-auto rounded-[calc(24px*var(--rk))] p-6"
       >
         <h2 className="text-[17px] font-semibold">Add money</h2>
         <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
@@ -235,7 +236,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Account">
-              <Select value={target} onChange={setTarget} options={ACCOUNTS} />
+              <Select value={target} onChange={setTarget} options={MONEY_ACCOUNTS} />
             </Field>
             <Field label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -248,7 +249,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
         </div>
 
         {error && (
-          <p className="mt-4 rounded-[12px] p-2.5 text-[12px]"
+          <p className="mt-4 rounded-[calc(12px*var(--rk))] p-2.5 text-[12px]"
             style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
             {error}
           </p>

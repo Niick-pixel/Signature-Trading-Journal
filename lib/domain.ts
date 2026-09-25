@@ -243,7 +243,7 @@ export type MistakeTag = (typeof MISTAKE_TAGS)[number];
  * the form stopped offering it would make those rows fail validation on their
  * next edit, which is the app refusing to save its own history.
  */
-export const ACCOUNT_VALUES = ['Backtest (FX Replay)', 'Demo', 'Live', 'Funded'] as const;
+export const ACCOUNT_VALUES = ['Backtest (FX Replay)', 'Demo', 'Live', 'Funded', 'Missed'] as const;
 export type Account = (typeof ACCOUNT_VALUES)[number];
 
 /**
@@ -252,7 +252,23 @@ export type Account = (typeof ACCOUNT_VALUES)[number];
  * Backtesting moved out of this journal, so it is no longer offered — but see
  * ACCOUNT_VALUES: not offered is not the same as not allowed.
  */
-export const ACCOUNTS: readonly Account[] = ['Demo', 'Live', 'Funded'];
+export const ACCOUNTS: readonly Account[] = ['Demo', 'Live', 'Funded', 'Missed'];
+
+/**
+ * Accounts whose trades did not happen.
+ *
+ * 'Missed' holds the setups I saw and hesitated on or missed, logged with the
+ * outcome and R they would have had. That makes it the one place that can say
+ * what hesitation costs — and the one account whose numbers must never join a
+ * real total, a risk limit, a streak or a balance. A hypothetical +2R summed
+ * into a live month is a month that did not happen.
+ */
+export const HYPOTHETICAL_ACCOUNTS: readonly Account[] = ['Missed'];
+export const isHypothetical = (account: string | null | undefined): boolean =>
+  (HYPOTHETICAL_ACCOUNTS as readonly string[]).includes(account ?? '');
+
+/** Where money can go in and out: real accounts only. */
+export const MONEY_ACCOUNTS: readonly Account[] = ACCOUNTS.filter((a) => !isHypothetical(a));
 
 /**
  * The options a picker should show, given what is already selected.

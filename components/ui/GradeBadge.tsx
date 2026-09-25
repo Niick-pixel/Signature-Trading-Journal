@@ -46,9 +46,9 @@ export function GradeBadge({
   const color = prompt && showPrompt ? AMBER : GRADE_COLOR[letter];
 
   const dims = {
-    sm: { box: 'size-9 rounded-[11px]', letter: 'text-[13px]', num: 'text-[8px]' },
-    md: { box: 'size-12 rounded-[14px]', letter: 'text-lg', num: 'text-[9px]' },
-    lg: { box: 'size-20 rounded-[20px]', letter: 'text-[34px]', num: 'text-[11px]' },
+    sm: { box: 'size-9 rounded-[calc(11px*var(--rk))]', letter: 'text-[13px]', num: 'text-[8px]' },
+    md: { box: 'size-12 rounded-[calc(14px*var(--rk))]', letter: 'text-lg', num: 'text-[9px]' },
+    lg: { box: 'size-20 rounded-[calc(20px*var(--rk))]', letter: 'text-[34px]', num: 'text-[11px]' },
   }[size];
 
   return (

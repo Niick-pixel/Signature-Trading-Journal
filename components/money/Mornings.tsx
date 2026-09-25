@@ -40,7 +40,7 @@ function Factor({ factor }: { factor: ConditionFactor }) {
   const max = Math.max(0.0001, ...factor.rows.map((row) => Math.abs(row.stats.avgR ?? 0)));
 
   return (
-    <div data-factor={factor.key} className="flex flex-col rounded-[18px] border p-4"
+    <div data-factor={factor.key} className="flex flex-col rounded-[calc(18px*var(--rk))] border p-4"
       style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}>
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className="text-[13px] font-semibold">{factor.title}</h3>

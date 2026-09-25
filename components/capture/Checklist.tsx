@@ -79,7 +79,7 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
                       opacity: na ? 0.55 : 1,
                     }}
                     transition={spring}
-                    className="flex w-full items-start gap-1 rounded-[14px] border pr-2 text-left"
+                    className="flex w-full items-start gap-1 rounded-[calc(14px*var(--rk))] border pr-2 text-left"
                   >
                     <motion.button
                       type="button"
@@ -93,7 +93,7 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
                     >
                       <span className="relative mt-0.5 grid size-[17px] shrink-0 place-items-center">
                         <motion.span
-                          className="absolute inset-0 rounded-[5px]"
+                          className="absolute inset-0 rounded-[calc(5px*var(--rk))]"
                           animate={{
                             background: on ? `rgb(${accent} / 0.22)` : 'var(--glass-fill-strong)',
                             scale: on ? 1 : 0.88,
@@ -143,7 +143,7 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
                         onClick={() => onChange(item.key, na ? false : null)}
                         whileTap={press}
                         transition={spring}
-                        className="mt-2.5 shrink-0 rounded-[7px] px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
+                        className="mt-2.5 shrink-0 rounded-[calc(7px*var(--rk))] px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
                         style={{
                           color: na ? 'var(--text-dim)' : on ? `rgb(${accent})` : 'var(--text-faint)',
                           background: na ? 'var(--glass-fill-strong)' : 'transparent',

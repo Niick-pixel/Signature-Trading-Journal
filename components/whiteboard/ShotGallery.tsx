@@ -66,11 +66,11 @@ export function ShotGallery({ tradeId, editable = true }: { tradeId: string; edi
               src={url(shot.path)}
               alt={shot.slot}
               onClick={() => setOpen(i)}
-              className="size-24 cursor-zoom-in rounded-[12px] object-cover"
+              className="size-24 cursor-zoom-in rounded-[calc(12px*var(--rk))] object-cover"
               style={{ background: 'var(--letterbox)', border: '1px solid var(--glass-stroke)' }}
             />
             <span
-              className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded-[7px] px-1.5 py-0.5 text-center text-[9px]"
+              className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded-[calc(7px*var(--rk))] px-1.5 py-0.5 text-center text-[9px]"
               style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-dim)' }}
             >
               {shot.slot}
@@ -81,7 +81,7 @@ export function ShotGallery({ tradeId, editable = true }: { tradeId: string; edi
                 <select
                   value={shot.slot}
                   onChange={(e) => relabel(shot.id, e.target.value as ShotSlot)}
-                  className="mr-1 rounded-[7px] px-1 py-0.5 text-[9px]"
+                  className="mr-1 rounded-[calc(7px*var(--rk))] px-1 py-0.5 text-[9px]"
                   style={{ background: 'var(--bg-raised)', border: '1px solid var(--glass-stroke)', color: 'var(--text-dim)' }}
                 >
                   {SHOT_SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -105,7 +105,7 @@ export function ShotGallery({ tradeId, editable = true }: { tradeId: string; edi
 
         {editable && (
           <label
-            className="grid size-24 cursor-pointer place-items-center rounded-[12px] text-center text-[10px] leading-tight"
+            className="grid size-24 cursor-pointer place-items-center rounded-[calc(12px*var(--rk))] text-center text-[10px] leading-tight"
             style={{
               border: '1px dashed var(--glass-stroke)',
               background: 'var(--glass-fill)',

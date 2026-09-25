@@ -50,7 +50,7 @@ export function Calendar({
 
       <div className="grid grid-cols-7 gap-1.5">
         {grid.map((day, i) => {
-          if (!day) return <div key={`pad-${i}`} className="aspect-[5/4] rounded-[12px]" />;
+          if (!day) return <div key={`pad-${i}`} className="aspect-[5/4] rounded-[calc(12px*var(--rk))]" />;
           const cell = cells.get(day);
           const isToday = day === today;
           const num = Number(day.slice(8));
@@ -60,7 +60,7 @@ export function Calendar({
           if (!cell) {
             return (
               <div key={day}
-                className="aspect-[5/4] rounded-[12px] border p-2"
+                className="aspect-[5/4] rounded-[calc(12px*var(--rk))] border p-2"
                 style={{
                   borderColor: isToday ? 'rgb(var(--accent) / 0.55)' : 'var(--glass-stroke)',
                   background: 'var(--glass-fill)',
@@ -85,8 +85,9 @@ export function Calendar({
 
           return (
             <Link key={day} href={`/day?day=${day}`}
-              className="group aspect-[5/4] rounded-[12px] border p-2 transition-transform
-                hover:scale-[1.03]"
+              className="group aspect-[5/4] rounded-[calc(12px*var(--rk))] border p-2
+                transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
+                hover:-translate-y-[2px] hover:scale-[1.02] hover:[box-shadow:var(--shadow-card)]"
               style={{
                 borderColor: isToday ? 'rgb(var(--accent) / 0.6)' : `rgb(${hue} / 0.35)`,
                 background: `rgb(${hue} / ${fill})`,

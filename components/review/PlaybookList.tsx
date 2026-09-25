@@ -47,7 +47,7 @@ export function PlaybookList({ entries }: { entries: Entry[] }) {
           key={book.id}
           layout
           transition={spring}
-          className="glass group rounded-[18px] p-5"
+          className="glass group rounded-[calc(18px*var(--rk))] p-5"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -95,7 +95,7 @@ export function PlaybookList({ entries }: { entries: Entry[] }) {
         {adding ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            transition={spring} className="glass space-y-5 rounded-[18px] p-5"
+            transition={spring} className="glass space-y-5 rounded-[calc(18px*var(--rk))] p-5"
           >
             <Field label="Name"><Input autoFocus placeholder="London sweep into NY AM iFVG"
               value={name} onChange={(e) => setName(e.target.value)} /></Field>

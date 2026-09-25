@@ -23,7 +23,7 @@ export function Segmented<T extends string>({
   value, onChange, options, accentFor, labelFor, titleFor,
 }: SegmentedProps<T>) {
   return (
-    <div className="glass flex flex-wrap gap-1 rounded-[16px] p-1">
+    <div className="glass flex flex-wrap gap-1 rounded-[calc(16px*var(--rk))] p-1">
       {options.map((option) => {
         const active = option === value;
         const accent = accentFor?.(option) ?? 'var(--accent)';
@@ -41,7 +41,7 @@ export function Segmented<T extends string>({
               boxShadow: active ? `0 0 18px rgb(${accent} / 0.22)` : '0 0 0 rgb(0 0 0 / 0)',
             }}
             transition={spring}
-            className="flex-1 rounded-[12px] border px-3 py-2 text-[12px] font-medium whitespace-nowrap"
+            className="flex-1 rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12px] font-medium whitespace-nowrap"
           >
             {labelFor?.(option) ?? option}
           </motion.button>

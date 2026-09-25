@@ -53,7 +53,8 @@ function ClusterNodeInner({ data }: NodeProps) {
       style={{ opacity: 0, pointerEvents: 'none' }} />
 
     <motion.div
-      layout
+      // No `layout`: React Flow moves the region, and a layout animation on top
+      // of that measured it every frame of a drag and animated against it.
       // Regions settle in worst-first, which is also the order you should read
       // them. The trade nodes deliberately have no entrance of their own: they
       // share a layoutId with the detail panel, and a competing initial state
@@ -66,9 +67,12 @@ function ClusterNodeInner({ data }: NodeProps) {
         height: cluster.height,
         borderColor: `rgb(${accent} / var(--cluster-stroke))`,
         background: `radial-gradient(120% 90% at 50% 0%, rgb(${accent} / var(--cluster-tint)), rgb(${accent} / var(--cluster-tint-edge)) 60%, transparent)`,
-        boxShadow: `0 0 70px -12px rgb(${accent} / var(--cluster-glow)), inset 0 1px 0 rgb(${accent} / 0.22)`,
+        // Was a 70px glow: the most expensive thing to paint on the board, drawn
+        // around the largest elements on it. The border and the tint already
+        // mark the region; the glow only has to lift it.
+        boxShadow: `0 0 28px -10px rgb(${accent} / var(--cluster-glow)), inset 0 1px 0 rgb(${accent} / 0.22)`,
       }}
-      className="pointer-events-none rounded-[30px] border backdrop-blur-[2px]"
+      className="pointer-events-none rounded-[calc(30px*var(--rk))] border backdrop-blur-[2px]"
     >
       {/*
         Two rows, not one. Sharing a row meant the stats squeezed the reason
@@ -108,4 +112,14 @@ function ClusterNodeInner({ data }: NodeProps) {
   );
 }
 
-export const ClusterNode = memo(ClusterNodeInner);
+
+/*
+  Re-render only when what the node shows changes.
+
+  React Flow hands every node its absolute position as a prop, so moving a
+  group gave each card inside it new props on every frame of the drag — and
+  each card re-rendered, with Framer measuring its layout each time. That was
+  most of the 55ms of script per pointer move. What a node draws depends on its
+  data alone; its position is applied by React Flow to the wrapper around it.
+*/
+export const ClusterNode = memo(ClusterNodeInner, (a, b) => a.data === b.data);

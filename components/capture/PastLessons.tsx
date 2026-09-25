@@ -51,7 +51,7 @@ export function PastLessons({ setup, lessons, inline }: {
 
   if (inline) {
     return (
-      <div data-past-lessons="inline" className="mt-4 rounded-[14px] border px-4 py-3"
+      <div data-past-lessons="inline" className="mt-4 rounded-[calc(14px*var(--rk))] border px-4 py-3"
         style={{ borderColor: 'rgb(var(--accent) / 0.3)', background: 'rgb(var(--accent) / 0.05)' }}>
         <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.07em]"
           style={{ color: 'rgb(var(--accent))' }}>
@@ -77,7 +77,7 @@ export function PastLessons({ setup, lessons, inline }: {
       <Overlay
         open={open}
         onClose={() => setOpen(false)}
-        className="w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[24px] p-6"
+        className="w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[calc(24px*var(--rk))] p-6"
       >
         <h2 className="text-[17px] font-semibold">Last time on {setup}</h2>
         <p className="mb-4 mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>

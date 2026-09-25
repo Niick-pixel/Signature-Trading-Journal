@@ -45,7 +45,7 @@ export default async function JournalRoute() {
   return (
     <div className="flex h-dvh flex-col">
       <TitleBar />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="signature-enter min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[82rem] px-6 pb-16 pt-4">
           <header className="mb-5">
             <h1 className="text-[22px] font-semibold tracking-tight">Journal</h1>

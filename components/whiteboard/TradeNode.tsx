@@ -92,7 +92,7 @@ function TradeNodeInner({ data }: NodeProps) {
           : `var(--shadow-card), 0 0 16px rgb(${outcome} / 0.16)`,
         opacity: passed && dimPassed ? 0.62 : 1,
       }}
-      className="group glass relative cursor-pointer overflow-hidden rounded-[18px]"
+      className="group glass relative cursor-pointer overflow-hidden rounded-[calc(18px*var(--rk))]"
     >
       {flagged && (
         <span
@@ -143,7 +143,11 @@ function TradeNodeInner({ data }: NodeProps) {
           draggable={false}
           onError={() => setShotBroken(true)}
           className="absolute inset-0 size-full object-cover"
-          style={{ filter: passed && dimPassed ? 'grayscale(0.55) brightness(0.72)' : 'brightness(0.86)' }}
+          // A filter on every chart image had to be re-rastered each time the
+          // board repainted. The same darkening is now the scrim below, which
+          // is a flat fill; only a passed trade, which is also desaturated,
+          // still needs a real filter, and there are few of those.
+          style={passed && dimPassed ? { filter: 'grayscale(0.55) brightness(0.84)' } : undefined}
         />
       ) : (
         <div className="absolute inset-x-0 top-[28%] flex flex-col items-center gap-1 px-3 text-center">
@@ -167,10 +171,10 @@ function TradeNodeInner({ data }: NodeProps) {
           regardless of theme on purpose: it sits over the screenshot, not over
           the page, and chart images are dark in both themes. */}
       <div className="absolute inset-0"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.12) 46%, rgba(0,0,0,0.34) 100%)' }} />
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.25) 46%, rgba(0,0,0,0.43) 100%)' }} />
 
       <div
-        className="absolute right-2 top-9 grid size-7 place-items-center rounded-[9px] text-[11px] font-semibold leading-none"
+        className="absolute right-2 top-9 grid size-7 place-items-center rounded-[calc(9px*var(--rk))] text-[11px] font-semibold leading-none"
         style={{
           color: `rgb(${grade})`,
           background: 'rgba(10,10,12,0.6)',
@@ -230,4 +234,14 @@ function TradeNodeInner({ data }: NodeProps) {
   );
 }
 
-export const TradeNode = memo(TradeNodeInner);
+
+/*
+  Re-render only when what the node shows changes.
+
+  React Flow hands every node its absolute position as a prop, so moving a
+  group gave each card inside it new props on every frame of the drag — and
+  each card re-rendered, with Framer measuring its layout each time. That was
+  most of the 55ms of script per pointer move. What a node draws depends on its
+  data alone; its position is applied by React Flow to the wrapper around it.
+*/
+export const TradeNode = memo(TradeNodeInner, (a, b) => a.data === b.data);

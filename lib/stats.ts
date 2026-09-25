@@ -1,5 +1,5 @@
 import {
-  ACCOUNT_VALUES, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
+  ACCOUNT_VALUES, isHypothetical, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
   SKIP_REASONS, TAKE_IT_THRESHOLD, TARGET_TYPES, isTaken,
   type Account, type ChecklistKey, type MistakeTag, type Reason, type SkipReason,
   type TargetType,
@@ -491,7 +491,11 @@ export function checklistEdge(trades: Trade[]): ItemEdge[] {
  * This is applied before anything else in this file runs.
  */
 export function forAccount(trades: Trade[], account: Account | 'All'): Trade[] {
-  return account === 'All' ? trades : trades.filter((t) => t.account === account);
+  // 'All' means every account that traded — never the missed ones, whose
+  // trades did not happen. Choosing Missed by name is the only way in.
+  return account === 'All'
+    ? trades.filter((t) => !isHypothetical(t.account))
+    : trades.filter((t) => t.account === account);
 }
 
 /**

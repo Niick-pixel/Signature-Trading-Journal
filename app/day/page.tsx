@@ -28,14 +28,14 @@ export default async function DayPage(
   return (
     <div className="flex h-dvh flex-col">
       <TitleBar />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="signature-enter min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[46rem] space-y-5 px-6 pb-20 pt-4">
           {/*
             The trades first, the writing second. This page is what a calendar
             square opens into, and the square was showing a P&L — landing on a
             form that does not mention the trades is landing on the wrong page.
           */}
-          <div className="glass rounded-[28px] p-7 sm:p-9">
+          <div className="glass rounded-[calc(28px*var(--rk))] p-7 sm:p-9">
             <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.07em]"
               style={{ color: 'var(--text-faint)' }}>
               Trades on this day
