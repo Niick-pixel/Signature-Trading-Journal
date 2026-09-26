@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { shortcutAllowed } from '@/lib/keys';
-import { readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
+import { announceAccount, writeAccountCookie } from '@/lib/account-pref';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
@@ -46,11 +46,10 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
   ];
   if (available.length > 1) options.push({ key: 'All', label: 'All (mixed)', count: null });
 
-  // Nothing remembered yet: remember what this screen opened on, so the
-  // title bar agrees with it from the first visit.
-  useEffect(() => {
-    if (readAccountCookie() == null) writeAccountCookie(current);
-  }, [current]);
+  // Tell the title bar what this screen is showing, so the two agree — but
+  // never store it. Storing it narrowed the whiteboard to this account after
+  // a single visit, and trades looked deleted.
+  useEffect(() => { announceAccount(current); }, [current]);
 
   // [ and ] step through the accounts in the order shown, wrapping round.
   useEffect(() => {

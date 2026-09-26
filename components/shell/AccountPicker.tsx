@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ACCOUNT_VALUES } from '@/lib/domain';
-import { ACCOUNT_EVENT, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
+import { ACCOUNT_EVENT, ACCOUNT_SHOWN_EVENT, lastShownAccount, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
 
 const OPTIONS = [...ACCOUNT_VALUES, 'All'] as const;
 const label = (a: string) => (a === 'Backtest (FX Replay)' ? 'Backtest' : a === 'All' ? 'All accounts' : a);
@@ -24,10 +24,11 @@ export function AccountPicker() {
 
   useEffect(() => {
     // The URL wins where a screen has one; otherwise the remembered choice.
-    setAccount(params.get('account') ?? readAccountCookie() ?? 'All');
+    setAccount(params.get('account') ?? lastShownAccount() ?? readAccountCookie() ?? 'All');
     const on = (e: Event) => setAccount((e as CustomEvent<string>).detail);
     window.addEventListener(ACCOUNT_EVENT, on);
-    return () => window.removeEventListener(ACCOUNT_EVENT, on);
+    window.addEventListener(ACCOUNT_SHOWN_EVENT, on);
+    return () => { window.removeEventListener(ACCOUNT_EVENT, on); window.removeEventListener(ACCOUNT_SHOWN_EVENT, on); };
   }, [params]);
 
   if (account === null) return null;

@@ -214,6 +214,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const scale = DENSITY_SCALE[prefs.boardDensity];
 
   const visible = useMemo(() => trades.filter(applyFilters(filters)), [trades, filters]);
+  // Everything the board shows with no filter at all — the count a filtered
+  // view is hiding trades from.
+  const everything = useMemo(() => trades.filter(applyFilters(EMPTY_FILTERS)).length, [trades]);
   const realTrades = useMemo(() => trades.filter((t) => !isHypothetical(t.account)), [trades]);
 
   /*
@@ -1070,6 +1073,31 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
           <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--board-dots)" />
         )}
       </LiveFlow>
+
+      {/*
+        A filtered board says so, on the board. The toolbar count alone was
+        missed: a board narrowed to one account looked like trades had been
+        deleted. Showing what is hidden, and one click to bring it back.
+      */}
+      <AnimatePresence>
+        {visible.length > 0 && visible.length < everything && (
+          <motion.div
+            data-filter-notice
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+            transition={spring}
+            className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center"
+          >
+            <div className="glass pointer-events-auto flex items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5 text-[12px]"
+              style={{ background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)' }}>
+              <span style={{ color: 'var(--text-dim)' }}>
+                Showing <b style={{ color: 'var(--text)' }}>{visible.length}</b> of {everything} trades
+                {filters.account !== 'All' && <> · <b style={{ color: 'rgb(var(--accent))' }}>{filters.account}</b> only</>}
+              </span>
+              <Button onClick={() => changeFilters(EMPTY_FILTERS)}>Show all</Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filtering to nothing used to leave a blank canvas with no explanation. */}
       <AnimatePresence>
