@@ -26,14 +26,19 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
   const flags = flagsFor(trade);
   if (flags.length === 0) return null;
 
-  async function dismiss(flag: string) {
+  /**
+   * One click dismisses. The reason is asked for afterwards, beside the
+   * dismissed flag, and saved into the same dismissal — a reason is worth
+   * having, but never worth a second click before the flag goes quiet.
+   */
+  async function dismiss(flag: string, why: string | null = null) {
     setBusy(flag);
     await fetch(`/api/trades/${trade.id}/flags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ flag, reason: reason.trim() || null }),
+      body: JSON.stringify({ flag, reason: why }),
     });
-    setBusy(null); setDrafting(null); setReason('');
+    setBusy(null);
     onChanged();
   }
 
@@ -88,17 +93,18 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
                     <Button onClick={() => restore(flag.key)} disabled={busy === flag.key}>Undo</Button>
                   ) : (
                     <Button
-                      onClick={() => (drafting === flag.key ? dismiss(flag.key) : setDrafting(flag.key))}
+                      onClick={() => { setDrafting(flag.key); setReason(''); void dismiss(flag.key); }}
                       disabled={busy === flag.key}
+                      title="Dismisses it now. You can say why straight after."
                     >
-                      {drafting === flag.key ? 'Dismiss' : 'I know why'}
+                      Dismiss
                     </Button>
                   )}
                 </div>
               </div>
 
               <AnimatePresence>
-                {drafting === flag.key && (
+                {drafting === flag.key && isDismissed && !dismissedReason && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -109,10 +115,13 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
                     <div className="pt-3">
                       <Input
                         autoFocus
-                        placeholder="Why is this one fine? (optional)"
+                        placeholder="Why is this one fine? (optional — Enter to save)"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') dismiss(flag.key); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && reason.trim()) { void dismiss(flag.key, reason.trim()); setDrafting(null); }
+                        }}
+                        onBlur={() => { if (reason.trim()) void dismiss(flag.key, reason.trim()); setDrafting(null); }}
                       />
                     </div>
                   </motion.div>

@@ -21,6 +21,8 @@ import { BoardTitle } from './BoardTitle';
 import { ClusterNode } from './ClusterNode';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
+import { ACCOUNT_VALUES } from '@/lib/domain';
+import { ACCOUNT_EVENT, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
 import { EdgeKey } from './EdgeKey';
 import { isHypothetical } from '@/lib/domain';
 import { LiveFlow } from './LiveFlow';
@@ -65,6 +67,34 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const flow = useReactFlow();
   const [trades, setTrades] = useState(initial);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+
+  // The account comes from the title bar's choice, and a choice made in the
+  // toolbar here becomes the title bar's. See lib/account-pref.
+  useEffect(() => {
+    const valid = (a: string | null): a is Filters['account'] =>
+      a === 'All' || (ACCOUNT_VALUES as readonly string[]).includes(a ?? '');
+    const initial = readAccountCookie();
+    if (valid(initial)) setFilters((f) => (f.account === initial ? f : { ...f, account: initial }));
+    const on = (e: Event) => {
+      const a = (e as CustomEvent<string>).detail;
+      if (valid(a)) setFilters((f) => (f.account === a ? f : { ...f, account: a }));
+    };
+    window.addEventListener(ACCOUNT_EVENT, on);
+    return () => window.removeEventListener(ACCOUNT_EVENT, on);
+  }, []);
+  /*
+    Filter changes made by hand. The account is written back as the app-wide
+    choice here, and only here — an effect watching filters.account would
+    also fire on mount with the default 'All' (twice, under Strict Mode) and
+    overwrite the remembered account before it had been applied.
+  */
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const changeFilters = useCallback((next: Filters) => {
+    const changedAccount = next.account !== filtersRef.current.account;
+    setFilters(next);
+    if (!readOnly && changedAccount) writeAccountCookie(next.account);
+  }, [readOnly]);
   const [openId, setOpenId] = useState<string | null>(null);
   /** Which group's stack has been opened into the full viewer. */
   const [viewing, setViewing] = useState<string | null>(null);
@@ -201,10 +231,71 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   /** The canvas, for placing the opening view. Never used to lay the board out. */
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  /*
+    Regrouping glides instead of remounting.
+
+    A card's node id carries its group, so a new grouping mounts new nodes and
+    the cards used to vanish and reappear somewhere else. Before switching,
+    each card's place on screen is recorded; once the new arrangement has
+    rendered, every card is animated from where it was to where it now is —
+    FLIP, on the node wrapper's own transform. New cards are held invisible by
+    [data-regrouping] until their animation starts, so nothing flashes at its
+    destination first. A card with nowhere to come from fades in.
+  */
+  const flipFrom = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const changeGroupMode = useCallback((next: GroupMode) => {
+    const root = canvasRef.current;
+    const still = document.documentElement.dataset.reduceMotion === 'true'
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (root && !still) {
+      const from = new Map<string, { x: number; y: number }>();
+      for (const el of root.querySelectorAll<HTMLElement>('.react-flow__node-trade')) {
+        const id = tradeIdFromKey(el.dataset.id ?? '');
+        if (from.has(id)) continue;
+        const r = el.getBoundingClientRect();
+        from.set(id, flow.screenToFlowPosition({ x: r.left, y: r.top }));
+      }
+      flipFrom.current = from;
+      root.dataset.regrouping = 'true';
+    }
+    setGroupMode(next);
+  }, [flow]);
+
+
   const layout = useMemo(
     () => computeLayout(visible, scale, groupMode, offsets),
     [visible, scale, groupMode, offsets],
   );
+
+  // The second half of the regroup glide — see changeGroupMode.
+  useEffect(() => {
+    const from = flipFrom.current;
+    const root = canvasRef.current;
+    if (!from || !root) return;
+    let raf = 0;
+    let tries = 0;
+    const run = () => {
+      const els = [...root.querySelectorAll<HTMLElement>('.react-flow__node-trade')];
+      // React Flow renders new nodes hidden until it has measured them.
+      const ready = els.length > 0 && els.every((el) => el.style.visibility !== 'hidden' && el.style.transform);
+      if (!ready && tries++ < 40) { raf = requestAnimationFrame(run); return; }
+      flipFrom.current = null;
+      const seen = new Set<string>();
+      for (const el of els) {
+        const id = tradeIdFromKey(el.dataset.id ?? '');
+        const old = seen.has(id) ? undefined : from.get(id);
+        seen.add(id);
+        const to = el.style.transform;
+        el.animate(old
+          ? [{ transform: `translate(${old.x}px, ${old.y}px)`, opacity: 1 }, { transform: to, opacity: 1 }]
+          : [{ transform: `${to} scale(0.94)`, opacity: 0 }, { transform: to, opacity: 1 }],
+        { duration: 560, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+      }
+      delete root.dataset.regrouping;
+    };
+    raf = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(raf);
+  }, [layout]);
 
   /*
     Stepping through trades from the keyboard: J forward in time, K back.
@@ -316,8 +407,12 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
 
   /** Content bounding box plus a generous margin, for the pan wall. */
   const bounds = useMemo<[[number, number], [number, number]]>(() => {
-    const xs = layout.clusters.flatMap((c) => [c.x, c.x + c.width]);
-    const ys = layout.clusters.flatMap((c) => [c.y, c.y + c.height]);
+    // The cards count too: the timeline has no groups around them, and bounds
+    // taken from groups alone clamped every card past the default edge.
+    const w = NODE_W * scale;
+    const h = NODE_H * scale;
+    const xs = [...layout.clusters.flatMap((c) => [c.x, c.x + c.width]), ...layout.nodes.flatMap((n) => [n.x, n.x + w])];
+    const ys = [...layout.clusters.flatMap((c) => [c.y, c.y + c.height]), ...layout.nodes.flatMap((n) => [n.y, n.y + h])];
     const noteXs = board.notes.flatMap((n) => [n.x, n.x + 240]);
     const noteYs = board.notes.flatMap((n) => [n.y, n.y + 140]);
     const all = { x: [...xs, ...noteXs], y: [...ys, ...noteYs] };
@@ -327,7 +422,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       [Math.min(...all.x) - M, Math.min(...all.y) - M - 260],
       [Math.max(...all.x) + M, Math.max(...all.y) + M],
     ];
-  }, [layout.clusters, board.notes]);
+  }, [layout.clusters, layout.nodes, scale, board.notes]);
 
   const onOpen = useCallback((id: string) => {
     if (readOnly) return;
@@ -386,13 +481,15 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       drag. Nothing else on the board moves when you move one card, and the
       title should not either.
     */
-    const titleNode: Node[] = layout.clusters.length === 0 ? [] : [{
+    const titleNode: Node[] = layout.clusters.length === 0 && groupMode !== 'timeline' ? [] : [{
       id: 'board-title',
       type: 'title',
       position: { x: layout.nominalWidth / 2 - 150, y: -200 },
       data: {
         label: GROUP_LABELS[groupMode],
-        sub: `${layout.clusters.length} group${layout.clusters.length === 1 ? '' : 's'} · ${visible.length} trade${visible.length === 1 ? '' : 's'}`,
+        sub: groupMode === 'timeline'
+          ? `${layout.nodes.length} trade${layout.nodes.length === 1 ? '' : 's'} · oldest to newest · higher is more R`
+          : `${layout.clusters.length} group${layout.clusters.length === 1 ? '' : 's'} · ${visible.length} trade${visible.length === 1 ? '' : 's'}`,
       },
       draggable: false,
       selectable: false,
@@ -560,6 +657,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         : { sourceHandle: 's-top', targetHandle: 't-bottom' };
     };
 
+
     const within: Edge[] = layout.reasonEdges.map(([a, b]) => {
       const reason = layout.nodes.find((n) => n.key === a)?.reason;
       const accent = reason ? reasonAccent(reason) : '140 140 150';
@@ -617,6 +715,26 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       }));
 
     /*
+      In the timeline the chain is the equity curve: solid, always shown, and
+      coloured by the step it draws — green where the trade added R, red
+      where it cost.
+    */
+    if (groupMode === 'timeline') {
+      const byKey = new Map(layout.nodes.map((n) => [n.key, n.trade]));
+      const curve: Edge[] = layout.reasonEdges.map(([a, b]) => {
+        const r = byKey.get(b)?.r_multiple ?? 0;
+        const hue = r > 0 ? OUTCOME_COLOR.Win : r < 0 ? OUTCOME_COLOR.Loss : '140 140 150';
+        return {
+          id: `curve-${a}-${b}`, source: a, target: b, ...facing(a, b), type: 'straight', animated: false,
+          data: { curve: true },
+          style: { stroke: `rgb(${hue} / ${lit(a, b) ? 0.95 : 0.6})`, strokeWidth: lit(a, b) ? 3 : 2.2, strokeLinecap: 'round' },
+          zIndex: 0,
+        };
+      });
+      return [...curve, ...manual];
+    }
+
+    /*
       The branches. One line from the board title to each group, in that
       group's own hue, so the whole board reads as one tree instead of a field
       of unexplained islands.
@@ -643,7 +761,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       ...(prefs.showLeakEdges ? leaks : []),
       ...manual,
     ];
-  }, [layout, prefs.showReasonEdges, prefs.showLeakEdges, board.edges, hovered, openId]);
+  }, [layout, groupMode, prefs.showReasonEdges, prefs.showLeakEdges, board.edges, hovered, openId]);
 
   /*
     Persist a drag so a manual arrangement survives a reload — but only in the
@@ -809,20 +927,20 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
           </div>
           <Toolbar
             filters={filters}
-            onChange={setFilters}
+            onChange={changeFilters}
             shown={visible.length}
             total={trades.length}
             selectMode={selectMode}
             onToggleSelectMode={() => (selectMode ? leaveSelectMode() : setSelectMode(true))}
             groupMode={groupMode}
-            onGroupMode={setGroupMode}
+            onGroupMode={changeGroupMode}
             onAddNote={addNote}
             onLinkSelected={selectedIds.size === 2 ? linkSelected : undefined}
             onSearch={() => setSearching(true)}
             savedViews={
               <SavedViews
                 current={filters as unknown as Record<string, unknown>}
-                onApply={(f) => setFilters({ ...EMPTY_FILTERS, ...(f as Partial<Filters>) })}
+                onApply={(f) => changeFilters({ ...EMPTY_FILTERS, ...(f as Partial<Filters>) })}
               />
             }
           />
@@ -969,7 +1087,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
                 {trades.length} trade{trades.length === 1 ? '' : 's'} are hidden.
               </p>
               <div className="mt-5">
-                <Button onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</Button>
+                <Button onClick={() => changeFilters(EMPTY_FILTERS)}>Clear filters</Button>
               </div>
             </div>
           </motion.div>

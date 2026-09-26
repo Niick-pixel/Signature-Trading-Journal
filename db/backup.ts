@@ -3,11 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { BACKUPS_DIR, DB_PATH } from '../lib/paths';
+import { localDay } from '../lib/day';
 
 /** Thirty days is long enough to notice a mistake and still find the version before it. */
 const KEEP = 30;
 
-const stamp = (d = new Date()) => d.toISOString().slice(0, 10);
+// The local date: a backup taken at 7pm in Costa Rica belongs to today, not to
+// tomorrow in UTC.
+const stamp = (d = new Date()) => localDay(d);
 const fileFor = (day: string) => path.join(BACKUPS_DIR, `journal-${day}.db`);
 
 /**
@@ -41,7 +44,9 @@ export function backupToday(db: DatabaseSync): string | null {
 export function pruneOldBackups(): void {
   if (!fs.existsSync(BACKUPS_DIR)) return;
   const files = fs.readdirSync(BACKUPS_DIR)
-    .filter((f) => /^journal-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+    // Daily copies and on-demand ones alike: KEEP is a cap on the folder,
+    // not only on the daily copies, or "Back up now" would grow it forever.
+    .filter((f) => /^journal-\d{4}-\d{2}-\d{2}.*\.db$/.test(f))
     .sort()
     .reverse();
   for (const stale of files.slice(KEEP)) {

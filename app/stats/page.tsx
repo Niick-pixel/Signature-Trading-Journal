@@ -1,12 +1,17 @@
+import { cookies } from 'next/headers';
 import { listTrades } from '@/db/trades';
+import { ACCOUNT_COOKIE } from '@/lib/account-pref';
 import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isHypothetical, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
   equityCurves, excursion, forAccount, gradeHonesty, hesitation, money, passedSetups,
-  preGradedOnly, rByMistakeTag, rByReason,
+  preGradedOnly, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
 } from '@/lib/stats';
+import { Histogram } from '@/components/stats/Histogram';
+import { WhenHeatmap } from '@/components/stats/WhenHeatmap';
 import { EquityChart } from '@/components/stats/EquityChart';
+import { gapTrend } from '@/lib/adherence';
 import { HypotheticalNote } from '@/components/money/MissedCard';
 import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/Bars';
@@ -44,7 +49,8 @@ export default async function StatsPage(
 
   // One account at a time. Defaults to whichever one actually has trades in
   // it, never to a mixed total — backtest R and live R must never sum.
-  const asked = (await searchParams).account;
+  const asked = (await searchParams).account
+    ?? (await cookies()).get(ACCOUNT_COOKIE)?.value;
   const requested = typeof asked === 'string' ? asked : undefined;
   const account: Account | 'All' = requested === 'All'
     ? 'All'
@@ -62,11 +68,21 @@ export default async function StatsPage(
     the grading works. ?pregraded=1 drops everything logged in one shot.
   */
   const preOnly = (await searchParams).pregraded === '1';
-  const trades = preOnly ? preGradedOnly(scoped) : scoped;
+  // Quick logs skipped the form's standard, so they can be left out — they
+  // are in by default, because a trade that happened is a trade that happened.
+  const noQuick = (await searchParams).quick === '0';
+  const quickCount = scoped.filter((t) => t.quick_log).length;
+  const trades = (preOnly ? preGradedOnly(scoped) : scoped).filter((t) => !noQuick || !t.quick_log);
   const agg = aggregate(trades);
   const m = money(trades);
   const e = edge(trades);
   const d = discipline(trades);
+  const trend = gapTrend(trades);
+  const taken = trades.filter((t) => t.outcome !== 'Not taken');
+  const withR = taken.filter((t) => t.r_multiple != null);
+  const runs = streaks(trades);
+  const tradingDays = new Set(taken.map((t) => t.date.slice(0, 10))).size;
+  const tagged = (key: 'mistake_tags' | 'worked_tags') => taken.filter((t) => (t[key] ?? []).length > 0).length;
   const honesty = gradeHonesty(trades);
   const hes = hesitation(trades);
   const curves = equityCurves(trades);
@@ -75,6 +91,9 @@ export default async function StatsPage(
   const exc = excursion(trades);
   const passed = passedSetups(trades);
   const tagRows: BarRow[] = rByMistakeTag(trades).map((t) => ({
+    label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
+  }));
+  const workedRows: BarRow[] = rByWorkedTag(trades).map((t) => ({
     label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
   }));
 
@@ -126,6 +145,7 @@ export default async function StatsPage(
                 href={`/stats?${new URLSearchParams({
                   ...(account === 'All' ? {} : { account }),
                   ...(preOnly ? {} : { pregraded: '1' }),
+                  ...(noQuick ? { quick: '0' } : {}),
                 })}`}
                 className="rounded-full border px-3.5 py-1.5 text-[12px] font-medium"
                 style={{
@@ -137,6 +157,24 @@ export default async function StatsPage(
               >
                 Pre-graded only
               </a>
+              {quickCount > 0 && (
+                <a
+                  href={`/stats?${new URLSearchParams({
+                    ...(account === 'All' ? {} : { account }),
+                    ...(preOnly ? { pregraded: '1' } : {}),
+                    ...(noQuick ? {} : { quick: '0' }),
+                  })}`}
+                  className="rounded-full border px-3.5 py-1.5 text-[12px] font-medium"
+                  style={{
+                    borderColor: noQuick ? 'rgb(var(--accent) / 0.55)' : 'var(--glass-stroke)',
+                    background: noQuick ? 'rgb(var(--accent) / 0.12)' : 'var(--glass-fill)',
+                    color: noQuick ? 'rgb(var(--accent))' : 'var(--text-dim)',
+                  }}
+                  title="Leave out trades saved with Log it fast"
+                >
+                  Without quick logs · {quickCount}
+                </a>
+              )}
             </div>
           </header>
 
@@ -145,6 +183,7 @@ export default async function StatsPage(
               <HypotheticalNote />
               {/* Against every trade actually taken — a miss rate needs both sides. */}
               <Panel
+                n={isHypothetical(account) ? (() => { const x = missedPatterns(all, listDailyReviews()); return x.missed + x.taken; })() : undefined}
                 title="Where you hesitate"
                 note="Of the setups you saw under each condition, how many went without you — missed here, set against the trades you took in Demo, Live and Funded. The tick on each bar is your usual rate; a bar past it is a condition you freeze in. Faded rows have too few setups to mean anything yet."
               >
@@ -172,6 +211,7 @@ export default async function StatsPage(
                 lying to myself — and each one has an action attached to it.
               */}
               <Panel
+                n={d.followed.count + d.broken.count}
                 title="Adherence"
                 note="Share of the SCORED trades where the checklist says the rules were followed — trigger fired, 70% or more of the boxes that APPLIED, no mistake tagged. Derived, never self-reported. A box marked N/A takes its points out of the denominator instead of counting as a miss, and a trade whose checklist was left blank counts as neither followed nor broken."
               >
@@ -208,6 +248,7 @@ export default async function StatsPage(
               </Panel>
 
               <Panel
+                n={withR.length}
                 title="Following the rules vs breaking them"
                 note="Cumulative R, in the order the trades happened, split by what the checklist says about each one."
               >
@@ -222,23 +263,27 @@ export default async function StatsPage(
                   and no single place that owns it.
                 */}
                 <Stat
+                  n={m.priced}
                   label="Net P&L"
                   value={m.priced ? usd(m.net) : '—'}
                   sub={m.priced ? `${usd(m.won)} won · ${usd(m.lost)} lost` : 'No money recorded yet'}
                   tone={m.net > 0 ? 'win' : m.net < 0 ? 'loss' : null}
                 />
                 <Stat
+                  n={agg.taken}
                   label="Net R"
                   value={r(agg.totalR)}
                   sub={`+${e.rWon.toFixed(1)}R won · −${e.rLost.toFixed(1)}R lost`}
                   tone={agg.totalR > 0 ? 'win' : agg.totalR < 0 ? 'loss' : null}
                 />
                 <Stat
+                  n={agg.wins + agg.losses}
                   label="Win rate"
                   value={pct(agg.winRate)}
                   sub={`${agg.wins}W · ${agg.losses}L · ${agg.breakeven + agg.scratched} flat`}
                 />
                 <Stat
+                  n={withR.length}
                   label="Expectancy"
                   value={r2(e.expectancy)}
                   sub="Average R per trade taken"
@@ -250,6 +295,7 @@ export default async function StatsPage(
                   60% win rate under 1.0 is a losing strategy with good manners.
                 */}
                 <Stat
+                  n={withR.length}
                   label="Profit factor"
                   value={e.profitFactor == null ? '—' : e.profitFactor.toFixed(2)}
                   sub={e.profitFactor == null ? 'Needs a win and a loss'
@@ -261,6 +307,7 @@ export default async function StatsPage(
               {/* Where I am lying to myself. */}
               <div className="grid gap-5 lg:grid-cols-2">
                 <Panel
+                  n={d.gap.answered}
                   title="Self-assessment gap"
                   note="How often I said I followed every rule and the checklist disagreed. That gap closing is real progress — and it cannot be faked by being hard on myself, which shows up as the row below it instead."
                 >
@@ -289,10 +336,34 @@ export default async function StatsPage(
                         tone={d.gap.overclaimed ? 'loss' : null} />
                       <Line label="Underclaimed" value={String(d.gap.underclaimed)} />
                       <Line label="Never answered" value={String(d.gap.unanswered)} />
+                      {/* Month by month: the gap closing is the progress. */}
+                      {trend.length > 1 && (
+                        <div data-gap-trend className="mt-4">
+                          <div className="mb-1.5 text-[10px] uppercase tracking-[0.07em]" style={{ color: 'var(--text-faint)' }}>
+                            Overclaimed, by month
+                          </div>
+                          <div className="flex items-end gap-2">
+                            {trend.map((m) => (
+                              <div key={m.month} className="flex flex-1 flex-col items-center gap-1"
+                                title={`${m.month}: ${m.overclaimed} of ${m.answered} answered`}>
+                                <span className="tabular-nums text-[10px]" style={{ color: 'var(--text-dim)' }}>{pct(m.rate)}</span>
+                                <div className="w-full rounded-t-[3px]" style={{
+                                  height: `${Math.max(3, Math.round((m.rate ?? 0) * 44))}px`,
+                                  background: (m.rate ?? 0) > 0.2 ? 'rgb(var(--outcome-loss) / 0.7)' : 'rgb(var(--outcome-win) / 0.7)',
+                                }} />
+                                <span className="text-[9.5px] tabular-nums" style={{ color: m.answered < 5 ? 'rgb(var(--amber))' : 'var(--text-faint)' }}>
+                                  {new Date(`${m.month}-15`).toLocaleDateString(undefined, { month: 'short' })} · {m.answered}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </Panel>
                 <Panel
+                  n={honesty.regraded}
                   title="Grade honesty"
                   note="The score at entry against the re-grade after the close. A pattern of dropping means the boxes are being ticked to reach a number."
                 >
@@ -336,6 +407,7 @@ export default async function StatsPage(
               {/* Whether the plan is an edge, and which parts of it are. */}
               <div className="grid gap-5 lg:grid-cols-2">
                 <Panel
+                  n={bands.reduce((sum, b) => sum + b.taken, 0)}
                   title="Win rate by grade band"
                   note="Does the checklist predict anything? If these do not climb, it does not — and n is on every row because four trades can show any number at all."
                 >
@@ -366,6 +438,7 @@ export default async function StatsPage(
                   )}
                 </Panel>
                 <Panel
+                  n={withR.length}
                   title="Is each box earning its weight?"
                   note="Average R with the box ticked, minus average R without it. A 20-point item with no lift, or a 5-point item with a large one, is an argument that the weights are wrong."
                 >
@@ -378,19 +451,28 @@ export default async function StatsPage(
               </div>
 
               <div className="grid gap-5 lg:grid-cols-2">
-                <Panel title="R by reason" note="Net, worst first. This is the list that changes how you trade.">
+                <Panel n={agg.taken} title="R by reason" note="Net, worst first. This is the list that changes how you trade.">
                   <SignedBars rows={reasonRows} />
                 </Panel>
-                <Panel title="R by mistake" note="Every tag on every trade, worst first. A tag on a winner still counts.">
+                <Panel n={tagged('mistake_tags')} title="R by mistake" note="Every tag on every trade, worst first. A tag on a winner still counts.">
                   {tagRows.length ? <SignedBars rows={tagRows} /> : (
                     <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>Nothing tagged yet.</p>
                   )}
                 </Panel>
               </div>
 
+              <Panel n={tagged('worked_tags')} title="R by what worked" note="The other half: what went right, on every trade taken, best first. A habit that shows up on your winners and your well-traded losers is the one to keep.">
+                {workedRows.length ? <SignedBars rows={workedRows} /> : (
+                  <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
+                    Nothing tagged yet. &ldquo;What worked&rdquo; is on the trade form, beside what went wrong.
+                  </p>
+                )}
+              </Panel>
+
               {/* What to change. Each of these names a behaviour. */}
               <div className="grid gap-5 lg:grid-cols-2">
                 <Panel
+                  n={exc.losersWithData}
                   title="Management or selection?"
                   note="Whether the losers were ever winners. If most of them were up a full R before stopping out, the entries were fine and the exits were not — and no win rate will ever tell you that."
                 >
@@ -421,6 +503,7 @@ export default async function StatsPage(
                   )}
                 </Panel>
                 <Panel
+                  n={hes.skipped}
                   title="What hesitating cost"
                   note="A skipped setup that would have won is a real loss that never reaches the P&L — which is exactly why it goes unexamined."
                 >
@@ -460,6 +543,7 @@ export default async function StatsPage(
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <Panel
+                  n={conf.reduce((sum, c) => sum + c.taken, 0)}
                   title="Calibration"
                   note="Win rate by the confidence you claimed before you knew. If the 5s do not beat the 2s, the read is noise and size stays flat until it isn't."
                 >
@@ -484,6 +568,30 @@ export default async function StatsPage(
                   )}
                 </Panel>
               </div>
+
+              {/*
+                The record, shown as a record: the shape of the results, the
+                runs, and when the trading happens. Below the panels that ask
+                questions, because these describe rather than interrogate.
+              */}
+              <div className="grid gap-5 lg:grid-cols-2">
+                <Panel n={withR.length} title="R distribution"
+                  note="Every trade taken, by its R. A fat left tail is a stop problem; a thin right one is a target problem.">
+                  <Histogram bins={rHistogram(trades)} />
+                </Panel>
+                <Panel n={tradingDays} title="Streaks"
+                  note="Consecutive days journalled, and consecutive days where every trade followed the rules — the checklist's verdict, not yours.">
+                  <Line label="Days journalled in a row — now" value={String(runs.journalingCurrent)} />
+                  <Line label="Days journalled in a row — best" value={String(runs.journalingBest)} />
+                  <Line label="Rule-following days in a row — now" value={String(runs.adherenceCurrent)}
+                    tone={runs.adherenceCurrent > 0 ? 'win' : null} />
+                  <Line label="Rule-following days in a row — best" value={String(runs.adherenceBest)} tone="win" />
+                </Panel>
+              </div>
+              <Panel n={withR.length} title="When it works"
+                note="Net R by entry hour and weekday. A red column you keep trading into is the cheapest rule you will ever write.">
+                <WhenHeatmap cells={whenHeatmap(trades)} />
+              </Panel>
 
               {preOnly && (
                 <p className="pt-1 text-center text-[11px]" style={{ color: 'rgb(var(--accent))' }}>

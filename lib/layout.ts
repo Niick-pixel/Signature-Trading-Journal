@@ -1,6 +1,5 @@
 import { aggregate, byReason, leakPairs } from './stats';
 import { REASONS, type Reason } from './domain';
-import { gradeLetter } from './grade';
 import type { Trade } from './types';
 import type { Aggregate } from './stats';
 
@@ -53,7 +52,7 @@ export const VISIBLE_PER_CLUSTER = 6;
  * which error repeats, by month it shows whether any of this is improving.
  */
 export const GROUP_MODES = [
-  'reason', 'mistake', 'grade', 'setup', 'target', 'month',
+  'reason', 'mistake', 'grade', 'setup', 'target', 'month', 'timeline',
 ] as const;
 export type GroupMode = (typeof GROUP_MODES)[number];
 
@@ -64,6 +63,7 @@ export const GROUP_LABELS: Record<GroupMode, string> = {
   setup: 'Setup',
   target: 'Target',
   month: 'Month',
+  timeline: 'Timeline',
 };
 
 export interface PositionedTrade {
@@ -195,7 +195,7 @@ function groupsFor(trades: Trade[], mode: GroupMode): BoardGroup[] {
       if (t.mistake_tags.length === 0) put('No mistake tagged', t);
       else for (const tag of t.mistake_tags) put(tag, t);
     } else if (mode === 'grade') {
-      put(gradeLetter(t.checklist_score), t);
+      put(t.grade_letter, t);
     } else if (mode === 'setup') {
       put(t.setup_type, t);
     } else if (mode === 'target') {
@@ -344,6 +344,7 @@ export function computeLayout(
   /** Per-group nudges, keyed `${mode}::${key}`. See db/boardlayout.ts. */
   offsets: Record<string, { dx: number; dy: number }> = {},
 ): BoardLayout {
+  if (mode === 'timeline') return timelineLayout(trades, scale);
   const groups = groupsFor(trades, mode);
 
   const clusters: PositionedCluster[] = [];
@@ -435,6 +436,39 @@ export function computeLayout(
   });
 
   return { clusters, nodes, stacks, reasonEdges, leakEdges: leakChains(trades), nominalWidth };
+}
+
+/** How far one R moves a card up or down in the timeline. */
+const TIMELINE_R = 0.55 * NODE_H;
+
+/**
+ * Timeline: the equity curve made of the trades themselves.
+ *
+ * Every trade taken, oldest to newest along x, raised or lowered by the R the
+ * account had reached after it — so the line through the cards IS the equity
+ * curve, and every point on it is a chart you can open. Passed and planned
+ * setups have no R to stand at and are left out. Heights are shifted so the
+ * highest point sits at the top; the chain edges draw the curve.
+ */
+function timelineLayout(trades: Trade[], scale: number): BoardLayout {
+  const taken = trades
+    .filter((t) => t.outcome !== 'Not taken' && t.r_multiple != null)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  const step = (NODE_W + GAP_X * 0.6) * scale;
+  const unit = TIMELINE_R * scale;
+  let cum = 0;
+  const heights = taken.map((t) => (cum += t.r_multiple ?? 0));
+  const peak = Math.max(0, ...heights);
+  const nodes: PositionedTrade[] = taken.map((trade, i) => ({
+    trade, reason: trade.reason, key: `timeline::${trade.id}`,
+    x: i * step,
+    y: (peak - heights[i]) * unit,
+  }));
+  const chain: Array<[string, string]> = nodes.slice(1).map((n, i) => [nodes[i].key, n.key]);
+  return {
+    clusters: [], nodes, stacks: [], reasonEdges: chain, leakEdges: [],
+    nominalWidth: Math.max(step * nodes.length, NODE_W * scale),
+  };
 }
 
 /**

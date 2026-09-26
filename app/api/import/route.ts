@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
 import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
 import { getJournalPage, importJournalPage, parseJournalInput } from '@/db/journal';
-import { getDailyReview, getWeeklyReview, restoreCheckIn, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
+import { getDailyReview, getWeeklyReview, restoreCheckIn, restoreReviewCreated, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
 import { BIAS_DIRECTIONS, NEWS_LEVELS } from '@/lib/domain';
 import { parseTradeInput } from '@/lib/validate';
 
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       position_y: typeof r.position_y === 'number' ? r.position_y : null,
       deleted_at: typeof r.deleted_at === 'string' ? r.deleted_at : null,
       created_at: typeof r.created_at === 'string' ? r.created_at : null,
+      rubric_version: typeof r.rubric_version === 'number' ? r.rubric_version : null,
     });
     imported += 1;
   }
@@ -74,7 +75,8 @@ export async function POST(request: Request) {
       if (typeof id !== 'string' || existing.has(id)) { cashSkipped += 1; continue; }
       const check = parseCashInput(raw);
       if (!check.ok) { rejected.push({ id, error: check.error }); continue; }
-      importCashEvent(id, check.value);
+      importCashEvent(id, check.value, typeof (raw as { created_at?: unknown }).created_at === 'string'
+        ? (raw as { created_at: string }).created_at : null);
       cash += 1;
     }
   }
@@ -134,6 +136,7 @@ export async function POST(request: Request) {
       });
       // When the morning was written is part of what the morning says.
       if (typeof raw.checked_in_at === 'string') restoreCheckIn(raw.day, raw.checked_in_at);
+      if (typeof raw.created_at === 'string') restoreReviewCreated(raw.day, raw.created_at);
       reviews += 1;
     }
   }

@@ -82,18 +82,28 @@ export function isTaken(outcome: Outcome): boolean {
  * wall: the first group is what the setup looked like, the second is what was
  * confirming it and what was in the way.
  */
+/**
+ * Context no longer asked on the form.
+ *
+ * "The setup" group asked six yes/no questions that nobody used and nothing
+ * read, and it sat where "What worked" now does. The columns stay: every
+ * trade that answered them keeps its answers, an edit passes them through
+ * untouched, and the detail panel still shows the ones that were set.
+ */
+export const RETIRED_CONTEXT = {
+  label: 'The setup',
+  flags: [
+    { key: 'sweep_before_entry', label: 'Sweep before entry', hint: 'Was liquidity swept near the gap?' },
+    { key: 'singular_gap', label: 'Singular gap', hint: 'Rule 1 — one clean obvious gap, not stacked.' },
+    { key: 'displacement', label: 'Displacement', hint: 'Did price actually displace through the gap, or drift?' },
+    { key: 'mss_confirmed', label: 'MSS confirmed', hint: 'Had market structure shifted before you entered?' },
+    { key: 'volume_imbalance', label: 'Volume imbalance', hint: 'A gap in delivery between the candle bodies.' },
+    { key: 'consequent_encroachment', label: 'Consequent encroachment', hint: 'Did the entry respect the 50% of the gap?' },
+  ],
+} as const;
+
+/** The context the form asks for. */
 export const CONTEXT_GROUPS = [
-  {
-    label: 'The setup',
-    flags: [
-      { key: 'sweep_before_entry', label: 'Sweep before entry', hint: 'Was liquidity swept near the gap?' },
-      { key: 'singular_gap', label: 'Singular gap', hint: 'Rule 1 — one clean obvious gap, not stacked.' },
-      { key: 'displacement', label: 'Displacement', hint: 'Did price actually displace through the gap, or drift?' },
-      { key: 'mss_confirmed', label: 'MSS confirmed', hint: 'Had market structure shifted before you entered?' },
-      { key: 'volume_imbalance', label: 'Volume imbalance', hint: 'A gap in delivery between the candle bodies.' },
-      { key: 'consequent_encroachment', label: 'Consequent encroachment', hint: 'Did the entry respect the 50% of the gap?' },
-    ],
-  },
   {
     label: 'Target, timing & confluence',
     flags: [
@@ -106,7 +116,9 @@ export const CONTEXT_GROUPS = [
   },
 ] as const;
 
-export type ContextFlag = (typeof CONTEXT_GROUPS)[number]['flags'][number]['key'];
+export type ContextFlag =
+  | (typeof CONTEXT_GROUPS)[number]['flags'][number]['key']
+  | (typeof RETIRED_CONTEXT)['flags'][number]['key'];
 
 export interface ContextFlagSpec {
   key: ContextFlag;
@@ -120,8 +132,10 @@ export interface ContextFlagSpec {
  * Flattening CONTEXT_GROUPS at each call site infers the `as const` tuples too
  * narrowly to be useful, so widen it once here.
  */
-export const CONTEXT_FLAG_LIST: ContextFlagSpec[] =
-  CONTEXT_GROUPS.flatMap((group) => group.flags.map((flag) => ({ ...flag })));
+export const CONTEXT_FLAG_LIST: ContextFlagSpec[] = [
+  ...RETIRED_CONTEXT.flags.map((flag) => ({ ...flag })),
+  ...CONTEXT_GROUPS.flatMap((group) => group.flags.map((flag) => ({ ...flag }))),
+];
 
 export const CONTEXT_FLAGS: ContextFlag[] = CONTEXT_FLAG_LIST.map((f) => f.key);
 
@@ -230,6 +244,21 @@ export const MISTAKE_TAGS = [
   'Ignored news', 'Widened stop',
 ] as const;
 export type MistakeTag = (typeof MISTAKE_TAGS)[number];
+
+/**
+ * What worked — the other half of the post-mortem.
+ *
+ * A journal that only records mistakes teaches you what not to do and nothing
+ * about what to repeat. These mirror the mistakes, so a winner that was traded
+ * well and a loser that was traded well can be told apart from luck.
+ */
+export const WORKED_TAGS = [
+  'Waited for the close', 'Entered on the retest', 'Took only the A+', 'With HTF bias',
+  'Inside the killzone', 'Clear target named', 'Stop where the idea fails', 'Sized correctly',
+  'Let the winner run', 'Managed to plan', 'Respected the news', 'Stopped at the limit',
+  'Stayed patient', 'Followed the plan exactly',
+] as const;
+export type WorkedTag = (typeof WORKED_TAGS)[number];
 
 /**
  * Backtest R and live R must never sum into the same number. Replay fills are

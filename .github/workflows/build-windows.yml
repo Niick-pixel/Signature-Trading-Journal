@@ -22,7 +22,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The grading arithmetic, the R math, every migration and a full
+  # export/import round trip. A red run here means no build and no release:
+  # sizing decisions get made off these numbers.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # The tests never open a window; skip the ~100 MB Electron download.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
   portable:
+    needs: test
     runs-on: windows-latest
     permissions:
       contents: write        # needed to publish the release below
@@ -70,6 +96,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # Whatever repository this workflow runs in — never a hardcoded
+          # owner/name, so a rename or a fork can never publish somewhere else.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -e
           # Check every file is there BEFORE destroying the current release:

@@ -1,8 +1,8 @@
 import {
   ACCOUNT_VALUES, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
-  TARGET_TYPES, TRADE_STATUSES,
-  type ChecklistKey, type ContextFlag, type MistakeTag, type Tri,
+  TARGET_TYPES, TRADE_STATUSES, WORKED_TAGS,
+  type ChecklistKey, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
 import { MIN_EXPLANATION, MIN_LESSON, type TradeInput } from './types';
 
@@ -23,7 +23,7 @@ import { MIN_EXPLANATION, MIN_LESSON, type TradeInput } from './types';
  * restore is not a backup.
  */
 export interface WritingFloor {
-  previous?: { explanation: string; lesson: string | null };
+  previous?: { explanation: string; lesson: string | null; quick_log?: boolean };
   restoring?: boolean;
 }
 
@@ -76,29 +76,51 @@ export function parseTradeInput(
     floor.restoring === true || (before != null && value === before.trim());
 
   const explanation = typeof t.explanation === 'string' ? t.explanation.trim() : '';
-  if (!explanation) return { ok: false, error: 'An explanation is required.' };
-  if (explanation.length < MIN_EXPLANATION
-      && !asWritten(explanation, floor.previous?.explanation)) {
-    return { ok: false, error: `The explanation needs at least ${MIN_EXPLANATION} characters.` };
-  }
-
-  /*
-    A lesson is required once the trade has a result to learn from. Planned
-    entries are exempt: there is nothing to conclude yet, and a forced
-    conclusion about a trade that has not happened is worse than none.
-  */
   const lesson = typeof t.lesson === 'string' ? t.lesson.trim() : '';
   const planned = t.status === 'Planned';
   const lessonBefore = floor.previous ? (floor.previous.lesson ?? '') : undefined;
-  if (!planned && lesson.length < MIN_LESSON && !asWritten(lesson, lessonBefore)) {
-    return {
-      ok: false,
-      error: `The lesson needs at least ${MIN_LESSON} characters — what would you do differently?`,
-    };
+  const explanationShort = explanation.length < MIN_EXPLANATION
+    && !asWritten(explanation, floor.previous?.explanation);
+  const lessonShort = !planned && lesson.length < MIN_LESSON && !asWritten(lesson, lessonBefore);
+
+  /*
+    "Log it fast": whatever is written, saved as it is.
+
+    The minimums are the form's standard for a full entry, and the full form
+    keeps them. But a trade that never gets logged because the day was bad and
+    the form asked for 160 characters is the worst outcome a journal has, so
+    this path records anything — no minimum, no screenshot — and marks the
+    record quick_log so stats can leave it out. An edit that brings a quick log
+    up to the standard clears the mark; one that does not keeps it.
+  */
+  const screenshot_path = typeof t.screenshot_path === 'string' ? t.screenshot_path : '';
+  const quick = t.quick_log === true
+    || (floor.previous?.quick_log === true
+      && (explanation.length < MIN_EXPLANATION || lesson.length < MIN_LESSON || !screenshot_path));
+
+  if (!quick) {
+    if (!explanation) return { ok: false, error: 'An explanation is required.' };
+    if (explanationShort) {
+      return { ok: false, error: `The explanation needs at least ${MIN_EXPLANATION} characters.` };
+    }
+    /*
+      A lesson is required once the trade has a result to learn from. Planned
+      entries are exempt: there is nothing to conclude yet, and a forced
+      conclusion about a trade that has not happened is worse than none.
+    */
+    if (lessonShort) {
+      return {
+        ok: false,
+        error: `The lesson needs at least ${MIN_LESSON} characters — what would you do differently?`,
+      };
+    }
   }
 
-  const screenshot_path = typeof t.screenshot_path === 'string' ? t.screenshot_path : '';
-  if (!screenshot_path) return { ok: false, error: 'A screenshot is required.' };
+  // A new full entry needs its chart. An edit never does: refusing to save a
+  // correction because a chart is missing would make the record unfixable.
+  if (!screenshot_path && !quick && !floor.previous && !floor.restoring) {
+    return { ok: false, error: 'A screenshot is required.' };
+  }
 
   const instrument = oneOf('instrument', INSTRUMENTS);
   const direction = oneOf('direction', DIRECTIONS);
@@ -194,6 +216,12 @@ export function parseTradeInput(
       explanation,
       lesson: lesson || null,
       screenshot_path,
+      quick_log: quick,
+      worked_tags: Array.isArray(t.worked_tags)
+        ? t.worked_tags.filter(
+            (v): v is WorkedTag => typeof v === 'string' && (WORKED_TAGS as readonly string[]).includes(v),
+          )
+        : [],
     },
   };
 }

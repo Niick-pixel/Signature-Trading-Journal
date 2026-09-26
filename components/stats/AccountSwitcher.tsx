@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { shortcutAllowed } from '@/lib/keys';
+import { readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
@@ -34,8 +35,9 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
 
   const go = (account: Account | 'All') => {
     const next = new URLSearchParams(params.toString());
-    if (account === 'All') next.delete('account');
-    else next.set('account', account);
+    // Explicit, 'All' included, so the remembered choice follows this one.
+    next.set('account', account);
+    writeAccountCookie(account);
     router.push(`${here}${next.toString() ? `?${next}` : ''}`);
   };
 
@@ -43,6 +45,12 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
     ...available.map((a) => ({ key: a.account, label: a.account, count: a.count })),
   ];
   if (available.length > 1) options.push({ key: 'All', label: 'All (mixed)', count: null });
+
+  // Nothing remembered yet: remember what this screen opened on, so the
+  // title bar agrees with it from the first visit.
+  useEffect(() => {
+    if (readAccountCookie() == null) writeAccountCookie(current);
+  }, [current]);
 
   // [ and ] step through the accounts in the order shown, wrapping round.
   useEffect(() => {

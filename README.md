@@ -10,9 +10,14 @@ It exists to expose **why** you take trades, not just what happened.
 
 ### 1. Install Node.js (once per machine)
 
-Signature needs **Node 24 or newer**. `npm` comes bundled with it — if your
-terminal says `'npm' is not recognized` or `command not found`, Node is what's
-missing.
+Signature needs **Node 22.13.0 or newer** — that is the first release where
+`node:sqlite`, which stores the journal, works without an experimental flag
+(22.12 and older cannot load it at all). The current LTS is fine. `npm` comes
+bundled with Node — if your terminal says `'npm' is not recognized` or
+`command not found`, Node is what's missing.
+
+`npm install` checks this and stops with a clear error on an older Node, rather
+than installing an app that cannot open its own database.
 
 Nothing here compiles. Signature stores data with `node:sqlite`, which is built
 into Node itself, so there is no C++ toolchain to install and no native module
@@ -39,7 +44,7 @@ Or download the LTS installer from <https://nodejs.org>.
 Check it worked:
 
 ```bash
-node -v      # v20.9.0 or higher
+node -v      # v22.13.0 or higher
 npm -v
 ```
 
@@ -54,8 +59,8 @@ npm run desktop      # opens Signature in its own window
 minutes and needs a working network. Every run after that is offline.
 
 The window runs the app on Electron's own bundled Node, so once installed it
-does not depend on your system Node at all. The Node 24 requirement above only
-applies to `npm install` and to `npm run dev`.
+does not depend on your system Node at all. The Node requirement above only
+applies to `npm install`, `npm test` and `npm run dev`.
 
 If the window won't open for any reason, `npm run dev` serves the identical app
 at <http://localhost:3000> and needs no Electron binary at all.
@@ -75,7 +80,7 @@ There is no seed data.
 
 You don't have to install Node at all if you'd rather just run the app.
 
-Download it here: **[latest release](https://github.com/Niick-pixel/Trading-journal/releases/latest)**
+Download it here: **[latest release](https://github.com/Niick-pixel/Signature-Trading-Journal/releases/latest)**
 — the `.exe` is under *Assets*.
 
 Every push to `main` rebuilds it on a Windows runner and republishes that

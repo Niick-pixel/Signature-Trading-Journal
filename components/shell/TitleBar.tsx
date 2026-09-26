@@ -7,6 +7,8 @@ import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 import { Wordmark } from './Wordmark';
 import { CheckInChip } from './MorningCheckIn';
+import { AccountPicker } from './AccountPicker';
+import { Suspense } from 'react';
 
 const TABS = [
   { href: '/', label: 'Whiteboard' },
@@ -81,6 +83,8 @@ export function TitleBar() {
 
       {/* Right-hand side, clear of the window buttons (see the padding above). */}
       <div className="relative ml-auto flex items-center">
+        {/* useSearchParams needs a Suspense boundary on statically rendered pages. */}
+        <Suspense fallback={null}><AccountPicker /></Suspense>
         <CheckInChip />
       </div>
     </header>

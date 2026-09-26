@@ -11,7 +11,7 @@ const SIDES: Array<[string, Position]> = [
   ['t-left', Position.Left], ['s-left', Position.Left],
 ];
 import { motion } from 'framer-motion';
-import { GRADE_COLOR, gradeLetter } from '@/lib/grade';
+import { GRADE_COLOR } from '@/lib/grade';
 import { spring, springLayout } from '@/lib/motion';
 import { NODE_H, NODE_W } from '@/lib/layout';
 import type { Outcome } from '@/lib/domain';
@@ -38,7 +38,7 @@ export type TradeNodeData = {
 function TradeNodeInner({ data }: NodeProps) {
   const { trade, selected, onOpen, scale = 1, dimPassed = true } = data as unknown as TradeNodeData;
   const outcome = OUTCOME_COLOR[trade.outcome];
-  const grade = GRADE_COLOR[gradeLetter(trade.checklist_score)];
+  const grade = GRADE_COLOR[trade.grade_letter];
   const passed = trade.outcome === 'Not taken';
   // Descriptive, never blocking — it was saved exactly as written. The dot
   // just means there is a contradiction worth a look at review time.
@@ -96,6 +96,7 @@ function TradeNodeInner({ data }: NodeProps) {
     >
       {flagged && (
         <span
+          data-flag-dot
           title="This record contradicts itself — open it to see how"
           className="absolute left-2 top-[38px] z-[4] size-2 rounded-full"
           style={{
@@ -183,7 +184,7 @@ function TradeNodeInner({ data }: NodeProps) {
           boxShadow: `0 0 12px rgb(${grade} / 0.35)`,
         }}
       >
-        {gradeLetter(trade.checklist_score)}
+        {trade.grade_letter}
       </div>
 
       {/* The first mistake tag, on the card. Which error repeats is the thing

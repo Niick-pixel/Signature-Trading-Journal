@@ -201,6 +201,13 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
 
       const tags = new Map<string, Trade[]>();
       for (const t of taken) for (const tag of t.mistake_tags) tags.set(tag, [...(tags.get(tag) ?? []), t]);
+      const worked = new Map<string, Trade[]>();
+      for (const t of taken) for (const tag of t.worked_tags ?? []) worked.set(tag, [...(worked.get(tag) ?? []), t]);
+      if (worked.size) {
+        h('### What worked, as I tagged it');
+        p(table(['What worked', 'Trades', 'R'], [...worked.entries()].sort((x, y) => y[1].length - x[1].length)
+          .map(([tag, list]) => [tag, list.length, r1(list.reduce((sum, t) => sum + (t.r_multiple ?? 0), 0))])));
+      }
       if (tags.size) {
         h('### Mistakes I tagged');
         p(table(['Mistake', 'Trades', 'R'], [...tags.entries()].sort((x, y) => y[1].length - x[1].length)
@@ -288,6 +295,8 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
     const context = CONTEXT_FLAG_LIST.filter((f) => (t as unknown as Record<string, unknown>)[f.key] === true).map((f) => f.label);
     if (context.length) p(`- **Context present:** ${context.join(', ')}`);
     if (t.mistake_tags.length) p(`- **Mistakes tagged:** ${t.mistake_tags.join(', ')}`);
+    if (t.worked_tags?.length) p(`- **What worked:** ${t.worked_tags.join(', ')}`);
+    if (t.quick_log) p('- **Quick log:** saved fast, past the form\'s minimums — the writing may be thin.');
     const exec = [
       t.contracts != null && `${t.contracts} contract${t.contracts === 1 ? '' : 's'}`,
       t.risk_dollars != null && `risk ${usd(t.risk_dollars)}`,

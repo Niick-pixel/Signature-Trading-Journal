@@ -167,14 +167,21 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
             >
               {/* Entry, stop and target live on the chart rather than in the
                   form, so the chart has to be openable. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/screenshots/${trade.screenshot_path}`}
-                alt="Chart — click to zoom"
-                onClick={() => setZoomed(`/api/screenshots/${trade.screenshot_path}`)}
-                className="max-h-[46vh] w-full cursor-zoom-in object-contain"
-                style={{ background: 'var(--letterbox)' }}
-              />
+              {trade.screenshot_path ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/screenshots/${trade.screenshot_path}`}
+                  alt="Chart — click to zoom"
+                  onClick={() => setZoomed(`/api/screenshots/${trade.screenshot_path}`)}
+                  className="max-h-[46vh] w-full cursor-zoom-in object-contain"
+                  style={{ background: 'var(--letterbox)' }}
+                />
+              ) : (
+                <div data-no-chart className="grid h-40 place-items-center text-[12.5px]"
+                  style={{ background: 'var(--letterbox)', color: 'var(--text-faint)' }}>
+                  No chart — logged fast. Edit the trade to add one.
+                </div>
+              )}
 
               <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -189,10 +196,20 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                       {' · '}{trade.instrument} {trade.direction} · {trade.session}
                       {trade.macro_time && ' · macro'}
                     </p>
+                    {trade.quick_log && (
+                      <span data-quick-badge className="mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium"
+                        style={{ borderColor: 'rgb(var(--amber) / 0.5)', color: 'rgb(var(--amber))' }}
+                        title="Saved through Log it fast, past the form's minimums. Edit to finish it — the mark clears once it meets them.">
+                        Quick log
+                      </span>
+                    )}
                   </div>
                   <GradeBadge
-                    total={trade.checklist_earned}
-                    max={trade.checklist_possible}
+                    // The frozen grade, as a percentage: what this trade was
+                    // given under its own rubric, not today's re-computation.
+                    total={trade.checklist_score}
+                    max={100}
+                    letter={trade.grade_letter}
                     size="md"
                     triggerFired={trade.trigger_fired}
                   />
@@ -328,6 +345,10 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                     <Row
                       label="Mistakes"
                       value={trade.mistake_tags.length ? trade.mistake_tags.join(', ') : (trade.mistake_tag ?? '—')}
+                    />
+                    <Row
+                      label="What worked"
+                      value={trade.worked_tags.length ? trade.worked_tags.join(', ') : '—'}
                     />
                     <Row label="Contracts / P&L / stop"
                       value={`${trade.contracts ?? '—'} · ${

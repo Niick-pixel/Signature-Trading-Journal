@@ -3,6 +3,27 @@
 import { motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
 import { CountUp } from '@/components/ui/CountUp';
+import { MIN_SAMPLE } from '@/lib/domain';
+
+/**
+ * How many trades a figure stands on, and whether that is enough.
+ *
+ * Every card says its n. Under MIN_SAMPLE the card greys out and says so in
+ * words — a number from eight trades looks exactly like a number from eighty
+ * until it is marked, and it is the one most likely to change your trading.
+ */
+function Sample({ n }: { n: number }) {
+  const thin = n < MIN_SAMPLE;
+  return (
+    <span data-sample={n} className="shrink-0 text-right text-[10.5px] tabular-nums leading-tight"
+      style={{ color: thin ? 'rgb(var(--amber))' : 'var(--text-faint)' }}>
+      n = {n}
+      {thin && <span data-thin className="block">Not enough data.</span>}
+    </span>
+  );
+}
+const thinStyle = (n: number | undefined) => (n != null && n < MIN_SAMPLE
+  ? { filter: 'grayscale(0.85)', opacity: 0.62 } : undefined);
 
 const WIN = 'var(--outcome-win)';
 const LOSS = 'var(--outcome-loss)';
@@ -121,8 +142,8 @@ export function RateBars({ rows }: { rows: BarRow[] }) {
 
 /** A single headline number. The row of these is the first thing you read. */
 export function Stat({
-  label, value, sub, tone,
-}: { label: string; value: string; sub?: string; tone?: 'win' | 'loss' | null }) {
+  label, value, sub, tone, n,
+}: { label: string; value: string; sub?: string; tone?: 'win' | 'loss' | null; n?: number }) {
   const color = tone === 'win' ? 'rgb(var(--outcome-win))'
     : tone === 'loss' ? 'rgb(var(--outcome-loss))'
     : 'var(--text)';
@@ -132,9 +153,14 @@ export function Stat({
       animate={{ opacity: 1, y: 0 }}
       transition={spring}
       className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5"
+      data-card
+      style={thinStyle(n)}
     >
-      <div className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
-        {label}
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
+          {label}
+        </div>
+        {n != null && <Sample n={n} />}
       </div>
       <div className="mt-1.5 tabular-nums text-[19px] font-semibold leading-none" style={{ color }}>
         <CountUp text={value} />
@@ -161,15 +187,24 @@ export function Line({
   );
 }
 
-export function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+export function Panel({ title, note, n, children }: {
+  title: string; note?: string; children: React.ReactNode;
+  /** The sample under this card. Shown, and greyed under MIN_SAMPLE. */
+  n?: number;
+}) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 10, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={spring}
       className="glass rounded-[calc(24px*var(--rk))] p-6"
+      data-card
+      style={thinStyle(n)}
     >
-      <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
+        {n != null && <Sample n={n} />}
+      </div>
       {note && <p className="mb-4 mt-1 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{note}</p>}
       <div className={note ? '' : 'mt-4'}>{children}</div>
     </motion.section>

@@ -1,4 +1,9 @@
 import { NextResponse } from 'next/server';
+import { addShot } from '@/db/shots';
+import { SHOT_SLOTS, type ShotSlot } from '@/lib/domain';
+
+const readSlot = (v: unknown, fallback: ShotSlot): ShotSlot =>
+  typeof v === 'string' && (SHOT_SLOTS as readonly string[]).includes(v) ? (v as ShotSlot) : fallback;
 import { createTrade, listTrades } from '@/db/trades';
 import { deleteScreenshot, saveScreenshot } from '@/db/screenshots';
 import { parseTradeInput } from '@/lib/validate';
@@ -29,9 +34,7 @@ export async function POST(request: Request) {
     const image = form.get('screenshot');
     const payload = form.get('trade');
 
-    if (!(image instanceof File) || image.size === 0) {
-      return NextResponse.json({ error: 'A screenshot is required.' }, { status: 400 });
-    }
+    const hasImage = image instanceof File && image.size > 0;
     if (typeof payload !== 'string') {
       return NextResponse.json({ error: 'Malformed trade payload.' }, { status: 400 });
     }
@@ -46,18 +49,40 @@ export async function POST(request: Request) {
     // Validate before touching the disk, or a rejected payload leaves an
     // orphaned image behind. 'pending' stands in for the path we haven't
     // written yet; only its presence is checked at this stage.
-    const check = parseTradeInput({ ...(json as object), screenshot_path: 'pending' });
+    // A quick log may arrive without a chart; the validator decides whether
+    // that is allowed, so '' is passed through rather than refused here.
+    const check = parseTradeInput({ ...(json as object), screenshot_path: hasImage ? 'pending' : '' });
     if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
 
-    const screenshot_path = await saveScreenshot(image);
+    const screenshot_path = hasImage ? await saveScreenshot(image as File) : '';
 
+    let created;
     try {
-      return NextResponse.json(createTrade({ ...check.value, screenshot_path }), { status: 201 });
+      created = createTrade({ ...check.value, screenshot_path });
     } catch (err) {
       // The row didn't land, so the file must not survive either.
       deleteScreenshot(screenshot_path);
       throw err;
     }
+
+    /*
+      Every chart gets a labelled slot, the main one included, so the
+      gallery shows the set in reading order. The extras are best-effort: the
+      trade is already recorded, and a chart that fails to save must not undo
+      it.
+    */
+    if (screenshot_path) addShot(created.id, screenshot_path, readSlot(form.get('screenshot_slot'), 'Entry'));
+    const extras = form.getAll('shots');
+    const labels = form.getAll('shot_slots');
+    for (const [i, extra] of extras.entries()) {
+      if (!(extra instanceof File) || extra.size === 0) continue;
+      try {
+        addShot(created.id, await saveScreenshot(extra), readSlot(labels[i], 'Other'));
+      } catch (err) {
+        logError('POST /api/trades (extra chart)', err);
+      }
+    }
+    return NextResponse.json(created, { status: 201 });
   } catch (err) {
     // Report what actually went wrong. A packaged app has no console, so this
     // also lands in data/errors.log.

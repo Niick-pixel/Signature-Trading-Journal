@@ -5,6 +5,7 @@ import {
   GRADE_COLOR, gradeLetter, isBelowStandard,
   BELOW_STANDARD_PROMPT, NO_TRIGGER_PROMPT,
 } from '@/lib/grade';
+import type { GradeLetter } from '@/lib/grade';
 import { spring, springBouncy } from '@/lib/motion';
 
 const AMBER = 'var(--amber)';
@@ -31,14 +32,20 @@ interface GradeBadgeProps {
    * inversion close is still not a trade.
    */
   triggerFired?: boolean;
+  /**
+   * A letter already given — a saved trade's frozen grade. Without it the
+   * letter is worked out from the current thresholds, which is right for the
+   * live form and wrong for history (see lib/rubric.ts).
+   */
+  letter?: GradeLetter;
 }
 
 /** Letter big, number small. Glows in its grade colour. */
 export function GradeBadge({
-  total, max, size = 'md', showPrompt = false, triggerFired = true,
+  total, max, size = 'md', showPrompt = false, triggerFired = true, letter: given,
 }: GradeBadgeProps) {
   const pct = max > 0 ? Math.round((total * 100) / max) : 0;
-  const letter = gradeLetter(pct);
+  const letter = given ?? gradeLetter(pct);
   const below = isBelowStandard(pct);
   // No trigger is the louder problem, so it wins the one line we show.
   const prompt = !triggerFired ? NO_TRIGGER_PROMPT : below ? BELOW_STANDARD_PROMPT : null;

@@ -56,6 +56,18 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const [backup, setBackup] = useState<{ latest: { name: string; taken: string } | null; count: number } | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
+
+  async function backUpNow() {
+    setBackingUp(true);
+    try {
+      const res = await fetch('/api/backup', { method: 'POST' });
+      if (res.ok) setBackup(await res.json());
+    } finally {
+      setBackingUp(false);
+    }
+  }
 
   /**
    * Restores from an export. Idempotent on id, so importing the same file
@@ -87,6 +99,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   useEffect(() => {
     if (!open) return;
     fetch('/api/settings').then((r) => r.json()).then(setInfo).catch(() => setInfo(null));
+    fetch('/api/backup').then((r) => r.json()).then(setBackup).catch(() => setBackup(null));
   }, [open]);
 
   useEffect(() => {
@@ -231,6 +244,24 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 Back up that one folder and you have backed up everything — the database and
                 every chart screenshot. {info ? `${info.trades} trade${info.trades === 1 ? '' : 's'} recorded.` : ''}
               </p>
+            </Section>
+
+            <Section
+              title="Backups"
+              hint="A copy of the journal is taken the first time the app opens each day, and the newest 30 are kept in the backups folder beside it. To restore one: close Signature, then copy that file over journal.db."
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p data-last-backup className="text-[11.5px]" style={{ color: 'var(--text-dim)' }}>
+                  {backup?.latest
+                    ? <>Last backup {new Date(backup.latest.taken).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                      <span style={{ color: 'var(--text-faint)' }}> · {backup.count} kept</span></>
+                    : 'No backup yet.'}
+                </p>
+                <Button onClick={backUpNow} disabled={backingUp}
+                  title="Takes a copy of the journal right now, alongside the daily ones">
+                  {backingUp ? 'Backing up…' : 'Back up now'}
+                </Button>
+              </div>
             </Section>
 
             {importResult && (

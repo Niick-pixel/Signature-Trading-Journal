@@ -73,6 +73,12 @@ export function saveDailyReview(
 }
 
 /** A restored backup keeps the moment each morning was actually written. */
+/** A restored review keeps the moment it was first written. */
+export function restoreReviewCreated(day: string, at: string): void {
+  if (Number.isNaN(Date.parse(at))) return;
+  getDb().prepare('UPDATE daily_reviews SET created_at = ? WHERE day = ?').run(at, day);
+}
+
 export function restoreCheckIn(day: string, at: string): void {
   if (Number.isNaN(Date.parse(at))) return;
   getDb().prepare('UPDATE daily_reviews SET checked_in_at = ? WHERE day = ? AND checked_in_at IS NULL')

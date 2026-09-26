@@ -664,7 +664,8 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 }
 .titlebar-drag button,
 .titlebar-drag a,
-.titlebar-drag input {
+.titlebar-drag input,
+.titlebar-drag select {
   -webkit-app-region: no-drag;
 }
 
@@ -720,3 +721,6 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 .checkin-ping { animation: checkin-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite; }
 [data-reduce-motion='true'] .checkin-ping { animation: none; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .checkin-ping { animation: none; opacity: 0; } }
+
+/* Held invisible while the board regroups, until each card's glide begins. */
+[data-regrouping] .react-flow__node-trade { opacity: 0; }

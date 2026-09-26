@@ -56,6 +56,8 @@ export function resolveScreenshot(relative: string): string {
 
 /** Best-effort cleanup when a trade is deleted. A missing file is not an error. */
 export function deleteScreenshot(relative: string): void {
+  // A quick log has no chart; '' would resolve to the screenshots folder itself.
+  if (!relative) return;
   try {
     fs.rmSync(resolveScreenshot(relative), { force: true });
   } catch {

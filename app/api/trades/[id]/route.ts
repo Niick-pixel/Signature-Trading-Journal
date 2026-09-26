@@ -30,8 +30,9 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
       not demand that its explanation be rewritten to the new one.
     */
     const check = parseTradeInput(
-      { ...JSON.parse(payload), screenshot_path: existing.screenshot_path },
-      { previous: { explanation: existing.explanation, lesson: existing.lesson } },
+      // A chart arriving with this edit counts as the trade's chart.
+      { ...JSON.parse(payload), screenshot_path: replacing ? 'pending' : existing.screenshot_path },
+      { previous: { explanation: existing.explanation, lesson: existing.lesson, quick_log: existing.quick_log } },
     );
     if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
 

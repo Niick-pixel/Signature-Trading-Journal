@@ -1,7 +1,8 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import type { SQLInputValue } from 'node:sqlite';
-import { MISTAKE_TAGS, type MistakeTag } from '../lib/domain';
+import { MISTAKE_TAGS, WORKED_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
+import { CURRENT_RUBRIC, gradeUnder } from '../lib/rubric';
 import { getDb } from './index';
 import { deleteScreenshot } from './screenshots';
 import type {
@@ -21,7 +22,7 @@ type Row =
 const BOOL_COLUMNS = [
   'macro_time', 'macro_time_auto', 'sweep_before_entry', 'singular_gap', 'target_unswept', 'smt',
   'displacement', 'mss_confirmed', 'volume_imbalance', 'consequent_encroachment',
-  'equal_highs_lows', 'retest_entry', 'news_window',
+  'equal_highs_lows', 'retest_entry', 'news_window', 'quick_log',
   // Phase 3 only. The trigger is always answerable — the other seven boxes are
   // tri-state and live in NULLABLE_BOOL_COLUMNS below.
   'chk_returned_to_fvg', 'chk_inversion_close',
@@ -52,6 +53,22 @@ const NULLABLE_BOOL_COLUMNS = [
 
 function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade {
   const trade = { ...row } as unknown as Trade;
+  /*
+    The frozen grade takes the familiar names, so every stat, chart and badge
+    that reads checklist_score / grade_letter / trigger_fired reads the grade
+    the trade was given, not one recomputed under today's rubric. The live
+    generated values move to live_* for the form. A row without a snapshot
+    (none, after 014 — but a trade must never be unreadable) falls back.
+  */
+  const r = row as unknown as Record<string, unknown>;
+  trade.live_score = r.checklist_score as number;
+  trade.live_letter = r.grade_letter as Trade['grade_letter'];
+  trade.live_trigger = Boolean(r.trigger_fired);
+  trade.checklist_score = (r.score_at_entry ?? r.checklist_score) as number;
+  trade.grade_letter = (r.letter_at_entry ?? r.grade_letter) as Trade['grade_letter'];
+  delete (trade as unknown as Record<string, unknown>).score_at_entry;
+  delete (trade as unknown as Record<string, unknown>).letter_at_entry;
+  delete (trade as unknown as Record<string, unknown>).trigger_fired_at_entry;
   for (const col of BOOL_COLUMNS) trade[col] = Boolean(row[col]);
   for (const col of GENERATED_BOOL_COLUMNS) trade[col] = Boolean(row[col]);
   for (const col of NULLABLE_BOOL_COLUMNS) {
@@ -61,6 +78,8 @@ function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade
   // deserves. Anything unparseable reads as no tags rather than throwing —
   // a corrupt tag list must never make a trade unreadable.
   trade.mistake_tags = parseTags((row as unknown as { mistake_tags: string | null }).mistake_tags);
+  trade.worked_tags = parseList(r.worked_tags as string | null, WORKED_TAGS);
+  trade.trigger_fired = Boolean(r.trigger_fired_at_entry ?? r.trigger_fired);
   trade.dismissed_flags = dismissed;
   return trade;
 }
@@ -73,6 +92,16 @@ function parseTags(raw: string | null): Trade['mistake_tags'] {
     return v.filter(
       (x): x is MistakeTag => typeof x === 'string' && (MISTAKE_TAGS as readonly string[]).includes(x),
     );
+  } catch {
+    return [];
+  }
+}
+
+function parseList<T extends string>(raw: string | null, allowed: readonly T[]): T[] {
+  if (!raw) return [];
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is T => typeof x === 'string' && allowed.includes(x as T)) : [];
   } catch {
     return [];
   }
@@ -109,8 +138,15 @@ const WRITABLE = [
   'entry_time', 'exit_time', 'mae_r', 'mfe_r', 'mae_points', 'mfe_points', 'reached_1r',
   'confidence_at_entry', 'would_be_r', 'playbook_id',
   'contracts', 'risk_dollars', 'risk_percent', 'pnl_dollars', 'stop_points', 'outcome', 'r_multiple',
-  'explanation', 'lesson', 'screenshot_path',
+  'explanation', 'lesson', 'screenshot_path', 'quick_log', 'worked_tags',
 ] as const;
+
+/** The grade, frozen under a rubric version, as the four columns it is stored in. */
+function frozen(input: TradeInput, version: number): Record<string, SQLInputValue> {
+  const g = gradeUnder(version, input);
+  return { rubric_version: version, score_at_entry: g.score, letter_at_entry: g.letter, trigger_fired_at_entry: g.trigger ? 1 : 0 };
+}
+const FROZEN = ['rubric_version', 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry'] as const;
 
 /**
  * SQLite has no boolean type, so every flag goes in and comes out as 0/1.
@@ -135,6 +171,7 @@ function flatten(input: TradeInput): Record<string, SQLInputValue> {
     out[col] = input[col] == null ? null : input[col] ? 1 : 0;
   }
   out.mistake_tags = JSON.stringify(input.mistake_tags ?? []);
+  out.worked_tags = JSON.stringify(input.worked_tags ?? []);
   return out;
 }
 
@@ -142,10 +179,12 @@ function flatten(input: TradeInput): Record<string, SQLInputValue> {
 export function createTrade(input: TradeInput): Trade {
   const db = getDb();
   const id = crypto.randomUUID();
+  // Graded once, now, under the rubric in force — and never again by a rubric change.
+  const cols = [...WRITABLE, ...FROZEN];
   db.prepare(
-    `INSERT INTO trades (id, ${WRITABLE.join(', ')})
-     VALUES (@id, ${WRITABLE.map((c) => `@${c}`).join(', ')})`,
-  ).run({ id, ...flatten(input) });
+    `INSERT INTO trades (id, ${cols.join(', ')})
+     VALUES (@id, ${cols.map((c) => `@${c}`).join(', ')})`,
+  ).run({ id, ...flatten(input), ...frozen(input, CURRENT_RUBRIC) });
   return getTrade(id)!;
 }
 
@@ -160,12 +199,20 @@ export function createTrade(input: TradeInput): Trade {
 export function importTrade(
   id: string,
   input: TradeInput,
-  meta: { position_x: number | null; position_y: number | null; deleted_at: string | null; created_at: string | null },
+  meta: {
+    position_x: number | null; position_y: number | null; deleted_at: string | null; created_at: string | null;
+    /** The rubric the trade was graded under when it was exported. Absent in older exports. */
+    rubric_version?: number | null;
+  },
 ): Trade {
-  const columns = [...WRITABLE, 'position_x', 'position_y', 'deleted_at'];
+  const columns: string[] = [...WRITABLE, 'position_x', 'position_y', 'deleted_at', ...FROZEN];
+  // A restored trade keeps the rubric it was graded under; an export from
+  // before rubrics existed was graded under the first one.
+  const version = meta.rubric_version && meta.rubric_version > 0 ? meta.rubric_version : 1;
   const values: Record<string, SQLInputValue> = {
     id, ...flatten(input),
     position_x: meta.position_x, position_y: meta.position_y, deleted_at: meta.deleted_at,
+    ...frozen(input, version),
   };
   if (meta.created_at) { columns.push('created_at'); values.created_at = meta.created_at; }
 
@@ -188,8 +235,8 @@ export function listTrades(filters: TradeFilters = {}): Trade[] {
 
   if (filters.from) { where.push('date >= @from'); params.from = filters.from; }
   if (filters.to) { where.push('date <= @to'); params.to = filters.to; }
-  if (filters.minGrade != null) { where.push('checklist_score >= @minGrade'); params.minGrade = filters.minGrade; }
-  if (filters.maxGrade != null) { where.push('checklist_score <= @maxGrade'); params.maxGrade = filters.maxGrade; }
+  if (filters.minGrade != null) { where.push('COALESCE(score_at_entry, checklist_score) >= @minGrade'); params.minGrade = filters.minGrade; }
+  if (filters.maxGrade != null) { where.push('COALESCE(score_at_entry, checklist_score) <= @maxGrade'); params.maxGrade = filters.maxGrade; }
 
   // Soft-deleted trades are hidden everywhere unless the Trash asks for them.
   const bin = filters.bin ?? 'live';
@@ -247,9 +294,16 @@ function recordEdits(id: string, before: Trade, after: TradeInput): void {
 export function updateTrade(id: string, input: TradeInput): Trade | null {
   const before = getTrade(id);
   if (!before) return null;
+  /*
+    Edited answers are re-scored — under the rubric this trade was graded
+    with, not today's. Correcting a box you ticked by mistake should change
+    the grade; a rubric change made since should not.
+  */
+  const { rubric_version: _v, ...snapshot } = frozen(input, before.rubric_version);
+  const cols = [...WRITABLE, 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry'];
   getDb()
-    .prepare(`UPDATE trades SET ${WRITABLE.map((c) => `${c} = @${c}`).join(', ')} WHERE id = @id`)
-    .run({ id, ...flatten(input) });
+    .prepare(`UPDATE trades SET ${cols.map((c) => `${c} = @${c}`).join(', ')} WHERE id = @id`)
+    .run({ id, ...flatten(input), ...snapshot });
   recordEdits(id, before, input);
   return getTrade(id);
 }
@@ -349,7 +403,7 @@ export function settleTrade(id: string, input: SettleInput): Trade | null {
   getDb()
     .prepare(`UPDATE trades SET outcome = @outcome, r_multiple = @r_multiple,
                 status = 'Settled',
-                grade_at_entry = COALESCE(grade_at_entry, checklist_score)
+                grade_at_entry = COALESCE(grade_at_entry, score_at_entry, checklist_score)
               WHERE id = @id`)
     .run({ id, outcome: input.outcome, r_multiple: input.r_multiple });
 

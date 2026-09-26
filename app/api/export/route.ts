@@ -38,7 +38,8 @@ function screenshotEntries(trades: Trade[]): Array<{ name: string; data: Buffer 
   const out: Array<{ name: string; data: Buffer }> = [];
   const seen = new Set<string>();
   for (const t of trades) {
-    if (seen.has(t.screenshot_path)) continue;
+    // A quick log may have no chart at all; '' would name the folder itself.
+    if (!t.screenshot_path || seen.has(t.screenshot_path)) continue;
     seen.add(t.screenshot_path);
     const abs = path.join(SCREENSHOTS_DIR, t.screenshot_path);
     // A missing file must not fail the whole export — the point of an export is

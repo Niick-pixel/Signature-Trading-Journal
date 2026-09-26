@@ -86,11 +86,13 @@ export function createCashEvent(input: CashInput): CashEvent {
  * the second time, and a new one every time would double the money history on
  * every import. Same rule the trades importer follows.
  */
-export function importCashEvent(id: string, input: CashInput): void {
+export function importCashEvent(id: string, input: CashInput, created_at: string | null = null): void {
+  // A restore keeps when the movement was recorded, not when it was restored.
   getDb()
-    .prepare(`INSERT INTO cash_events (id, account, kind, amount, date, note)
-              VALUES (@id, @account, @kind, @amount, @date, @note)`)
-    .run({ id, ...input });
+    .prepare(`INSERT INTO cash_events (id, account, kind, amount, date, note, created_at)
+              VALUES (@id, @account, @kind, @amount, @date, @note,
+                      COALESCE(@created_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')))`)
+    .run({ id, ...input, created_at });
 }
 
 /** Hard delete: a cash event has no history worth keeping and no screenshot. */

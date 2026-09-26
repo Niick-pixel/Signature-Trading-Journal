@@ -6,6 +6,7 @@ import {
 } from './domain';
 import { adherenceGap, adherenceOf, derivedAdherence, type AdherenceGap } from './adherence';
 import { GRADE_BUCKETS } from './grade';
+import { localDay } from './day';
 import { isMacroTime } from './macro';
 import type { Trade } from './types';
 
@@ -215,7 +216,9 @@ export function rByTargetType(trades: Trade[]): Group<TargetType>[] {
 /** Does the grading actually predict outcomes? */
 export function byGradeBucket(trades: Trade[]): Group<string>[] {
   return GRADE_BUCKETS.map((bucket) => {
-    const ts = trades.filter((t) => bucket.test(t.checklist_score));
+    // By the letter the trade was given, not by re-banding its score under
+    // today's thresholds — see lib/rubric.ts.
+    const ts = trades.filter((t) => t.grade_letter === bucket.label);
     return { key: bucket.label as string, trades: ts, stats: aggregate(ts) };
   }).filter((g) => g.trades.length > 0);
 }
@@ -663,8 +666,10 @@ export function streaks(trades: Trade[]): Streaks {
     }
     // Only counts as current if it reaches today or yesterday — a streak that
     // ended in March is not a streak.
-    const today = dayOf(new Date().toISOString());
-    const yesterday = dayOf(new Date(Date.now() - 86_400_000).toISOString());
+    // Local dates, like the trades' own: a UTC "today" rolls over in the
+    // evening in the Americas and ended a live streak early.
+    const today = localDay();
+    const yesterday = localDay(new Date(Date.now() - 86_400_000));
     const live = list.length > 0 && (list[list.length - 1] === today || list[list.length - 1] === yesterday);
     return { current: live ? current : 0, best };
   };
@@ -765,4 +770,19 @@ export function rByMistakeTag(trades: Trade[]): Array<{ tag: MistakeTag; count: 
     }
   }
   return [...out].map(([tag, v]) => ({ tag, ...v })).sort((a, b) => a.totalR - b.totalR);
+}
+
+/** What worked, by the R it came with — best first. The mirror of rByMistakeTag. */
+export function rByWorkedTag(trades: Trade[]): Array<{ tag: string; count: number; totalR: number }> {
+  const out = new Map<string, { count: number; totalR: number }>();
+  for (const t of trades) {
+    if (!isTaken(t.outcome)) continue;
+    for (const tag of t.worked_tags ?? []) {
+      const entry = out.get(tag) ?? { count: 0, totalR: 0 };
+      entry.count += 1;
+      entry.totalR += t.r_multiple ?? 0;
+      out.set(tag, entry);
+    }
+  }
+  return [...out].map(([tag, v]) => ({ tag, ...v })).sort((a, b) => b.totalR - a.totalR);
 }

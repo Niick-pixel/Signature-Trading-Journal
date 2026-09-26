@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  ACCOUNT_VALUES, SHOT_SLOTS, accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TARGET_TYPES, TRADE_STATUSES,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -17,6 +17,8 @@ import { macroWindowFor } from '@/lib/macro';
 import { press, spring, springSoft, riseIn } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import { MIN_EXPLANATION, MIN_LESSON, type Trade } from '@/lib/types';
+
+const LAST_ACCOUNT_KEY = 'signature.lastAccount';
 import { Button } from '@/components/ui/Button';
 import { Disclosure } from '@/components/ui/Disclosure';
 import { Field, Input } from '@/components/ui/Field';
@@ -31,6 +33,7 @@ import { Checklist } from './Checklist';
 import { clearDraft, readDraft, writeDraft } from '@/lib/draft';
 import { ExplanationField } from './ExplanationField';
 import { ScreenshotDropzone } from './ScreenshotDropzone';
+import { ShotSlots, type SlotFiles } from './ShotSlots';
 import { PastLessons } from './PastLessons';
 import { dialogIsOpen } from '@/components/ui/Overlay';
 import type { PastLesson } from '@/lib/lessons';
@@ -47,7 +50,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   pastLessons?: Record<string, PastLesson[]>;
 }) {
   const editing = Boolean(trade);
+  // Editing replaces the one stored chart; a new trade fills labelled slots.
   const [file, setFile] = useState<File | null>(null);
+  const [slots, setSlots] = useState<SlotFiles>({});
+  const firstSlot = SHOT_SLOTS.find((s) => slots[s]) ?? null;
+  const chart = trade ? file : (firstSlot ? slots[firstSlot]! : null);
   const [reason, setReason] = useState<Reason | null>(trade?.reason ?? null);
   const [explanation, setExplanation] = useState(trade?.explanation ?? '');
 
@@ -79,6 +86,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const [followedRules, setFollowedRules] = useState<Tri>(trade?.followed_rules ?? null);
   const [regrade, setRegrade] = useState<Regrade | null>(trade?.regrade ?? null);
   const [mistakeTags, setMistakeTags] = useState<MistakeTag[]>(trade?.mistake_tags ?? []);
+  const [workedTags, setWorkedTags] = useState<WorkedTag[]>(trade?.worked_tags ?? []);
   const [account, setAccount] = useState<Account>(trade?.account ?? 'Live');
   const [accountLabel, setAccountLabel] = useState(trade?.account_label ?? '');
   const [status, setStatus] = useState<TradeStatus>(trade?.status ?? 'Settled');
@@ -114,10 +122,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     act on instead.
   */
   const derivedWindow = useMemo(() => macroWindowFor(date), [date]);
-  const [macroOverride, setMacroOverride] = useState<boolean | null>(
-    trade ? trade.macro_time : null,
-  );
-  const macroTime = macroOverride ?? false;
+  /*
+    Read-only now. Macro time is a fact about the entry time, so it is shown
+    as one, derived from the date field — not a pill that could be ticked
+    into saying something the clock did not. Change the time to change it.
+  */
+  const macroTime = derivedWindow !== null;
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,15 +140,15 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const draftValues = useMemo(() => ({
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, followedRules, mistakeTags, account, accountLabel, status,
+    context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
-    reached1R, confidence, wouldBeR, macroOverride,
+    reached1R, confidence, wouldBeR,
   }), [
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, followedRules, mistakeTags, account, accountLabel, status,
+    context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
-    reached1R, confidence, wouldBeR, macroOverride,
+    reached1R, confidence, wouldBeR,
   ]);
 
   const [restored, setRestored] = useState(false);
@@ -151,6 +161,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   // a stale draft over them would quietly rewrite a real record.
   useEffect(() => {
     if (editing) return;
+    // A new trade starts on the account you logged the last one to — the
+    // same account nine times out of ten, and a wrong default is how a live
+    // trade ends up in the demo totals.
+    try {
+      const last = window.localStorage.getItem(LAST_ACCOUNT_KEY);
+      if (last && (ACCOUNT_VALUES as readonly string[]).includes(last)) setAccount(last as Account);
+    } catch { /* storage unavailable: keep the default */ }
     const draft = readDraft();
     if (!draft) return;
     const v = draft.values as Record<string, never>;
@@ -171,6 +188,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('outcome')) setOutcome(v.outcome);
     if (has('followedRules')) setFollowedRules(v.followedRules);
     if (has('mistakeTags')) setMistakeTags(v.mistakeTags);
+    if (has('workedTags')) setWorkedTags(v.workedTags);
     if (has('account')) setAccount(v.account);
     if (has('accountLabel')) setAccountLabel(v.accountLabel);
     if (has('status')) setStatus(v.status);
@@ -181,7 +199,6 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('reached1R')) setReached1R(v.reached1R);
     if (has('confidence')) setConfidence(v.confidence);
     if (has('wouldBeR')) setWouldBeR(v.wouldBeR);
-    if (has('macroOverride')) setMacroOverride(v.macroOverride);
     // Only claim to have restored something if something was actually written.
     const raw = draft.values as Record<string, unknown>;
     const real = ['explanation', 'lesson', 'reason']
@@ -234,22 +251,36 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     || (keptExplanation && explanation.trim().length > 0);
   // A Planned trade has no result to learn from, so it is not asked for one.
   const lessonOk = planned || lesson.trim().length >= MIN_LESSON || keptLesson;
-  const canSubmit = (Boolean(file) || editing)
+  const canSubmit = (Boolean(chart) || editing)
     && Boolean(reason) && explanationOk && lessonOk && !submitting;
 
   const num = (v: string) => (v.trim() === '' ? null : Number(v));
 
-  async function submit() {
-    if (!canSubmit || !reason) return;
+  /**
+   * Save. `quick` is "Log it fast": whatever is written, past the minimums and
+   * with or without a chart, marked quick_log so stats can leave it out. It
+   * still needs a reason — one click, and the one thing the journal is for.
+   */
+  async function submit(quick = false) {
+    if (quick ? (!reason || submitting) : (!canSubmit || !reason)) return;
     setSubmitting(true);
     setError(null);
 
     const body = new FormData();
     // On an edit, sending no file means "keep the screenshot you already have".
-    if (file) body.append('screenshot', file);
+    if (chart) body.append('screenshot', chart);
+    // A new trade's first filled slot is its chart; every image keeps its label.
+    if (!editing && firstSlot) {
+      body.append('screenshot_slot', firstSlot);
+      for (const s of SHOT_SLOTS) {
+        if (s === firstSlot || !slots[s]) continue;
+        body.append('shots', slots[s]!);
+        body.append('shot_slots', s);
+      }
+    }
     body.append('trade', JSON.stringify({
       date, instrument, direction, session,
-      macro_time: macroTime, macro_time_auto: macroOverride === null,
+      macro_time: macroTime, macro_time_auto: true,
       reason, setup_type: setupType, htf_bias: htfBias,
       ...context,
       premium_discount: premiumDiscount, target_type: targetType,
@@ -260,6 +291,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       // erases a value written under the old taxonomy.
       mistake_tag: trade?.mistake_tag ?? null,
       mistake_tags: mistakeTags,
+      worked_tags: workedTags,
       account, account_label: accountLabel.trim() || null,
       status,
       // Freeze the score as it stands now if this is being planned before the
@@ -306,6 +338,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       outcome: planned ? 'Not taken' : outcome,
       r_multiple: planned ? null : num(rMultiple),
       explanation: explanation.trim(), lesson: lesson.trim() || null,
+      quick_log: quick,
     }));
 
     try {
@@ -326,6 +359,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       // Saved, so the draft has served its purpose. Leaving it behind would
       // resurrect this trade as a ghost on the next New trade.
       clearDraft();
+      try { window.localStorage.setItem(LAST_ACCOUNT_KEY, account); } catch { /* fine */ }
       window.location.href = '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the trade.');
@@ -525,11 +559,15 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
 
         {/* 2 — the chart. */}
         <div>
-        <ScreenshotDropzone
-          file={file}
-          onFile={setFile}
-          existingUrl={trade ? `/api/screenshots/${trade.screenshot_path}` : null}
-        />
+        {editing ? (
+          <ScreenshotDropzone
+            file={file}
+            onFile={setFile}
+            existingUrl={trade!.screenshot_path ? `/api/screenshots/${trade!.screenshot_path}` : null}
+          />
+        ) : (
+          <ShotSlots files={slots} onChange={setSlots} />
+        )}
         </div>
 
         {/* The passed-setup questions belong here, the moment "Not taken"
@@ -597,18 +635,16 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           </Field>
         </div>
 
-        <div>
-          <TogglePill
-            checked={macroTime}
-            onChange={(next) => setMacroOverride(next === (derivedWindow !== null) ? null : next)}
-            label={derivedWindow ? `Macro time (${derivedWindow})` : 'Macro time'}
-            accent="var(--accent)"
-          />
-          <p className="mt-2 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-            {derivedWindow
-              ? `The entry time falls inside the ${derivedWindow} macro — tick it if that mattered.`
-              : 'The entry time is outside both macro windows.'}
-          </p>
+        <div data-macro={derivedWindow ? 'inside' : 'outside'} className="flex items-center gap-2 text-[11.5px]"
+          title="Derived from the date and time above — change the time to change this">
+          <span className="rounded-full border px-2.5 py-1 font-medium"
+            style={{
+              borderColor: derivedWindow ? 'rgb(var(--accent) / 0.45)' : 'var(--glass-stroke)',
+              color: derivedWindow ? 'rgb(var(--accent))' : 'var(--text-faint)',
+            }}>
+            {derivedWindow ? `Inside the ${derivedWindow} macro` : 'Outside the macro windows'}
+          </span>
+          <span style={{ color: 'var(--text-faint)' }}>from the entry time</span>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -655,6 +691,16 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           label="Reached +1R before the stop?"
           hint="If most of your losers did, the problem is management rather than selection."
         />
+
+        {/*
+          What worked, where "The setup" used to be. The post-mortem had only a
+          mistakes half, which teaches what to avoid and nothing about what to
+          repeat — and a loss traded well looks exactly like a loss traded
+          badly until this is filled in.
+        */}
+        <Field label="What worked" hint="Pick every one that applies — on losers too. A good trade can lose." group>
+          <TagPicker value={workedTags} onChange={setWorkedTags} options={WORKED_TAGS} tone="win" />
+        </Field>
 
         {/* Context flags, folded away with a count: a trade that needs none of
             them costs no height at all. */}
@@ -730,6 +776,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         <Field
           label="What went wrong"
           hint="Pick every one that applies. A bad trade usually has three."
+          group
         >
           <TagPicker value={mistakeTags} onChange={setMistakeTags} />
         </Field>
@@ -807,12 +854,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         <div className="min-w-0 text-[12px]" style={{ color: 'var(--text-faint)' }}>
           <AnimatePresence mode="wait">
             <motion.span
-              key={!file && !editing ? 'file' : !reason ? 'reason'
+              key={!chart && !editing ? 'file' : !reason ? 'reason'
                 : !explanationOk ? 'expl' : !lessonOk ? 'lesson' : 'ready'}
               initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
               transition={spring} className="block truncate"
             >
-              {!file && !editing ? 'A screenshot is required.'
+              {!chart && !editing ? 'A screenshot is required.'
                 : !reason ? 'Name your motive to continue.'
                 : !explanationOk ? `${MIN_EXPLANATION - explanation.trim().length} more characters of explanation.`
                 : !lessonOk ? `${MIN_LESSON - lesson.trim().length} more characters of lesson.`
@@ -821,9 +868,30 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           </AnimatePresence>
         </div>
 
-        <Button variant="primary" accent={accent} disabled={!canSubmit} onClick={submit} className="shrink-0">
+        <div className="flex shrink-0 items-center gap-4">
+        {/*
+          The escape hatch. Shown whenever the full entry is not ready yet, so a
+          bad day never ends with no record at all.
+        */}
+        {!canSubmit && !submitting && !editing && (
+          <button
+            type="button"
+            data-quick-log
+            onClick={() => void submit(true)}
+            disabled={!reason}
+            title={reason
+              ? 'Saves what is written now, without the minimums or a chart. Marked as a quick log; finish it later from the trade.'
+              : 'Name why you took it first — that one field is still needed.'}
+            className="shrink-0 text-[12px] font-medium underline underline-offset-4 disabled:opacity-40"
+            style={{ color: 'var(--text-dim)' }}
+          >
+            Log it fast
+          </button>
+        )}
+        <Button variant="primary" accent={accent} disabled={!canSubmit} onClick={() => void submit()} className="shrink-0">
           {submitting ? 'Saving…' : editing ? 'Save changes' : 'Save trade'}
         </Button>
+        </div>
       </div>
 
       <AnimatePresence>

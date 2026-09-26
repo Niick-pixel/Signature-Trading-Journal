@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "node --conditions=react-server --import tsx --test \"tests/*.test.mts\"",
     "migrate": "tsx --conditions=react-server db/cli-migrate.ts",
     "desktop": "electron .",
     "desktop:build": "next build && node scripts/assemble-standalone.mjs && electron-builder --win portable zip",
@@ -67,6 +68,6 @@
     }
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.13.0"
   }
 }

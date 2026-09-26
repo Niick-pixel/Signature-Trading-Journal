@@ -106,3 +106,29 @@ export function adherenceGap(
     overclaimRate: answered ? overclaimed / answered : null,
   };
 }
+
+export interface GapMonth { month: string; answered: number; overclaimed: number; rate: number | null }
+
+/**
+ * The gap, month by month — whether it is closing is the whole point of
+ * measuring it. Only months where something was answered are returned, oldest
+ * first, the last `months` of them.
+ */
+export function gapTrend(
+  trades: Array<{ date: string; followed_rules: boolean | null } & AdherenceInput>,
+  months = 6,
+): GapMonth[] {
+  const by = new Map<string, typeof trades>();
+  for (const t of trades) {
+    const m = t.date.slice(0, 7);
+    by.set(m, [...(by.get(m) ?? []), t]);
+  }
+  return [...by.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, list]) => {
+      const g = adherenceGap(list);
+      return { month, answered: g.answered, overclaimed: g.overclaimed, rate: g.overclaimRate };
+    })
+    .filter((m) => m.answered > 0)
+    .slice(-months);
+}
