@@ -5,9 +5,15 @@ import { motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
 
 export function Field({
-  label, hint, children, className = '', group = false,
+  label, hint, children, className = '', group = false, pending = false,
 }: {
   label: string; hint?: string; children: React.ReactNode; className?: string;
+  /**
+   * Still on the value the form started with — not yet looked at. The label
+   * lights up until an option is picked (the same one counts), so a default
+   * is never mistaken for an answer. Never blocks anything.
+   */
+  pending?: boolean;
   /**
    * For a row of buttons rather than one control. A <label> labels only its
    * FIRST labelable descendant — so around five buttons it named the first
@@ -19,8 +25,12 @@ export function Field({
   const Tag = group ? 'div' : 'label';
   return (
     <Tag className={`block ${className}`} {...(group ? { role: 'group', 'aria-label': label } : {})}>
-      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.07em]"
-        style={{ color: 'var(--text-faint)' }}>
+      <span
+        data-pending={pending ? 'true' : undefined}
+        title={pending ? 'Still on its default — pick an option to confirm it' : undefined}
+        className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.07em] transition-[color,font-weight] duration-300"
+        style={{ color: pending ? 'rgb(var(--accent))' : 'var(--text-faint)', fontWeight: pending ? 700 : 500 }}>
+        {pending && <span aria-hidden className="size-1.5 rounded-full" style={{ background: 'rgb(var(--accent))' }} />}
         {label}
       </span>
       {children}

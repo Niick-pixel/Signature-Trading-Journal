@@ -19,6 +19,16 @@ import { reasonAccent } from '@/lib/layout';
 import { MIN_EXPLANATION, MIN_LESSON, type Trade } from '@/lib/types';
 
 const LAST_ACCOUNT_KEY = 'signature.lastAccount';
+
+/** The questions that start with an answer already in them. */
+const DEFAULTED = [
+  'outcome', 'session', 'instrument', 'direction', 'setupType', 'htfBias', 'premiumDiscount', 'targetType',
+] as const;
+type DefaultedField = (typeof DEFAULTED)[number];
+const DEFAULTED_LABEL: Record<DefaultedField, string> = {
+  outcome: 'How it ended', session: 'Session', instrument: 'Instrument', direction: 'Direction',
+  setupType: 'Setup type', htfBias: 'HTF bias', premiumDiscount: 'Premium / discount', targetType: 'Target type',
+};
 import { Button } from '@/components/ui/Button';
 import { Disclosure } from '@/components/ui/Disclosure';
 import { Field, Input } from '@/components/ui/Field';
@@ -53,6 +63,17 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   // Editing replaces the one stored chart; a new trade fills labelled slots.
   const [file, setFile] = useState<File | null>(null);
   const [slots, setSlots] = useState<SlotFiles>({});
+
+  /*
+    Answers that start on a default. Each one's label stays lit until an
+    option is picked — the default itself counts — so a pre-filled "Win" or
+    "With bias" is never saved without being looked at. An edit starts with
+    everything confirmed: those answers were given when the trade was logged.
+  */
+  const [confirmed, setConfirmed] = useState<DefaultedField[]>(() => (trade ? [...DEFAULTED] : []));
+  const confirm = (field: DefaultedField) =>
+    setConfirmed((prev) => (prev.includes(field) ? prev : [...prev, field]));
+  const pending = (field: DefaultedField) => !confirmed.includes(field);
   const firstSlot = SHOT_SLOTS.find((s) => slots[s]) ?? null;
   const chart = trade ? file : (firstSlot ? slots[firstSlot]! : null);
   const [reason, setReason] = useState<Reason | null>(trade?.reason ?? null);
@@ -142,13 +163,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     premiumDiscount, targetType, outcome, explanation, lesson,
     context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
-    reached1R, confidence, wouldBeR,
+    reached1R, confidence, wouldBeR, confirmed,
   }), [
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
     context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
-    reached1R, confidence, wouldBeR,
+    reached1R, confidence, wouldBeR, confirmed,
   ]);
 
   const [restored, setRestored] = useState(false);
@@ -189,6 +210,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('followedRules')) setFollowedRules(v.followedRules);
     if (has('mistakeTags')) setMistakeTags(v.mistakeTags);
     if (has('workedTags')) setWorkedTags(v.workedTags);
+    if (has('confirmed')) setConfirmed(v.confirmed);
     if (has('account')) setAccount(v.account);
     if (has('accountLabel')) setAccountLabel(v.accountLabel);
     if (has('status')) setStatus(v.status);
@@ -251,6 +273,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     || (keptExplanation && explanation.trim().length > 0);
   // A Planned trade has no result to learn from, so it is not asked for one.
   const lessonOk = planned || lesson.trim().length >= MIN_LESSON || keptLesson;
+  // Planned trades hide the outcome, so it is not waiting on an answer.
+  const unconfirmed = DEFAULTED.filter((f) => pending(f) && !(f === 'outcome' && planned));
   const canSubmit = (Boolean(chart) || editing)
     && Boolean(reason) && explanationOk && lessonOk && !submitting;
 
@@ -513,7 +537,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Field
             label="Stage"
             hint="Planned hides the outcome until you settle it, and freezes the grade you gave it before you knew."
-          >
+           group>
             <Segmented value={status} onChange={setStatus} options={TRADE_STATUSES} />
           </Field>
         </div>
@@ -544,10 +568,10 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
               transition={springSoft}
               className="overflow-hidden"
             >
-              <Field label="How did it end">
+              <Field label="How did it end" pending={pending('outcome')} group>
                 <Segmented
                   value={outcome}
-                  onChange={setOutcome}
+                  onChange={(o) => { setOutcome(o); confirm('outcome'); }}
                   options={OUTCOMES}
                   accentFor={(o) => OUTCOME_COLOR[o]}
                   labelFor={(o) => (o === 'Not taken' ? 'Passed' : o)}
@@ -584,7 +608,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
               className="overflow-hidden"
             >
               <div className="space-y-5 pt-1">
-                <Field label="Would it have hit TP?" hint="Go back and check. Guessing defeats the point.">
+                <Field label="Would it have hit TP?" hint="Go back and check. Guessing defeats the point." group>
                   <Segmented
                     value={wouldHaveHitTp === null ? 'Unknown' : wouldHaveHitTp ? 'Yes' : 'No'}
                     onChange={(v) => setWouldHaveHitTp(v === 'Unknown' ? null : v === 'Yes')}
@@ -630,8 +654,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Field label="Date & time">
             <Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Session">
-            <Select value={session} onChange={setSession} options={SESSIONS} />
+          <Field label="Session" pending={pending('session')}>
+            <Select value={session} onChange={(v) => { setSession(v); confirm('session'); }} options={SESSIONS} />
           </Field>
         </div>
 
@@ -648,12 +672,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Instrument"><Select value={instrument} onChange={setInstrument} options={INSTRUMENTS} /></Field>
-          <Field label="Direction"><Select value={direction} onChange={setDirection} options={DIRECTIONS} /></Field>
-          <Field label="Setup type"><Select value={setupType} onChange={setSetupType} options={SETUP_TYPES} /></Field>
-          <Field label="HTF bias"><Select value={htfBias} onChange={setHtfBias} options={HTF_BIASES} /></Field>
-          <Field label="Premium / discount"><Select value={premiumDiscount} onChange={setPremiumDiscount} options={PREMIUM_DISCOUNTS} /></Field>
-          <Field label="Target type"><Select value={targetType} onChange={setTargetType} options={TARGET_TYPES} /></Field>
+          <Field label="Instrument" pending={pending('instrument')}><Select value={instrument} onChange={(v) => { setInstrument(v); confirm('instrument'); }} options={INSTRUMENTS} /></Field>
+          <Field label="Direction" pending={pending('direction')}><Select value={direction} onChange={(v) => { setDirection(v); confirm('direction'); }} options={DIRECTIONS} /></Field>
+          <Field label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
+          <Field label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
+          <Field label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
+          <Field label="Target type" pending={pending('targetType')}><Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }} options={TARGET_TYPES} /></Field>
         </div>
         {!planned && (
           <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline={false} />
@@ -863,7 +887,9 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                 : !reason ? 'Name your motive to continue.'
                 : !explanationOk ? `${MIN_EXPLANATION - explanation.trim().length} more characters of explanation.`
                 : !lessonOk ? `${MIN_LESSON - lesson.trim().length} more characters of lesson.`
-                : 'Ready.'}
+                : unconfirmed.length
+                  ? `Ready. Still on the default: ${unconfirmed.map((f) => DEFAULTED_LABEL[f]).join(', ')}.`
+                  : 'Ready.'}
             </motion.span>
           </AnimatePresence>
         </div>
