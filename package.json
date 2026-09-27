@@ -12,11 +12,12 @@
     "test": "node --conditions=react-server --import tsx --test \"tests/*.test.mts\"",
     "migrate": "tsx --conditions=react-server db/cli-migrate.ts",
     "desktop": "electron .",
-    "desktop:build": "next build && node scripts/assemble-standalone.mjs && electron-builder --win portable zip",
+    "desktop:build": "next build && node scripts/assemble-standalone.mjs && electron-builder --win nsis portable zip",
     "predesktop": "node scripts/ensure-electron.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.6",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^13.2.0",
     "next": "^16.3.4",
     "react": "^19.3.0",
@@ -46,10 +47,25 @@
     "win": {
       "icon": "assets/icon.ico",
       "target": [
+        "nsis",
         "portable",
         "zip"
       ],
       "artifactName": "Signature-${version}-windows.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Signature-Setup-${version}.exe",
+      "shortcutName": "Signature",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
     },
     "portable": {
       "artifactName": "Signature-portable-${version}.exe",

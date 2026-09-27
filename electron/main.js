@@ -9,46 +9,66 @@ const path = require('node:path');
 const net = require('node:net');
 const http = require('node:http');
 const { restoreWindowState, trackWindowState, rememberGround } = require('./window-state');
+const { resolveInstalled, readLocation, writeLocation, copyJournal, journalFolderIn, isJournal } = require('./data-location');
+const { setupUpdates } = require('./updater');
 
 const isDev = !app.isPackaged;
 const ROOT = path.join(__dirname, '..');
 
-/**
- * Where the journal lives.
- *
- * Running from source it is ./data, beside the code. In a packaged build it
- * sits next to the executable, which is what makes the portable build actually
- * portable: copy Signature.exe onto a USB stick, and its data/ folder travels
- * with it. Nothing is written to AppData or the registry.
- */
-function resolveDataDir() {
-  if (!app.isPackaged) return path.join(ROOT, 'data');
+/** How this copy is running: from source, as the portable .exe, or installed. */
+const MODE = !app.isPackaged ? 'dev' : process.env.PORTABLE_EXECUTABLE_DIR ? 'portable' : 'installed';
 
-  // A portable build is a self-extracting archive: it unpacks itself into a
-  // temp folder and runs from there, so process.execPath points at %TEMP%,
-  // not at the executable the user actually double-clicked. Writing the
-  // journal there means it is thrown away when the temp folder is cleaned.
+/** Where the app keeps its own small settings (not the journal): %APPDATA%\Signature. */
+const SETTINGS_DIR = () => app.getPath('userData');
+
+/**
+ * Where the journal lives. See electron/data-location.js for the installed
+ * case, where you choose it.
+ *
+ * Running from source it is ./data. The portable build keeps a data/ folder
+ * beside the executable, which is what makes it portable — copy it onto a USB
+ * stick and the journal travels with it.
+ */
+async function resolveDataDir() {
+  if (process.env.SIGNATURE_DATA_DIR) return path.resolve(process.env.SIGNATURE_DATA_DIR);
+  if (MODE === 'dev') return path.join(ROOT, 'data');
+
+  if (MODE === 'installed') {
+    const { dataDir } = await resolveInstalled({
+      settingsDir: SETTINGS_DIR(),
+      documentsDir: app.getPath('documents'),
+      ask: async (opts) => (await dialog.showMessageBox({ type: 'question', noLink: true, cancelId: -1, ...opts })).response,
+      pickFolder: async (title) => {
+        const r = await dialog.showOpenDialog({ title, properties: ['openDirectory', 'createDirectory', 'promptToCreate'] });
+        return r.canceled ? null : r.filePaths[0] ?? null;
+      },
+    });
+    return dataDir;
+  }
+
+  // Portable. A portable build is a self-extracting archive: it unpacks
+  // itself into a temp folder and runs from there, so process.execPath points
+  // at %TEMP%, not at the executable the user actually double-clicked.
   // electron-builder exports the real location for exactly this reason.
   const beside = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath);
   const candidate = path.join(beside, 'data');
-
-  // Beside the executable is only the right answer if it is actually writable.
-  // Dropped into Program Files, or onto a read-only volume, it is not — and a
-  // journal that silently fails to save is worse than one in an unexpected
-  // place. Fall back to the per-user application data directory and say so.
+  // Beside the executable is only right if it is writable. Dropped onto a
+  // read-only volume it is not — and a journal that silently fails to save is
+  // worse than one in an unexpected place.
   try {
     fs.mkdirSync(candidate, { recursive: true });
     fs.accessSync(candidate, fs.constants.W_OK);
     return candidate;
   } catch {
-    const fallback = path.join(app.getPath('userData'), 'data');
+    const fallback = path.join(SETTINGS_DIR(), 'data');
     fs.mkdirSync(fallback, { recursive: true });
     console.warn(`[signature] ${candidate} is not writable; using ${fallback}`);
     return fallback;
   }
 }
 
-const DATA_DIR = resolveDataDir();
+/** Set once, at startup, before the server is started. */
+let DATA_DIR = null;
 
 /** In a packaged build the app is unpacked under resources/app. */
 const APP_DIR = app.isPackaged ? path.join(process.resourcesPath, 'app') : ROOT;
@@ -180,6 +200,17 @@ function startNext(port) {
   });
 }
 
+/** Stops the server and waits for it to go, so the journal is closed on disk. */
+function stopServer() {
+  return new Promise((resolve) => {
+    if (!nextServer) return resolve();
+    const child = nextServer;
+    const done = setTimeout(resolve, 5000);
+    child.once('exit', () => { clearTimeout(done); resolve(); });
+    child.kill();
+  });
+}
+
 function createWindow(port) {
   const state = restoreWindowState(DATA_DIR);
   mainWindow = new BrowserWindow({
@@ -279,6 +310,54 @@ ipcMain.on('signature:titlebar-theme', (_event, theme) => {
 
 // The Settings panel offers to reveal the journal folder; only the main
 // process can talk to the OS file browser.
+ipcMain.handle('signature:data-info', () => ({
+  dataDir: DATA_DIR, mode: MODE, canMove: MODE === 'installed' || (MODE === 'dev' && !!process.env.SIGNATURE_TEST_PICK),
+  version: app.getVersion(),
+}));
+
+/**
+ * "Move journal…": copy the journal to a folder you pick, or switch to a
+ * journal that is already there, then restart on it. The old folder is left
+ * exactly as it was.
+ */
+ipcMain.handle('signature:move-journal', async () => {
+  const pick = process.env.SIGNATURE_TEST_PICK && MODE === 'dev'
+    ? process.env.SIGNATURE_TEST_PICK
+    : await dialog.showOpenDialog(mainWindow, {
+      title: 'Choose where to keep your journal', properties: ['openDirectory', 'createDirectory', 'promptToCreate'],
+    }).then((r) => (r.canceled ? null : r.filePaths[0] ?? null));
+  if (!pick) return { ok: false, cancelled: true };
+
+  let target = journalFolderIn(pick);
+  const switching = isJournal(target);
+  if (!process.env.SIGNATURE_TEST_PICK) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question', noLink: true, cancelId: 1,
+      buttons: [switching ? 'Switch to that journal' : 'Copy and switch', 'Cancel'],
+      message: switching ? 'There is already a journal in that folder.' : 'Copy your journal there?',
+      detail: switching
+        ? `Signature will restart on the journal in:\n${target}\n\nYour current journal stays where it is:\n${DATA_DIR}`
+        : `Everything — trades, charts and backups — is copied to:\n${target}\n\nThe current folder is left as it is; delete it yourself once you are happy:\n${DATA_DIR}`,
+    });
+    if (response !== 0) return { ok: false, cancelled: true };
+  }
+
+  try {
+    if (!switching) {
+      // Stop the server first so the database is closed and consistent on disk.
+      await stopServer();
+      copyJournal(DATA_DIR, target);
+    }
+    if (MODE === 'installed') writeLocation(SETTINGS_DIR(), target);
+    else process.env.SIGNATURE_DATA_DIR = target;
+  } catch (err) {
+    return { ok: false, error: String(err?.message ?? err) };
+  }
+  app.relaunch(process.env.SIGNATURE_TEST_PICK ? { args: process.argv.slice(1), execPath: process.execPath } : undefined);
+  app.exit(0);
+  return { ok: true, dataDir: target };
+});
+
 ipcMain.handle('signature:open-data-folder', async () => {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   await shell.openPath(DATA_DIR);
@@ -346,6 +425,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    DATA_DIR = await resolveDataDir();
+    // No folder chosen (the saved one is gone and you chose Quit): nothing is
+    // created anywhere, and the app closes.
+    if (!DATA_DIR) { app.quit(); return; }
     const port = await freePort();
     startNext(port);
     try {
@@ -360,6 +443,21 @@ if (!app.requestSingleInstanceLock()) {
     }
     buildMenu();
     createWindow(port);
+
+    setupUpdates({
+      ipcMain,
+      getWindow: () => mainWindow,
+      settingsDir: SETTINGS_DIR(),
+      logDir: DATA_DIR,
+      // Only an installed copy can replace itself. The portable .exe and a
+      // copy running from source say why instead.
+      enabled: (MODE === 'installed') || (MODE === 'dev' && !!process.env.SIGNATURE_UPDATE_TEST_FEED),
+      reason: MODE === 'portable'
+        ? 'The portable version cannot update itself — install Signature to get updates.'
+        : 'Running from source.',
+      version: app.getVersion(),
+      testFeed: MODE === 'dev' ? process.env.SIGNATURE_UPDATE_TEST_FEED : undefined,
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow(port);

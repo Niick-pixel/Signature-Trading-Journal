@@ -9,6 +9,21 @@ contextBridge.exposeInMainWorld('signature', {
   setTitleBarTheme: (theme) => ipcRenderer.send('signature:titlebar-theme', theme),
   /** Opens the journal folder in the OS file browser. */
   openDataFolder: () => ipcRenderer.invoke('signature:open-data-folder'),
+  /** Where the journal is, and whether it can be moved from here. */
+  getDataInfo: () => ipcRenderer.invoke('signature:data-info'),
+  moveJournal: () => ipcRenderer.invoke('signature:move-journal'),
+  /** Updates: state, a manual check, the automatic-check switch, and install. */
+  updates: {
+    state: () => ipcRenderer.invoke('signature:update-state'),
+    check: () => ipcRenderer.invoke('signature:update-check'),
+    setAuto: (on) => ipcRenderer.invoke('signature:update-auto', on),
+    install: () => ipcRenderer.invoke('signature:update-install'),
+    onChange: (handler) => {
+      const listener = (_event, state) => handler(state);
+      ipcRenderer.on('signature:update', listener);
+      return () => ipcRenderer.off('signature:update', listener);
+    },
+  },
   onNavigate: (handler) => {
     const listener = (_event, route) => handler(route);
     ipcRenderer.on('signature:navigate', listener);

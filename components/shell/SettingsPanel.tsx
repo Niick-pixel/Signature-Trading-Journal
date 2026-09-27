@@ -58,6 +58,33 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const importRef = useRef<HTMLInputElement>(null);
   const [backup, setBackup] = useState<{ latest: { name: string; taken: string } | null; count: number } | null>(null);
   const [backingUp, setBackingUp] = useState(false);
+  // Desktop only: where the journal is, and updates.
+  const [desk, setDesk] = useState<{ dataDir: string; mode: string; canMove: boolean; version: string } | null>(null);
+  const [upd, setUpd] = useState<(UpdateState & { auto?: boolean }) | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !window.signature?.getDataInfo) return;
+    window.signature.getDataInfo().then(setDesk).catch(() => setDesk(null));
+    window.signature.updates.state().then(setUpd).catch(() => setUpd(null));
+    return window.signature.updates.onChange((next) => setUpd((prev) => ({ ...prev, ...next })));
+  }, [open]);
+
+  async function moveJournal() {
+    setMoveError(null);
+    const r = await window.signature?.moveJournal();
+    if (r && !r.ok && r.error) setMoveError(r.error);
+  }
+
+  const updateLine = (u: UpdateState) => ({
+    unavailable: u.reason ?? 'Updates are not available here.',
+    idle: 'Not checked yet this session.',
+    checking: 'Checking…',
+    current: `Up to date${u.checkedAt ? ` · checked ${new Date(u.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}.`,
+    downloading: `Downloading ${u.next ?? 'the new version'}… ${u.percent ?? 0}%`,
+    ready: `${u.next ?? 'A new version'} is ready — it installs when you close Signature, or restart now.`,
+    error: `Could not check: ${u.error ?? 'unknown error'}.`,
+  }[u.state]);
 
   async function backUpNow() {
     setBackingUp(true);
@@ -244,6 +271,20 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 Back up that one folder and you have backed up everything — the database and
                 every chart screenshot. {info ? `${info.trades} trade${info.trades === 1 ? '' : 's'} recorded.` : ''}
               </p>
+              {desk?.canMove && (
+                <div className="mt-2.5">
+                  <Button onClick={moveJournal}
+                    title="Copies your journal to a folder you choose — or switches to a journal already there — and restarts on it. The current folder is left as it is.">
+                    Move journal…
+                  </Button>
+                  {moveError && <p className="mt-2 text-[11px]" style={{ color: 'rgb(var(--outcome-loss))' }}>{moveError}</p>}
+                </div>
+              )}
+              {desk?.mode === 'portable' && (
+                <p className="mt-2 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+                  This is the portable version: the journal lives in the data folder beside Signature.exe.
+                </p>
+              )}
             </Section>
 
             <Section
@@ -263,6 +304,39 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
                 </Button>
               </div>
             </Section>
+
+            {upd && (
+              <Section
+                title="Updates"
+                hint="The installed app asks this project's GitHub releases whether a newer version exists — nothing about your journal is sent. A new version downloads in the background and installs when you close Signature."
+              >
+                <p data-update-line className="text-[11.5px] leading-snug" style={{ color: 'var(--text-dim)' }}>
+                  <span className="font-medium" style={{ color: 'var(--text)' }}>Signature {upd.version}</span>
+                  {' · '}{updateLine(upd)}
+                </p>
+                {upd.state !== 'unavailable' && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <TogglePill
+                      checked={upd.auto !== false}
+                      onChange={async (on) => {
+                        const auto = await window.signature?.updates.setAuto(on);
+                        setUpd((u) => (u ? { ...u, auto } : u));
+                      }}
+                      label="Check automatically"
+                      hint="When the app opens and every few hours. Off, it only checks when you press Check now."
+                    />
+                    {upd.state === 'ready' ? (
+                      <Button title="Closes Signature, installs the new version and reopens it"
+                        onClick={() => window.signature?.updates.install()}>Restart to update</Button>
+                    ) : (
+                      <Button title="Asks GitHub now whether there is a newer version"
+                        disabled={upd.state === 'checking' || upd.state === 'downloading'}
+                        onClick={() => window.signature?.updates.check()}>Check now</Button>
+                    )}
+                  </div>
+                )}
+              </Section>
+            )}
 
             {importResult && (
               <p className="mt-3 text-[11px] leading-snug" style={{ color: 'var(--text-dim)' }}>

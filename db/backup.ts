@@ -2,7 +2,7 @@ import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { BACKUPS_DIR, DB_PATH } from '../lib/paths';
+import { BACKUPS_DIR, DB_PATH, MIGRATIONS_DIR } from '../lib/paths';
 import { localDay } from '../lib/day';
 
 /** Thirty days is long enough to notice a mistake and still find the version before it. */
@@ -78,3 +78,27 @@ export function backupNow(db: DatabaseSync): string {
 }
 
 export { DB_PATH };
+
+/**
+ * A copy taken just before an update changes the database.
+ *
+ * The daily copy is only taken once a day, so an update installed in the
+ * afternoon would otherwise migrate a journal whose only backup is from the
+ * morning. This runs whenever there are migrations still to apply to an
+ * existing journal, and is named after the first one, so it is obvious which
+ * copy is "before the update".
+ */
+export function backupBeforeMigrations(db: DatabaseSync): string | null {
+  const hasSchema = db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'schema_migrations'").get();
+  if (!hasSchema) return null; // a brand-new journal has nothing to protect
+  const applied = new Set((db.prepare('SELECT name FROM schema_migrations').all() as Array<{ name: string }>).map((r) => r.name));
+  const pending = fs.existsSync(MIGRATIONS_DIR)
+    ? fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql') && !applied.has(f)).sort()
+    : [];
+  if (pending.length === 0) return null;
+  fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  const target = path.join(BACKUPS_DIR, `journal-${stamp()}-before-${pending[0].replace(/\.sql$/, '')}.db`);
+  if (fs.existsSync(target)) return null;
+  db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+  return target;
+}

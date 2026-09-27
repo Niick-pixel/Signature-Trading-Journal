@@ -76,22 +76,70 @@ http://localhost:3000.
 The database and screenshot folders are created automatically on first launch.
 There is no seed data.
 
-## Portable executable
+## Download for Windows
 
 You don't have to install Node at all if you'd rather just run the app.
-
 Download it here: **[latest release](https://github.com/Niick-pixel/Signature-Trading-Journal/releases/latest)**
-— the `.exe` is under *Assets*.
+(the files are under *Assets*). Every push to `main` builds a new numbered
+release, `v0.2.<build>`, on a Windows runner.
 
-Every push to `main` rebuilds it on a Windows runner and republishes that
-release, so the link always points at the current build.
+| File | What it is | Updates itself |
+| --- | --- | --- |
+| `Signature-Setup-0.2.N.exe` | **The installer — use this one.** Per-user, no admin rights, Start menu and desktop shortcuts. | **Yes** |
+| `Signature-portable-0.2.N.exe` | A single file that runs from anywhere, journal beside it. | No |
+| `Signature-0.2.N-windows.zip` | The same app unpacked, for people who don't want either. | No |
 
-It is a single file. No installer, no admin rights, nothing written to AppData
-or the registry — it keeps its journal in a `data/` folder **beside the exe**,
-so the whole thing travels on a USB stick if you want it to.
-
-> Windows SmartScreen will warn the first time, because the executable isn't
+> Windows SmartScreen will warn the first time, because the executables aren't
 > code-signed (that needs a paid certificate). *More info → Run anyway.*
+
+### The installer
+
+The first time it opens, it asks where your journal should live:
+
+- **Use the suggested folder** — `Documents\Signature Journal`.
+- **Choose a folder…** — anywhere you back up (a synced folder, a second drive).
+  An empty folder is used as it is; a folder with other things in it gets a
+  `Signature Journal` folder inside it.
+- **Open an existing journal…** — point at a folder holding `journal.db`. For
+  the old portable version, pick its `data` folder (or the folder with
+  `Signature.exe` in it — it finds `data` itself). The journal is used where it
+  is; nothing is copied.
+
+The choice is saved in `%APPDATA%\Signature\location.json`, never inside the
+program folder, because an update replaces the program folder. If the folder
+is missing when Signature starts (an unplugged drive), it says so and offers
+*Try again*, *Choose another folder…* or *Quit*. It never silently starts an
+empty journal somewhere else.
+
+**Settings → Your journal lives here → Move journal…** copies the whole folder somewhere new and
+restarts on the copy. The old folder is left exactly as it was until you
+delete it. Pointing it at a folder that already holds a journal switches to
+that journal instead.
+
+### Updates
+
+The installed app checks this repository's GitHub releases 8 seconds after it
+opens and every 4 hours after that. That is the only network request Signature
+makes, and it sends nothing about your journal. A newer version downloads in
+the background. When it's ready, an **Update ready · 0.2.N — restart** chip
+appears in the title bar. Click it to restart into the new version now, or
+ignore it and the update installs when you close Signature.
+
+Settings → Updates shows the version you're running and has **Check now** and
+a **Check automatically** switch. Each download is checked against the sha512
+in the release's `latest.yml` before it is installed. Every run writes a line
+to `update.log` in the journal folder.
+
+Before any database migration runs, Signature copies the journal to
+`backups/journal-<day>-before-<migration>.db`. An update that changes the
+schema always leaves the pre-update journal behind.
+
+### The portable build
+
+A single file with no installer and nothing written to the registry. It keeps
+its journal in a `data/` folder **beside the exe**, so the whole thing travels
+on a USB stick. It cannot update itself: download the new one and put it where
+the old one was.
 
 It shows a splash while it starts, because a portable executable is really a
 self-extracting archive: the first thing it does is unpack ~450 MB into a temp
@@ -112,8 +160,9 @@ To build one yourself on a Windows machine: `npm run desktop:build`.
 
 ## Where your data lives
 
-Everything Signature owns is inside one `data/` folder — `./data` when running
-from source, or beside the executable in a portable build:
+Everything Signature owns is inside one journal folder: `./data` when running
+from source, the folder you chose for the installed app, or `data/` beside the
+executable in a portable build:
 
 ```
 data/
@@ -123,7 +172,7 @@ data/
         └── 2026-09-10-a3f1b2c4.png
 ```
 
-**Back up `./data` and you have backed up the entire journal.** Screenshots are
+**Back up that folder and you have backed up the entire journal.** Screenshots are
 ordinary image files referenced by relative path from the database — no image
 bytes are ever written into SQLite, so the `.db` stays small and the images stay
 openable in any viewer.

@@ -63,8 +63,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build the portable executable and the zip
-        run: npm run desktop:build
+      # Every build is a real, increasing version — the updater compares
+      # version numbers, so a rolling "latest" with a fixed 0.1.0 could never
+      # tell an installed copy that something newer exists.
+      - name: Version this build
+        shell: bash
+        run: echo "VERSION=0.2.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Build the installer, the portable executable and the zip
+        shell: bash
+        run: |
+          # The owner and name come from the repository this runs in, so the
+          # installed app looks for updates exactly where it was published.
+          npm run desktop:build -- --publish never \
+            -c.extraMetadata.version="$VERSION" \
+            -c.publish.owner="${GITHUB_REPOSITORY%/*}" \
+            -c.publish.repo="${GITHUB_REPOSITORY#*/}"
         env:
           # Nothing here is signed; skip electron-builder's signing discovery
           # rather than failing on a missing certificate.
@@ -73,26 +87,31 @@ jobs:
       - name: Show what was produced, and checksum it
         shell: bash
         run: |
-          ls -lh release/*.exe release/*.zip
+          ls -lh release/*.exe release/*.zip release/latest.yml release/*.blockmap
+          echo "--- the update manifest the installed app reads"
+          cat release/latest.yml
+          echo "--- where the installed app looks for updates"
+          cat release/win-unpacked/resources/app-update.yml
           cd release
-          sha256sum Signature-portable-*.exe Signature-*-windows.zip > SHA256SUMS.txt
+          sha256sum Signature-Setup-*.exe Signature-portable-*.exe Signature-*-windows.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Signature-portable
+          name: Signature-${{ env.VERSION }}
           path: |
             release/*.exe
             release/*.zip
+            release/*.blockmap
+            release/latest.yml
             release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
-      # Artifacts are buried at the bottom of a run page, expire after 30 days,
-      # require a GitHub login, and arrive wrapped in a zip even for one file.
-      # Publish the same executable as a release so it is a plain download link
-      # on the front of the repository that anyone can click.
-      - name: Publish as the latest release
+      # One release per version, tagged v0.2.N. The installed app reads
+      # latest.yml from the newest one; /releases/latest keeps pointing at it
+      # for anyone downloading by hand.
+      - name: Publish the release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,32 +120,37 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -e
-          # Check every file is there BEFORE destroying the current release:
-          # deleting first and failing on a missing artifact would leave the
-          # repository with no download at all.
-          ls -l release/Signature-portable-*.exe \
-                release/Signature-*-windows.zip \
-                release/SHA256SUMS.txt
+          # Check every file is there before publishing anything.
+          ls -l release/Signature-Setup-*.exe release/Signature-Setup-*.exe.blockmap release/latest.yml \
+                release/Signature-portable-*.exe release/Signature-*-windows.zip release/SHA256SUMS.txt
 
-          gh release delete latest --cleanup-tag --yes || true
-          # Deliberately not a prerelease: GitHub's /releases/latest URL skips
-          # prereleases entirely, so marking it one made that link 404 and kept
-          # the build off the front of the repository.
-          gh release create latest \
+          # Deliberately not a prerelease: GitHub's /releases/latest skips
+          # prereleases, and so does the updater.
+          gh release create "v$VERSION" \
+            release/Signature-Setup-*.exe \
+            release/Signature-Setup-*.exe.blockmap \
+            release/latest.yml \
             release/Signature-portable-*.exe \
             release/Signature-*-windows.zip \
             release/SHA256SUMS.txt \
-            --title "Signature — latest build" \
+            --title "Signature $VERSION" \
+            --target "${{ github.sha }}" \
             --latest \
-            --notes "Two downloads, same build. Either way it keeps its journal in a \`data\` folder beside the executable, and nothing is sent anywhere.
+            --notes "**\`Signature-Setup-$VERSION.exe\`** — recommended. Installs for you alone (no admin), asks once where to keep your journal, and updates itself from here on.
 
-          **\`Signature-<version>-windows.zip\`** — recommended. Unzip it anywhere and run \`Signature.exe\` inside.
+          **\`Signature-portable-$VERSION.exe\`** and **\`Signature-$VERSION-windows.zip\`** — the same app without installing; the journal lives in a \`data\` folder beside it. These do not update themselves.
 
-          **\`Signature-portable-<version>.exe\`** — one file, nothing to unzip.
+          Nothing is code-signed, so Windows SmartScreen warns on first launch: choose **More info → Run anyway**. If a download fails with *virus scan failed*, or finishes and then vanishes from Downloads, that is Defender reacting to an unsigned executable rather than to anything found in it — take the **zip**, or add an exclusion for the folder.
 
-          Neither is code-signed, so Windows SmartScreen warns on first launch: choose **More info → Run anyway**. If a download fails with *virus scan failed*, or finishes and then disappears from your Downloads folder, that is Defender or the browser reacting to an unsigned executable rather than to anything found in it — take the **zip**, which is far less likely to be touched, or add an exclusion for the folder you keep it in.
-
-          \`SHA256SUMS.txt\` lists the checksum of both files so you can confirm what you got is what was built.
+          \`SHA256SUMS.txt\` lists the checksum of every download.
 
           Built from \`${{ github.sha }}\`."
 
+          # The rolling release from before versioned builds; its fixed 0.1.0
+          # would never be offered as an update anyway.
+          gh release delete latest --cleanup-tag --yes || true
+
+          # Keep the ten newest versions. Updates only ever need the newest.
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | .[10:] | .[].tagName' \
+            | grep '^v0\.' | while read -r tag; do gh release delete "$tag" --cleanup-tag --yes; done || true
