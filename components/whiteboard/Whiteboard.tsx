@@ -6,7 +6,7 @@ import {
   type Edge, type Node, type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import {
   computeLayout, reasonAccent, settle, tradeIdFromKey,
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
@@ -252,7 +252,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     const root = canvasRef.current;
     const still = document.documentElement.dataset.reduceMotion === 'true'
       || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (root && !still) {
+    if (root && !still && !readOnly) {
       const from = new Map<string, { x: number; y: number }>();
       for (const el of root.querySelectorAll<HTMLElement>('.react-flow__node-trade')) {
         const id = tradeIdFromKey(el.dataset.id ?? '');
@@ -391,14 +391,23 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     habit, not part of the journal.
   */
   const [flowReady, setFlowReady] = useState(false);
+  // Whether the first view has been placed. The read-only backdrop behind the
+  // trade form stays invisible until it has, then fades in once — otherwise
+  // it was seen at (0, 0) and then jumping to its view, blurred and scaled,
+  // which read as the whole board rearranging itself.
+  const [placed, setPlaced] = useState(false);
   const placedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!flowReady || layout.clusters.length === 0) return;
+    if (!flowReady) return;
+    if (layout.clusters.length === 0) { setPlaced(true); return; }
     if (placedFor.current === groupMode) return;
     placedFor.current = groupMode;
-    const saved = readOnly ? null : readView(groupMode);
+    // The backdrop shows the board where you left it, so opening the form
+    // looks like the same board going soft, not a different one arriving.
+    const saved = readView(groupMode);
     if (saved) {
       flow.setViewport(saved);
+      setPlaced(true);
       return;
     }
     const width = canvasRef.current?.getBoundingClientRect().width ?? 1600;
@@ -408,7 +417,8 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       y: TOP_CLEARANCE + 200,
       zoom: 1,
     });
-  }, [flowReady, groupMode, layout.clusters.length, layout.nominalWidth, readOnly, flow]);
+    setPlaced(true);
+  }, [flowReady, groupMode, layout.clusters.length, layout.nominalWidth, flow]);
 
   /** Content bounding box plus a generous margin, for the pan wall. */
   const bounds = useMemo<[[number, number], [number, number]]>(() => {
@@ -952,7 +962,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         </div>
       )}
 
-      <div ref={canvasRef} className="relative min-h-0 flex-1">
+      <div ref={canvasRef} className="relative min-h-0 flex-1"
+        data-board-placed={placed ? 'true' : 'false'}
+        style={readOnly ? { opacity: placed ? 1 : 0, transition: 'opacity 420ms cubic-bezier(0.16, 1, 0.3, 1)' } : undefined}>
       {/* Bulk edit — the only practical way to backfill an account or a reason
           across a month of old entries. */}
       <AnimatePresence>
@@ -1168,7 +1180,18 @@ export function Whiteboard({ trades, readOnly }: { trades: Trade[]; readOnly?: b
   // ReactFlowProvider has to sit above anything calling its hooks.
   return (
     <ReactFlowProvider>
-      <WhiteboardInner trades={trades} readOnly={readOnly} />
+      {readOnly ? (
+        /*
+          The backdrop is a picture of the board, not the board: no card rises
+          in, no halo breathes, nothing glides into a layout behind the form
+          you are trying to write in.
+        */
+        <MotionConfig reducedMotion="always" transition={{ duration: 0 }}>
+          <WhiteboardInner trades={trades} readOnly />
+        </MotionConfig>
+      ) : (
+        <WhiteboardInner trades={trades} readOnly={false} />
+      )}
     </ReactFlowProvider>
   );
 }
