@@ -1,7 +1,8 @@
 'use client';
 
+import { useId } from 'react';
 import { motion } from 'framer-motion';
-import { press, spring } from '@/lib/motion';
+import { press, spring, springSoft } from '@/lib/motion';
 
 interface SegmentedProps<T extends string> {
   value: T;
@@ -22,6 +23,9 @@ interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({
   value, onChange, options, accentFor, labelFor, titleFor,
 }: SegmentedProps<T>) {
+  // One highlight per control, gliding to whichever option is picked rather
+  // than one fading out while another fades in.
+  const pill = useId();
   return (
     <div className="glass flex flex-wrap gap-1 rounded-[calc(16px*var(--rk))] p-1">
       {options.map((option) => {
@@ -32,18 +36,28 @@ export function Segmented<T extends string>({
             key={option}
             type="button"
             title={titleFor?.(option)}
+            aria-pressed={active}
             onClick={() => onChange(option)}
             whileTap={press}
-            animate={{
-              background: active ? `rgb(${accent} / 0.16)` : `rgb(${accent} / 0)`,
-              color: active ? `rgb(${accent})` : 'var(--text-dim)',
-              borderColor: active ? `rgb(${accent} / 0.5)` : 'rgba(0,0,0,0)',
-              boxShadow: active ? `0 0 18px rgb(${accent} / 0.22)` : '0 0 0 rgb(0 0 0 / 0)',
-            }}
+            animate={{ color: active ? `rgb(${accent})` : 'var(--text-dim)' }}
             transition={spring}
-            className="flex-1 rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12px] font-medium whitespace-nowrap"
+            className="relative flex-1 rounded-[calc(12px*var(--rk))] px-3 py-2 text-[12px] font-medium whitespace-nowrap"
           >
-            {labelFor?.(option) ?? option}
+            {active && (
+              <motion.span
+                layoutId={pill}
+                aria-hidden
+                className="absolute inset-0 rounded-[calc(12px*var(--rk))] border"
+                initial={false}
+                animate={{
+                  background: `rgb(${accent} / 0.16)`,
+                  borderColor: `rgb(${accent} / 0.5)`,
+                  boxShadow: `0 0 18px rgb(${accent} / 0.22)`,
+                }}
+                transition={springSoft}
+              />
+            )}
+            <span className="relative">{labelFor?.(option) ?? option}</span>
           </motion.button>
         );
       })}

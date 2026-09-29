@@ -136,7 +136,15 @@ export const RETIRED_CONTEXT = {
   ],
 } as const;
 
-/** The context the form asks for. */
+/**
+ * Context the form no longer asks for either.
+ *
+ * "Target, timing & confluence" duplicated what the checklist and the target
+ * type dropdown now ask properly, and sat folded away at the bottom of the
+ * form. Retired the same way as "The setup": the columns stay, every trade
+ * that answered keeps its answers, edits pass them through, and the detail
+ * panel still shows the ones that were set.
+ */
 export const CONTEXT_GROUPS = [
   {
     label: 'Target, timing & confluence',

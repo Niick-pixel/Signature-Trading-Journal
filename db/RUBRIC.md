@@ -44,7 +44,17 @@ each one was and why it changed.
 `npm test` fails if the live checklist and the current version disagree, so
 step 1 cannot be skipped by accident.
 
-## Version 2 — in force since 2026-09-29
+## Version 3 — in force since 2026-09-29
+
+Identical to version 2 — same items, weights, gates and diagonal cap — with
+one change: **A+ is 100 and nothing less.** 100% of the points that applied
+is A+; 80–99 is A. A 92 with a minor but nameable sweep is a clean A, not an
+A+ (under version 2 it was an A+, and trades graded then keep it).
+
+Letters: **A+** = 100 · **A** ≥ 80 · **B** ≥ 70 · **C** ≥ 50 · **F** below 50,
+then the caps: model gate → max C, Trendline/diagonal → max B. Migration 016.
+
+## Version 2 — in force on 2026-09-29, before version 3
 
 The sweep became a tier, a single clean gap became a checklist item, the
 weights were rebalanced (Prep 25, Setup 55, Trigger 20), and two **gates** now

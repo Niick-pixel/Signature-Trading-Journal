@@ -62,7 +62,17 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
 export async function DELETE(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const purge = new URL(request.url).searchParams.get('purge') === '1';
-  const ok = purge ? purgeTrade(id) : softDeleteTrade(id);
+  /*
+    A delete says why. The form asks for a reason and a sentence; this is the
+    backstop, so no path — a script, an old client — can delete in silence.
+    Purge is the Trash's own act, on a trade that already said why.
+  */
+  const body = await request.json().catch(() => null) as { reason?: unknown } | null;
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  if (!purge && reason.length < 3) {
+    return NextResponse.json({ error: 'Say why it is being deleted.' }, { status: 400 });
+  }
+  const ok = purge ? purgeTrade(id) : softDeleteTrade(id, reason);
   return ok
     ? NextResponse.json({ ok: true, purged: purge })
     : NextResponse.json({ error: 'Not found' }, { status: 404 });

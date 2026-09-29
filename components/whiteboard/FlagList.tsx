@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Collapse } from '@/components/ui/Collapse';
 import { spring } from '@/lib/motion';
 import { flagsFor } from '@/lib/flags';
 import type { Trade } from '@/lib/types';
@@ -105,13 +106,7 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
 
               <AnimatePresence>
                 {drafting === flag.key && isDismissed && !dismissedReason && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={spring}
-                    className="overflow-hidden"
-                  >
+                  <Collapse key="reason">
                     <div className="pt-3">
                       <Input
                         autoFocus
@@ -124,7 +119,7 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
                         onBlur={() => { if (reason.trim()) void dismiss(flag.key, reason.trim()); setDrafting(null); }}
                       />
                     </div>
-                  </motion.div>
+                  </Collapse>
                 )}
               </AnimatePresence>
             </div>

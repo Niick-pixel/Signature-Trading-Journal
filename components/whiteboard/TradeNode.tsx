@@ -80,7 +80,7 @@ function TradeNodeInner({ data }: NodeProps) {
       layout
       layoutId={`trade-${trade.id}`}
       transition={springLayout}
-      whileHover={{ y: -3, scale: 1.02 }}
+      whileHover={{ y: -2, scale: 1.012 }}
       whileTap={{ scale: 0.985 }}
       onClick={() => onOpen(trade.id)}
       style={{

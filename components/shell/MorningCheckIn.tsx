@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Collapse } from '@/components/ui/Collapse';
 import { press, spring } from '@/lib/motion';
 import { localDay } from '@/lib/day';
 import { BIAS_DIRECTIONS, NEWS_LEVELS, type BiasDirection, type NewsLevel } from '@/lib/domain';
@@ -219,15 +220,12 @@ function CheckInForm({ day, existing, onDone }: {
                 accentFor={(n) => NEWS_ACCENT[n]} labelFor={(n) => NEWS_LABEL[n]} />
               <AnimatePresence initial={false}>
                 {(news === 'Medium' || news === 'High') && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }} transition={spring} className="overflow-hidden"
-                  >
+                  <Collapse key="news-note">
                     <div className="pt-2">
                       <Input placeholder="What and when — CPI 8:30, FOMC 14:00" aria-label="Which news"
                         value={newsNote} onChange={(e) => setNewsNote(e.target.value)} />
                     </div>
-                  </motion.div>
+                  </Collapse>
                 )}
               </AnimatePresence>
             </Field>

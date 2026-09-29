@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { gradeUnder } from '../lib/rubric';
+import { CURRENT_RUBRIC, gradeUnder } from '../lib/rubric';
 import type { ChecklistAnswer, SweepTier } from '../lib/domain';
 
 const DIR = path.resolve('db/migrations');
@@ -96,6 +96,22 @@ test('the schema refuses a sweep tier or target outside the vocabulary', () => {
   assert.throws(() => insert(db, { target_type: 'EQH/EQL', singular_gap: 2 }));
 });
 
+test('016 changes the live A+ line and nothing on record', () => {
+  const db = fresh();
+  upTo(db, '015_rubric2_gates.sql');
+  const perfectBut = {
+    target_type: 'EQH/EQL', sweep_tier: 'minor', singular_gap: 1, chk_htf_bias: 1, chk_killzone: 1, chk_no_news: 1,
+    chk_displacement_fvg: 1, chk_targets_clear: 1, chk_clean_path: 1, chk_returned_to_fvg: 1, chk_inversion_close: 1,
+  };
+  const id = insert(db, { ...perfectBut, rubric_version: 2, score_at_entry: 92, letter_at_entry: 'A+', grade_at_entry: 92 });
+  assert.equal((db.prepare('SELECT grade_letter FROM trades WHERE id = ?').get(id) as { grade_letter: string }).grade_letter, 'A+');
+  db.exec('BEGIN'); db.exec(fs.readFileSync(path.join(DIR, '016_rubric3_perfect_aplus.sql'), 'utf8')); db.exec('COMMIT');
+  const r = db.prepare('SELECT grade_letter, letter_at_entry, score_at_entry, deleted_reason FROM trades WHERE id = ?').get(id) as Record<string, unknown>;
+  assert.deepEqual([r.grade_letter, r.letter_at_entry, r.score_at_entry, r.deleted_reason], ['A', 'A+', 92, null]);
+  // The lock survived the rebuild.
+  assert.throws(() => db.prepare("UPDATE trades SET letter_at_entry = 'A' WHERE id = ?").run(id), /locked/);
+});
+
 test('SQLite\'s generated grade agrees with lib/rubric.ts on every checklist', () => {
   const db = fresh();
   upTo(db, files[files.length - 1]);
@@ -120,7 +136,7 @@ test('SQLite\'s generated grade agrees with lib/rubric.ts on every checklist', (
           for (const target of ['EQH/EQL', 'Trendline/diagonal']) {
             const row = { ...boxes, sweep_tier: sweep, singular_gap: gap, chk_returned_to_fvg: ret, chk_inversion_close: inv, target_type: target };
             const sql = stmt.get({ id: `t${n}`, ...base, ...row } as never) as Record<string, number | string>;
-            const js = gradeUnder(2, {
+            const js = gradeUnder(CURRENT_RUBRIC, {
               ...Object.fromEntries(Object.entries(boxes).map(([k, v]) => [k, asAnswer(v)])),
               singular_gap: asAnswer(gap), chk_returned_to_fvg: ret === 1, chk_inversion_close: inv === 1,
               sweep_tier: sweep, target_type: target,

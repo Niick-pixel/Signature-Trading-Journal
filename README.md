@@ -224,7 +224,7 @@ The database enforces the model rather than trusting the app:
 ## The checklist
 
 Grading is the plan's own weighted 100-point checklist, in three phases —
-rubric 2, since 2026-09-29 (every version is recorded in
+rubric 3, since 2026-09-29 (every version is recorded in
 [`db/RUBRIC.md`](db/RUBRIC.md), and no trade is ever re-graded by a later one):
 
 | Phase | Item | Points |
@@ -240,7 +240,7 @@ rubric 2, since 2026-09-29 (every version is recorded in
 | 3 — Trigger (20) | Price returned to the FVG | 5 |
 | | Inversion candle CLOSED through the FVG | 15 |
 
-Letters fall out of the score: 90+ is A+, 80+ A, 70+ B, 50+ C, below that F.
+Letters fall out of the score: **A+ is 100 — a perfect trade, nothing less** — then 80+ A, 70+ B, 50+ C, below that F.
 Then the rules on top of the arithmetic, all mirrored in the schema's
 generated columns:
 

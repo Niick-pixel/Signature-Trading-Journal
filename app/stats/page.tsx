@@ -18,7 +18,7 @@ import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/B
 import { TitleBar } from '@/components/shell/TitleBar';
 import { MissedPatternsView } from '@/components/stats/MissedPatterns';
 import { BreakdownTable } from '@/components/stats/ModelBreakdown';
-import { CURRENT_RUBRIC } from '@/lib/rubric';
+import { GATES_SINCE } from '@/lib/rubric';
 import { missedPatterns } from '@/lib/missed';
 import { listDailyReviews } from '@/db/reviews';
 
@@ -78,12 +78,12 @@ export default async function StatsPage(
   /*
     The gates only exist from rubric 2 on. Every trade is in by default — the
     sweep of an older trade is known when its MAJOR box was ticked — but
-    ?rubric=2 narrows the model tables to trades graded with the gates, which
+    ?gates=1 narrows the model tables to trades graded with the gates, which
     is the only honest test of whether the gates themselves work.
   */
-  const gatedOnly = (await searchParams).rubric === String(CURRENT_RUBRIC);
+  const gatedOnly = (await searchParams).gates === '1';
   const sameFilters = (list: typeof all) => (preOnly ? preGradedOnly(list) : list)
-    .filter((t) => (!noQuick || !t.quick_log) && (!gatedOnly || t.rubric_version >= CURRENT_RUBRIC));
+    .filter((t) => (!noQuick || !t.quick_log) && (!gatedOnly || t.rubric_version >= GATES_SINCE));
   const model = modelBreakdowns(sameFilters(trades), sameFilters(all));
   const modelLink = `/stats?${new URLSearchParams({
     // Always carried, 'All' included: without it the page falls back to
@@ -91,7 +91,7 @@ export default async function StatsPage(
                   account,
     ...(preOnly ? { pregraded: '1' } : {}),
     ...(noQuick ? { quick: '0' } : {}),
-    ...(gatedOnly ? {} : { rubric: String(CURRENT_RUBRIC) }),
+    ...(gatedOnly ? {} : { gates: '1' }),
   })}#model`;
   const agg = aggregate(trades);
   const m = money(trades);
@@ -494,10 +494,10 @@ export default async function StatsPage(
                         background: gatedOnly ? 'rgb(var(--accent) / 0.12)' : 'var(--glass-fill)',
                         color: gatedOnly ? 'rgb(var(--accent))' : 'var(--text-dim)',
                       }}
-                      title="Only trades graded with the gates (rubric 2)">
+                      title="Only trades graded with the gates (rubric 2 onwards)">
                       Graded with the gates only
                     </a>
-                    <span>{gatedOnly ? 'Rubric 2 trades only.' : 'Every rubric.'} Passed setups are not counted.</span>
+                    <span>{gatedOnly ? 'Trades graded with the gates only.' : 'Every rubric.'} Passed setups are not counted.</span>
                   </div>
                   <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
                     <BreakdownTable title="Sweep tier" rows={model.sweepTier} note="gate: NONE caps at C" />

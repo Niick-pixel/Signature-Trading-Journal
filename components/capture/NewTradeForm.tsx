@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Collapse } from '@/components/ui/Collapse';
 import {
-  ACCOUNT_VALUES, SHOT_SLOTS, accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  ACCOUNT_VALUES, SHOT_SLOTS, accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TRADE_STATUSES, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -13,7 +14,7 @@ import {
   type SweepTier, type TradeStatus, type Tri,
 } from '@/lib/domain';
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
-import { CURRENT_RUBRIC, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
+import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { macroWindowFor } from '@/lib/macro';
 import { press, spring, springSoft, riseIn } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
@@ -89,8 +90,6 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       CONTEXT_FLAGS.map((f) => [f, trade ? Boolean(trade[f]) : false]),
     ) as Record<ContextFlag, boolean>,
   );
-  const setFlag = (flag: ContextFlag, value: boolean) =>
-    setContext((prev) => ({ ...prev, [flag]: value }));
 
   /*
     Tri-state, and `trade[k] ?? null` rather than Boolean(): a box saved as
@@ -272,8 +271,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const live = gradeUnder(CURRENT_RUBRIC, { ...checks, sweep_tier: sweepTier, target_type: targetType });
   const locked = editing && trade!.status !== 'Planned';
   const entryLetter = locked ? trade!.grade_letter : live.letter;
-  const modelGate = live.caps.some((c) => c.id === 'model') && (!locked || trade!.rubric_version >= 2);
-  const diagonalCap = !modelGate && live.caps.some((c) => c.id === 'diagonal') && (!locked || trade!.rubric_version >= 2);
+  const modelGate = live.caps.some((c) => c.id === 'model') && (!locked || trade!.rubric_version >= GATES_SINCE);
+  const diagonalCap = !modelGate && live.caps.some((c) => c.id === 'diagonal') && (!locked || trade!.rubric_version >= GATES_SINCE);
   // Reviews can only be harsher: the picker offers the entry letter and below.
   const regradeChoices = useMemo(() => {
     const allowed = regradeOptions(entryLetter);
@@ -579,29 +578,15 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         {/* A Planned trade has no outcome yet, so it is not asked for. */}
         <AnimatePresence initial={false}>
           {planned ? (
-            <motion.div
-              key="planned"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={springSoft}
-              className="overflow-hidden"
-            >
+            <Collapse key="planned">
               <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
                 Planned — the outcome is hidden until you settle it. The score you give it now is kept
                 as the entry grade, so hindsight cannot quietly rewrite it.
               </p>
               <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline />
-            </motion.div>
+            </Collapse>
           ) : (
-            <motion.div
-              key="outcome"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={springSoft}
-              className="overflow-hidden"
-            >
+            <Collapse key="outcome">
               <Field label="How did it end" pending={pending('outcome')} group>
                 <Segmented
                   value={outcome}
@@ -611,7 +596,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                   labelFor={(o) => (o === 'Not taken' ? 'Passed' : o)}
                 />
               </Field>
-            </motion.div>
+            </Collapse>
           )}
         </AnimatePresence>
 
@@ -634,13 +619,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             the most important thing in the whole file. */}
         <AnimatePresence>
           {outcome === 'Not taken' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={springSoft}
-              className="overflow-hidden"
-            >
+            <Collapse key="not-taken">
               <div className="space-y-5 pt-1">
                 <Field label="Would it have hit TP?" hint="Go back and check. Guessing defeats the point." group>
                   <Segmented
@@ -664,7 +643,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                   </Field>
                 </div>
               </div>
-            </motion.div>
+            </Collapse>
           )}
         </AnimatePresence>
 
@@ -717,11 +696,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             {/* Said where the choice is made, not only where the grade is. */}
             <AnimatePresence initial={false}>
               {targetType === WEAK_TARGET && (
-                <motion.p data-target-warning initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }} transition={springSoft}
-                  className="mt-1.5 overflow-hidden text-[11px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
-                  {WEAK_TARGET_WARNING} Max grade B.
-                </motion.p>
+                <Collapse key="weak-target" data-target-warning>
+                  <p className="pt-1.5 text-[11px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
+                    {WEAK_TARGET_WARNING} Max grade B.
+                  </p>
+                </Collapse>
               )}
             </AnimatePresence>
           </Field>
@@ -773,32 +752,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <TagPicker value={workedTags} onChange={setWorkedTags} options={WORKED_TAGS} tone="win" />
         </Field>
 
-        {/* Context flags, folded away with a count: a trade that needs none of
-            them costs no height at all. */}
-        <div className="space-y-2">
-          {CONTEXT_GROUPS.map((group) => {
-            const on = group.flags.filter((f) => context[f.key]).length;
-            return (
-              <Disclosure
-                key={group.label}
-                label={`${group.label}${on ? `  ·  ${on} ticked` : ''}`}
-                defaultOpen={on > 0}
-              >
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  {group.flags.map((flag) => (
-                    <TogglePill
-                      key={flag.key}
-                      checked={context[flag.key]}
-                      onChange={(next) => setFlag(flag.key, next)}
-                      label={flag.label}
-                      hint={flag.hint}
-                    />
-                  ))}
-                </div>
-              </Disclosure>
-            );
-          })}
-        </div>
+        {/* The context pills are retired (see CONTEXT_GROUPS); an edit still
+            carries whatever an older trade answered, through `context`. */}
         </div>
 
         {/* C — the writing, and the reckoning that goes with it. */}

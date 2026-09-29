@@ -7,11 +7,12 @@ import { spring } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import type { Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
+import { DeleteTradeDialog } from './DeleteTradeDialog';
 
 export function TrashList({ trades }: { trades: Trade[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
+  const [purging, setPurging] = useState<Trade | null>(null);
 
   async function restore(id: string) {
     setBusy(id);
@@ -20,12 +21,9 @@ export function TrashList({ trades }: { trades: Trade[] }) {
     router.refresh();
   }
 
-  /** The only place in the app that actually destroys anything. */
-  async function purge(id: string) {
-    setBusy(id);
-    await fetch(`/api/trades/${id}?purge=1`, { method: 'DELETE' });
-    setBusy(null);
-    setConfirming(null);
+  /** The only place in the app that actually destroys anything — see DeleteTradeDialog. */
+  function purged() {
+    setPurging(null);
     router.refresh();
   }
 
@@ -80,27 +78,20 @@ export function TrashList({ trades }: { trades: Trade[] }) {
                 {' · deleted '}
                 {trade.deleted_at ? new Date(trade.deleted_at).toLocaleDateString() : '—'}
               </div>
+              {/* Why, as it was said at the time. */}
+              <div data-deleted-reason className="mt-1 text-[11.5px] italic leading-snug" style={{ color: 'var(--text-dim)' }}>
+                {trade.deleted_reason ?? 'No reason recorded — deleted before the app asked.'}
+              </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
               <Button onClick={() => restore(trade.id)} disabled={busy === trade.id}>Restore</Button>
-              {confirming === trade.id ? (
-                <>
-                  <span className="text-[11px]" style={{ color: 'var(--text-dim)' }}>
-                    Permanently? The screenshot goes too.
-                  </span>
-                  <Button variant="danger" onClick={() => purge(trade.id)} disabled={busy === trade.id}>
-                    Purge
-                  </Button>
-                  <Button onClick={() => setConfirming(null)}>Keep</Button>
-                </>
-              ) : (
-                <Button variant="danger" onClick={() => setConfirming(trade.id)}>Purge…</Button>
-              )}
+              <Button variant="danger" onClick={() => setPurging(trade)}>Delete forever…</Button>
             </div>
           </motion.div>
         ))}
       </AnimatePresence>
+      <DeleteTradeDialog mode="purge" trade={purging} open={purging != null} onClose={() => setPurging(null)} onDone={purged} />
     </div>
   );
 }

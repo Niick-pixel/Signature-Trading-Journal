@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { spring } from '@/lib/motion';
+import { spring, springSoft } from '@/lib/motion';
 import { CountUp } from '@/components/ui/CountUp';
 import { MIN_SAMPLE } from '@/lib/domain';
 
@@ -22,8 +22,6 @@ function Sample({ n }: { n: number }) {
     </span>
   );
 }
-const thinStyle = (n: number | undefined) => (n != null && n < MIN_SAMPLE
-  ? { filter: 'grayscale(0.85)', opacity: 0.62 } : undefined);
 
 const WIN = 'var(--outcome-win)';
 const LOSS = 'var(--outcome-loss)';
@@ -150,11 +148,12 @@ export function Stat({
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={spring}
+      // Dimmed as the animation's target, like Panel — see there.
+      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1, y: 0 }}
+      transition={springSoft}
       className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5"
       data-card
-      style={thinStyle(n)}
+      style={n != null && n < MIN_SAMPLE ? { filter: 'grayscale(0.85)' } : undefined}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
@@ -194,12 +193,18 @@ export function Panel({ title, note, n, children }: {
 }) {
   return (
     <motion.section
-      initial={{ opacity: 0, y: 10, scale: 0.99 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={spring}
+      // Rises in as it scrolls into view, once — the panels further down
+      // used to finish animating before anyone could see them.
+      initial={{ opacity: 0, y: 12, scale: 0.992 }}
+      // A card on too few trades settles dimmed. Its opacity is the
+      // animation's target, not a style — a style would be overwritten by the
+      // animation on its way to 1, and the card would never look thin.
+      whileInView={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1, y: 0, scale: 1 }}
+      viewport={{ once: true, margin: '0px 0px -40px 0px' }}
+      transition={springSoft}
       className="glass rounded-[calc(24px*var(--rk))] p-6"
       data-card
-      style={thinStyle(n)}
+      style={n != null && n < MIN_SAMPLE ? { filter: 'grayscale(0.85)' } : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>

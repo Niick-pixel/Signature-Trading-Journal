@@ -11,7 +11,7 @@ import {
   computeLayout, reasonAccent, settle, tradeIdFromKey,
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
 } from '@/lib/layout';
-import { spring, springBouncy } from '@/lib/motion';
+import { EASE_SOFT, spring, springBouncy } from '@/lib/motion';
 import type { JournalPage, BoardEdge, BoardNote, Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { usePreferences } from '@/components/shell/PreferencesProvider';
@@ -19,6 +19,7 @@ import { DENSITY_SCALE } from '@/lib/preferences';
 import { BoardControls } from './BoardControls';
 import { BoardTitle } from './BoardTitle';
 import { ClusterNode } from './ClusterNode';
+import { DeleteTradeDialog } from './DeleteTradeDialog';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
 import { ACCOUNT_VALUES } from '@/lib/domain';
@@ -96,6 +97,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     if (!readOnly && changedAccount) writeAccountCookie(next.account);
   }, [readOnly]);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   /** Which group's stack has been opened into the full viewer. */
   const [viewing, setViewing] = useState<string | null>(null);
   /**
@@ -292,7 +294,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         el.animate(old
           ? [{ transform: `translate(${old.x}px, ${old.y}px)`, opacity: 1 }, { transform: to, opacity: 1 }]
           : [{ transform: `${to} scale(0.94)`, opacity: 0 }, { transform: to, opacity: 1 }],
-        { duration: 560, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+        { duration: 680, easing: EASE_SOFT, fill: 'backwards' });
       }
       delete root.dataset.regrouping;
     };
@@ -1014,14 +1016,9 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
             items.push({ label: 'Open', onClick: () => setOpenId(id) });
             // No "lock in place" for a card: it has no place of its own to
             // lock. The layout puts it where it goes.
-            items.push({
-              label: 'Move to Trash',
-              danger: true,
-              onClick: async () => {
-                await fetch(`/api/trades/${id}`, { method: 'DELETE' });
-                await refresh();
-              },
-            });
+            // The same three deliberate steps as the panel's Delete — a
+            // right-click is exactly the kind of fast that needs slowing down.
+            items.push({ label: 'Move to Trash…', danger: true, onClick: () => setDeletingId(id) });
           } else if (node.type === 'note') {
             const noteId = node.id.slice(5);
             items.push({
@@ -1141,6 +1138,14 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       />
 
       {!readOnly && <DetailPanel trade={open} onClose={() => setOpenId(null)} onChanged={refresh} />}
+      {!readOnly && (
+        <DeleteTradeDialog
+          trade={deletingId ? trades.find((t) => t.id === deletingId) ?? null : null}
+          open={deletingId != null}
+          onClose={() => setDeletingId(null)}
+          onDone={() => { setDeletingId(null); void refresh(); }}
+        />
+      )}
 
       {/*
         The stack, opened. Reads the trades the board already has rather than

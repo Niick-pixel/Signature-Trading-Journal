@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Collapse } from '@/components/ui/Collapse';
 import { useRouter } from 'next/navigation';
 import { MONEY_ACCOUNTS, type Account } from '@/lib/domain';
 import type { Balance } from '@/lib/balance';
@@ -178,13 +179,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
 
             <AnimatePresence initial={false}>
               {showHistory && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={springSoft}
-                  className="overflow-hidden"
-                >
+                <Collapse key="history">
                   <div className="pt-2.5">
                     {events.map((e) => (
                       <div key={e.id} className="flex items-center justify-between gap-3 py-1 text-[12px]">
@@ -207,7 +202,7 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
                       </div>
                     ))}
                   </div>
-                </motion.div>
+                </Collapse>
               )}
             </AnimatePresence>
           </div>

@@ -6,7 +6,9 @@ import {
   CHECKLIST_PHASES, CONTEXT_FLAG_LIST, GATE_KEYS, OUTCOMES, SWEEP_TIER_SPEC,
   type ChecklistAnswer, type Outcome,
 } from '@/lib/domain';
-import { MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
+import { DeleteTradeDialog } from './DeleteTradeDialog';
+import { dialogIsOpen } from '@/components/ui/Overlay';
+import { GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { spring, springSoft, scrimExit } from '@/lib/motion';
 import { derivedAdherence } from '@/lib/adherence';
 import type { Trade } from '@/lib/types';
@@ -51,7 +53,20 @@ function Group({ children }: { children: React.ReactNode }) {
  * apply, shown struck through so it reads as removed from the mark rather than
  * failed against it.
  */
-function Check({ on, label, ...rest }: { on: ChecklistAnswer; label: string; 'data-sweep'?: string }) {
+function Check({ on, label, unknown = false, ...rest }: {
+  on: ChecklistAnswer; label: string; 'data-sweep'?: string;
+  /** A gate never answered (a trade from before it was asked): not N/A — unknown. */
+  unknown?: boolean;
+}) {
+  if (unknown && on === null) {
+    return (
+      <span {...rest} className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-faint)' }}
+        title="Logged before this was asked">
+        <span className="grid size-[14px] place-items-center rounded-full text-[8px]" style={{ background: 'var(--glass-fill)' }}>?</span>
+        <span>{label}</span>
+      </span>
+    );
+  }
   const na = on === null;
   return (
     <span {...rest} className="flex items-center gap-1.5 text-[11px]"
@@ -82,7 +97,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
   const [outcome, setOutcome] = useState<Outcome>('Win');
   const [rMultiple, setRMultiple] = useState('');
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [zoomed, setZoomed] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,12 +105,13 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
     setOutcome(trade.outcome);
     setRMultiple(trade.r_multiple == null ? '' : String(trade.r_multiple));
     setSettling(false);
-    setConfirmDelete(false);
+    setDeleting(false);
     setZoomed(null);
   }, [trade]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // A dialog over the panel (the delete steps) owns Escape first.
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !dialogIsOpen()) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -114,15 +130,11 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
   }
 
   /**
-   * Soft. The row and its screenshot stay; the Trash can put it back. The
-   * trade I most want to delete at 4pm is usually the one worth reading on
-   * Sunday.
+   * Soft, and slow on purpose — see DeleteTradeDialog. The row and its
+   * screenshot stay; the Trash can put it back.
    */
-  async function remove() {
-    if (!trade) return;
-    setBusy(true);
-    await fetch(`/api/trades/${trade.id}`, { method: 'DELETE' });
-    setBusy(false);
+  function deleted() {
+    setDeleting(false);
     onChanged();
     onClose();
   }
@@ -166,6 +178,29 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                 background: 'color-mix(in srgb, var(--bg-raised) 88%, transparent)',
               }}
             >
+              {/* Close, always in reach: pinned to the top corner while the
+                  panel scrolls, taking no room from what is under it. */}
+              <div className="sticky top-0 z-20 flex h-0 justify-end">
+                <motion.button
+                  type="button"
+                  aria-label="Close"
+                  title="Close (Esc)"
+                  data-panel-close
+                  onClick={onClose}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  transition={spring}
+                  className="glass mr-3 mt-3 grid size-9 place-items-center rounded-full"
+                  style={{ color: 'var(--text-dim)', background: 'color-mix(in srgb, var(--bg-raised) 82%, transparent)' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                </motion.button>
+              </div>
+
               {/* Entry, stop and target live on the chart rather than in the
                   form, so the chart has to be openable. */}
               {trade.screenshot_path ? (
@@ -218,7 +253,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
 
                 {/* Rubric 2's gates, stated where they failed. A trade graded
                     before they existed was never held to them. */}
-                {trade.rubric_version >= 2 && gradeUnder(trade.rubric_version, trade).caps.some((c) => c.id === 'model') && (
+                {trade.rubric_version >= GATES_SINCE && gradeUnder(trade.rubric_version, trade).caps.some((c) => c.id === 'model') && (
                   <p data-gate-failed
                     className="mb-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5 text-[12px] font-semibold leading-snug"
                     style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
@@ -242,7 +277,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                   </p>
                 )}
 
-                <p className="mb-6 whitespace-pre-wrap text-[13px] leading-relaxed">{trade.explanation}</p>
+                <p className="mb-6 whitespace-pre-wrap text-[13px] leading-relaxed [overflow-wrap:anywhere]">{trade.explanation}</p>
 
                 {trade.lesson && (
                   <div className="mb-6 rounded-[calc(16px*var(--rk))] p-4"
@@ -250,7 +285,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                     <div className="mb-1.5 text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
                       Lesson
                     </div>
-                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{trade.lesson}</p>
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed [overflow-wrap:anywhere]">{trade.lesson}</p>
                   </div>
                 )}
 
@@ -294,14 +329,15 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                         </div>
                         <div className="flex flex-col gap-1.5 pb-2 pt-1">
                           {phase.items.map((item) => (item.kind === 'tier' ? (
-                            <Check key={item.key} data-sweep={trade.sweep_tier ?? 'unanswered'}
+                            <Check key={item.key} data-sweep={trade.sweep_tier ?? 'unanswered'} unknown
                               on={trade.sweep_tier === 'major' || trade.sweep_tier === 'minor' ? true
                                 : trade.sweep_tier === 'none' ? false : null}
                               label={trade.sweep_tier
                                 ? `Sweep: ${SWEEP_TIER_SPEC[trade.sweep_tier].label} (${SWEEP_TIER_SPEC[trade.sweep_tier].points})`
                                 : 'Sweep: not recorded'} />
                           ) : (
-                            <Check key={item.key} on={trade[item.key]} label={item.label} />
+                            <Check key={item.key} on={trade[item.key]} label={item.label}
+                              unknown={GATE_KEYS.includes(item.key)} />
                           )))}
                         </div>
                       </Group>
@@ -452,17 +488,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                         </a>
                         <Button onClick={duplicate} disabled={busy}>Duplicate</Button>
                         <div className="ml-auto">
-                          {confirmDelete ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px]" style={{ color: 'var(--text-dim)' }}>
-                                Move to Trash? It stays restorable.
-                              </span>
-                              <Button variant="danger" onClick={remove} disabled={busy}>Trash</Button>
-                              <Button onClick={() => setConfirmDelete(false)}>Keep</Button>
-                            </div>
-                          ) : (
-                            <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
-                          )}
+                          <Button variant="danger" data-delete-trade onClick={() => setDeleting(true)}>Delete…</Button>
                         </div>
                       </motion.div>
                     )}
@@ -473,6 +499,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
           </div>
 
           <Lightbox src={zoomed} alt="Chart" onClose={() => setZoomed(null)} />
+          <DeleteTradeDialog trade={trade} open={deleting} onClose={() => setDeleting(false)} onDone={deleted} />
         </>
       )}
     </AnimatePresence>

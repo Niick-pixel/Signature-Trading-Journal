@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { MotionConfig } from 'framer-motion';
 import {
   DEFAULT_PREFERENCES, applyPreferences, readPreferences, writePreferences,
   type Preferences,
@@ -54,7 +55,11 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   return (
     <PreferencesContext.Provider value={{ prefs, update, reset }}>
-      {children}
+      {/* One switch for every Framer animation: the Reduce motion setting, or
+          the operating system's own reduce-motion setting when it is off. */}
+      <MotionConfig reducedMotion={prefs.reduceMotion ? 'always' : 'user'}>
+        {children}
+      </MotionConfig>
     </PreferencesContext.Provider>
   );
 }

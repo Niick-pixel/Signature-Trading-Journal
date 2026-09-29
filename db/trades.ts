@@ -216,6 +216,7 @@ export function importTrade(
   input: TradeInput,
   meta: {
     position_x: number | null; position_y: number | null; deleted_at: string | null; created_at: string | null;
+    deleted_reason?: string | null;
     /** The rubric the trade was graded under when it was exported. Absent in older exports. */
     rubric_version?: number | null;
     /**
@@ -226,7 +227,7 @@ export function importTrade(
     grade?: { score: number; letter: string; trigger: boolean } | null;
   },
 ): Trade {
-  const columns: string[] = [...UNGRADED, 'position_x', 'position_y', 'deleted_at', ...FROZEN];
+  const columns: string[] = [...UNGRADED, 'position_x', 'position_y', 'deleted_at', 'deleted_reason', ...FROZEN];
   // A restored trade keeps the rubric it was graded under; an export from
   // before rubrics existed was graded under the first one.
   const version = meta.rubric_version && meta.rubric_version > 0 ? meta.rubric_version : 1;
@@ -234,6 +235,7 @@ export function importTrade(
   const values: Record<string, SQLInputValue> = {
     id, ...flatten(input),
     position_x: meta.position_x, position_y: meta.position_y, deleted_at: meta.deleted_at,
+    deleted_reason: meta.deleted_at ? (meta.deleted_reason ?? null) : null,
     ...graded,
     ...(meta.grade && meta.rubric_version && (GRADE_LETTERS as readonly string[]).includes(meta.grade.letter) ? {
       score_at_entry: meta.grade.score, letter_at_entry: meta.grade.letter,
@@ -522,17 +524,23 @@ export function clearAllPositions(): void {
  * back — because the trade I most want to delete at 4pm is usually the one
  * worth reading on Sunday.
  */
-export function softDeleteTrade(id: string): boolean {
+export function softDeleteTrade(id: string, reason: string | null = null): boolean {
   if (!getTrade(id)) return false;
   getDb()
-    .prepare("UPDATE trades SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = @id")
-    .run({ id });
+    .prepare("UPDATE trades SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_reason = @reason WHERE id = @id")
+    .run({ id, reason });
+  // The history keeps every reason ever given, restores and all.
+  getDb().prepare('INSERT INTO trade_edits (trade_id, field, old_value, new_value) VALUES (?, ?, ?, ?)')
+    .run(id, 'deleted', null, reason);
   return true;
 }
 
 export function restoreTrade(id: string): boolean {
-  if (!getTrade(id)) return false;
-  getDb().prepare('UPDATE trades SET deleted_at = NULL WHERE id = @id').run({ id });
+  const before = getTrade(id);
+  if (!before) return false;
+  getDb().prepare('UPDATE trades SET deleted_at = NULL, deleted_reason = NULL WHERE id = @id').run({ id });
+  getDb().prepare('INSERT INTO trade_edits (trade_id, field, old_value, new_value) VALUES (?, ?, ?, ?)')
+    .run(id, 'restored', before.deleted_reason, null);
   return true;
 }
 

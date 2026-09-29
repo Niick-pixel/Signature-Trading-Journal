@@ -95,6 +95,41 @@ function freePort() {
   });
 }
 
+function portIsFree(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.listen(port, '127.0.0.1', () => srv.close(() => resolve(true)));
+  });
+}
+
+/**
+ * The same port every launch.
+ *
+ * The page is served from http://127.0.0.1:<port>, and everything the page
+ * keeps in browser storage — the theme, text size, board density, where the
+ * board was, an unsaved trade draft — is filed under that exact address. A
+ * new random port each launch was a new address each launch, so all of it
+ * silently reset on every restart. The first port is remembered in the
+ * settings folder and used again; only if something else has taken it does a
+ * launch fall back to a fresh one (and the next launch tries the saved one
+ * again).
+ */
+async function stablePort() {
+  const file = path.join(app.getPath('userData'), 'server.json');
+  let saved = null;
+  try { saved = JSON.parse(fs.readFileSync(file, 'utf8')).port; } catch { /* first launch */ }
+  if (Number.isInteger(saved) && saved > 1024 && saved < 65536 && await portIsFree(saved)) return saved;
+  const port = await freePort();
+  if (!Number.isInteger(saved)) {
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify({ port }, null, 2));
+    } catch { /* it just won't be stable */ }
+  }
+  return port;
+}
+
 /**
  * Wait until the server actually answers a request.
  *
@@ -429,7 +464,7 @@ if (!app.requestSingleInstanceLock()) {
     // No folder chosen (the saved one is gone and you chose Quit): nothing is
     // created anywhere, and the app closes.
     if (!DATA_DIR) { app.quit(); return; }
-    const port = await freePort();
+    const port = await stablePort();
     startNext(port);
     try {
       await waitForServer(port);

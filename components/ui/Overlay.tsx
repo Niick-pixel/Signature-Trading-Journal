@@ -46,6 +46,7 @@ export function Overlay({
   className = '',
   lift = 14,
   scrim = { opacity: 0.45, blur: 3 },
+  surface,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,6 +57,8 @@ export function Overlay({
   lift?: number;
   /** A bigger panel wants a heavier backdrop behind it. */
   scrim?: { opacity: number; blur: number };
+  /** A background for the panel, when the glass should read as solid. */
+  surface?: string;
 }) {
   // <body> only exists once we are in the browser; render nothing on the server.
   const [ready, setReady] = useState(false);
@@ -103,6 +106,7 @@ export function Overlay({
               exit={{ opacity: 0, y: lift * 0.6, scale: 0.98, transition: scrimExit }}
               transition={springSoft}
               className={`glass pointer-events-auto ${className}`}
+              style={surface ? { background: surface } : undefined}
             >
               {children}
             </motion.div>

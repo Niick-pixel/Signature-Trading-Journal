@@ -53,6 +53,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 
 export const PREFERENCES_KEY = 'signature:preferences';
+export const PREFERENCES_COOKIE = 'signature_prefs';
 
 export const DENSITY_SCALE: Record<Preferences['boardDensity'], number> = {
   compact: 0.78,
@@ -63,7 +64,12 @@ export const DENSITY_SCALE: Record<Preferences['boardDensity'], number> = {
 export function readPreferences(): Preferences {
   if (typeof window === 'undefined') return DEFAULT_PREFERENCES;
   try {
-    const raw = window.localStorage.getItem(PREFERENCES_KEY);
+    let raw: string | null = null;
+    try { raw = window.localStorage.getItem(PREFERENCES_KEY); } catch { /* fall back to the cookie */ }
+    if (!raw) {
+      const m = document.cookie.match(new RegExp(`(?:^|; )${PREFERENCES_COOKIE}=([^;]+)`));
+      raw = m ? decodeURIComponent(m[1]) : null;
+    }
     if (!raw) return DEFAULT_PREFERENCES;
     // Merge rather than replace, so a preference added in a later version has a
     // sane value instead of undefined.
@@ -77,8 +83,11 @@ export function writePreferences(prefs: Preferences): void {
   try {
     window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
   } catch {
-    /* private window — the choice just won't stick */
+    /* private window — the cookie below still holds it */
   }
+  // Mirrored in a cookie, which belongs to the host rather than the port, so
+  // a restart on a different port keeps the settings too.
+  document.cookie = `${PREFERENCES_COOKIE}=${encodeURIComponent(JSON.stringify(prefs))}; path=/; max-age=31536000; samesite=lax`;
   applyPreferences(prefs);
   window.dispatchEvent(new CustomEvent('signature:preferences', { detail: prefs }));
 }

@@ -94,9 +94,36 @@ export const RUBRICS: Record<number, Rubric> = {
       },
     ],
   },
+  3: {
+    version: 3,
+    since: '2026-09-29',
+    weights: {
+      chk_htf_bias: 10, chk_killzone: 10, chk_no_news: 5,
+      singular_gap: 10, chk_displacement_fvg: 10, chk_targets_clear: 10, chk_clean_path: 5,
+      chk_returned_to_fvg: 5, chk_inversion_close: 15,
+    },
+    sweep: { major: 20, minor: 12, none: 0 },
+    required: ['singular_gap', 'chk_returned_to_fvg', 'chk_inversion_close'],
+    // A+ is a perfect trade and nothing less: 100% of what applied.
+    letters: [[100, 'A+'], [80, 'A'], [70, 'B'], [50, 'C'], [0, 'F']],
+    caps: [
+      {
+        id: 'model', max: 'C', message: MODEL_GATE_MESSAGE,
+        // Unanswered is not passed: a gate nobody looked at has not been cleared.
+        applies: (a) => (a.sweep_tier ?? 'none') === 'none' || a.singular_gap !== true,
+      },
+      {
+        id: 'diagonal', max: 'B', message: DIAGONAL_CAP_MESSAGE,
+        applies: (a) => a.target_type === 'Trendline/diagonal',
+      },
+    ],
+  },
 };
 
-export const CURRENT_RUBRIC = 2;
+export const CURRENT_RUBRIC = 3;
+
+/** The first rubric with the model gates. Trades graded before it were never held to them. */
+export const GATES_SINCE = 2;
 
 export interface FrozenGrade {
   score: number;

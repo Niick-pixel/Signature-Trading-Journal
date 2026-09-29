@@ -1,3 +1,4 @@
+import { EASE_SOFT } from './motion';
 /**
  * The themes.
  *
@@ -61,6 +62,7 @@ export const THEMES: readonly ThemeInfo[] = [
 ];
 
 export const THEME_KEY = 'signature:theme';
+export const THEME_COOKIE = 'signature_theme';
 export const DEFAULT_THEME = 'cream';
 
 /** Stored values from before there were six: 'light' and 'dark'. */
@@ -77,7 +79,10 @@ function paint(theme: ThemeInfo) {
   const root = document.documentElement;
   root.dataset.theme = theme.id;
   root.dataset.mode = theme.mode;
-  try { localStorage.setItem(THEME_KEY, theme.id); } catch { /* the choice just won't stick */ }
+  try { localStorage.setItem(THEME_KEY, theme.id); } catch { /* the cookie below still holds it */ }
+  // Also a cookie: cookies belong to the host, not the port, so the choice
+  // survives even a launch that had to use a different port.
+  document.cookie = `${THEME_COOKIE}=${theme.id}; path=/; max-age=31536000; samesite=lax`;
   window.signature?.setTitleBarTheme(theme.chrome);
   window.dispatchEvent(new CustomEvent('signature:theme', { detail: theme.id }));
 }
@@ -113,7 +118,7 @@ export function applyTheme(id: string, origin?: { x: number; y: number }) {
   transition.ready.then(() => {
     root.animate(
       { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-      { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', pseudoElement: '::view-transition-new(root)' },
+      { duration: 640, easing: EASE_SOFT, pseudoElement: '::view-transition-new(root)' },
     );
   }).catch(() => { /* a transition that could not start still applied the theme */ });
 }
@@ -121,7 +126,9 @@ export function applyTheme(id: string, origin?: { x: number; y: number }) {
 /** The pre-paint script: set the theme before React hydrates, so there is no flash. */
 export const THEME_BOOTSTRAP = `(() => {
   try {
-    var s = localStorage.getItem('${THEME_KEY}');
+    var s = null;
+    try { s = localStorage.getItem('${THEME_KEY}'); } catch (e) {}
+    if (!s) { var m = document.cookie.match(/(?:^|; )${THEME_COOKIE}=([^;]+)/); if (m) s = m[1]; }
     var id = s === 'dark' ? 'espresso' : s === 'light' ? 'cream' : s;
     var modes = ${JSON.stringify(Object.fromEntries(THEMES.map((t) => [t.id, t.mode])))};
     if (!modes[id]) id = '${DEFAULT_THEME}';

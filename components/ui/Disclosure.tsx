@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Collapse } from '@/components/ui/Collapse';
 import { press, spring, springSoft } from '@/lib/motion';
 
 /** Collapsed extra fields. Expands on a height spring, never a duration. */
@@ -32,15 +33,9 @@ export function Disclosure({
 
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={springSoft}
-            className="overflow-hidden"
-          >
+          <Collapse key="body">
             <div className="pt-5">{children}</div>
-          </motion.div>
+          </Collapse>
         )}
       </AnimatePresence>
     </div>

@@ -1,7 +1,7 @@
 import {
   TAKE_IT_THRESHOLD, isScored, type ChecklistAnswer, type ChecklistKey, type LegacyChecklistKey, type SweepTier,
 } from './domain';
-import { gradeUnder } from './rubric';
+import { GATES_SINCE, gradeUnder } from './rubric';
 
 /**
  * Everything the derivation needs, and nothing else — so it can be computed
@@ -28,7 +28,7 @@ export type AdherenceInput = {
  * reason. The diagonal cap is not a gate: a B trade is still the model.
  */
 export function failedModelGate(t: AdherenceInput): boolean {
-  return (t.rubric_version ?? 1) >= 2
+  return (t.rubric_version ?? 1) >= GATES_SINCE
     && gradeUnder(t.rubric_version ?? 1, t).caps.some((c) => c.id === 'model');
 }
 

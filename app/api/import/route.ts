@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       position_x: typeof r.position_x === 'number' ? r.position_x : null,
       position_y: typeof r.position_y === 'number' ? r.position_y : null,
       deleted_at: typeof r.deleted_at === 'string' ? r.deleted_at : null,
+      deleted_reason: typeof r.deleted_reason === 'string' ? r.deleted_reason : null,
       created_at: typeof r.created_at === 'string' ? r.created_at : null,
       rubric_version: typeof r.rubric_version === 'number' ? r.rubric_version : null,
       // An export's checklist_score / grade_letter / trigger_fired are the

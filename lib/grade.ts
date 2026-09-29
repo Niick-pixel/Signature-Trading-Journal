@@ -15,7 +15,7 @@ export type GradeLetter = (typeof GRADE_LETTERS)[number];
  * trade is a commitment rather than a decision.
  */
 export function gradeLetter(score: number): GradeLetter {
-  if (score >= 90) return 'A+';
+  if (score >= 100) return 'A+';
   if (score >= 80) return 'A';
   if (score >= 70) return 'B';
   if (score >= 50) return 'C';
@@ -78,8 +78,8 @@ export const GRADE_COLOR: Record<GradeLetter, string> = {
  * confidence.
  */
 export const GRADE_BUCKETS = [
-  { label: 'A+', test: (s: number) => s >= 90 },
-  { label: 'A', test: (s: number) => s >= 80 && s < 90 },
+  { label: 'A+', test: (s: number) => s >= 100 },
+  { label: 'A', test: (s: number) => s >= 80 && s < 100 },
   { label: 'B', test: (s: number) => s >= 70 && s < 80 },
   { label: 'C', test: (s: number) => s >= 50 && s < 70 },
   { label: 'F', test: (s: number) => s < 50 },

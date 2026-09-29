@@ -12,7 +12,7 @@ import { inflateRawSync } from 'node:zlib';
 process.env.SIGNATURE_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'signature-lock-'));
 process.env.SIGNATURE_MIGRATIONS_DIR = path.resolve('db/migrations');
 
-const { createTrade, updateTrade, settleTrade, bulkUpdate, getTrade, tradeHistory, listTrades } = await import('../db/trades');
+const { createTrade, updateTrade, settleTrade, bulkUpdate, getTrade, tradeHistory, listTrades, softDeleteTrade, restoreTrade } = await import('../db/trades');
 const { parseTradeInput } = await import('../lib/validate');
 const { modelBreakdowns } = await import('../lib/stats');
 const { adherenceOf } = await import('../lib/adherence');
@@ -57,16 +57,17 @@ const input = (t: Record<string, unknown> = {}, floor = {}) => {
   return r.value;
 };
 
-test('a new trade is graded under rubric 2, gates and all', () => {
+test('a new trade is graded under the current rubric, gates and all', () => {
   const a = createTrade(input());
-  assert.deepEqual([a.rubric_version, a.checklist_score, a.grade_letter, a.grade_at_entry], [2, 100, 'A+', 100]);
+  assert.deepEqual([a.rubric_version, a.checklist_score, a.grade_letter, a.grade_at_entry], [3, 100, 'A+', 100]);
   const gated = createTrade(input({ sweep_tier: 'none' }));
   assert.deepEqual([gated.checklist_score, gated.grade_letter], [80, 'C']);
   const stacked = createTrade(input({ singular_gap: false }));
   assert.deepEqual([stacked.checklist_score, stacked.grade_letter], [90, 'C']);
   const diagonal = createTrade(input({ target_type: 'Trendline/diagonal' }));
   assert.equal(diagonal.grade_letter, 'B');
-  assert.equal(createTrade(input({ sweep_tier: 'minor' })).checklist_score, 92);
+  const minor = createTrade(input({ sweep_tier: 'minor' }));
+  assert.deepEqual([minor.checklist_score, minor.grade_letter], [92, 'A']);
 });
 
 test('the sweep tier and singular gap are stored as structured fields', () => {
@@ -163,7 +164,7 @@ test('the JSON and CSV exports carry sweep_tier and singular_gap', async () => {
   const line = lines.find((l) => l.startsWith(made.id))!.split(',');
   assert.equal(line[cols.indexOf('sweep_tier')], 'minor');
   assert.equal(line[cols.indexOf('singular_gap')], 'false');
-  assert.equal(line[cols.indexOf('rubric_version')], '2');
+  assert.equal(line[cols.indexOf('rubric_version')], '3');
 });
 
 test('the model breakdowns count, win-rate and total R by each gate', () => {
@@ -192,4 +193,18 @@ test('a trade that failed a gate broke the rules, whatever its score', () => {
   assert.equal(adherenceOf(createTrade(input({ target_type: 'Trendline/diagonal' }))), 'followed');
   // A rubric 1 trade was never held to the gates.
   assert.equal(adherenceOf({ ...gated, rubric_version: 1 }), 'followed');
+});
+
+test('a delete keeps its reason; a restore clears it; the history keeps both', () => {
+  const t = createTrade(input());
+  softDeleteTrade(t.id, 'Logged it twice: entered from the phone as well');
+  const gone = getTrade(t.id)!;
+  assert.ok(gone.deleted_at);
+  assert.equal(gone.deleted_reason, 'Logged it twice: entered from the phone as well');
+  restoreTrade(t.id);
+  const back = getTrade(t.id)!;
+  assert.deepEqual([back.deleted_at, back.deleted_reason], [null, null]);
+  const h = tradeHistory(t.id).map((e) => [e.field, e.old_value, e.new_value]);
+  assert.deepEqual(h.find((e) => e[0] === 'deleted'), ['deleted', null, 'Logged it twice: entered from the phone as well']);
+  assert.deepEqual(h.find((e) => e[0] === 'restored'), ['restored', 'Logged it twice: entered from the phone as well', null]);
 });

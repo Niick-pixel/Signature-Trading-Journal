@@ -155,6 +155,8 @@ export interface Trade {
   position_y: number | null;
   /** Soft delete. Nothing leaves without a second, deliberate act. */
   deleted_at: string | null;
+  /** Why it was deleted — asked every time. Null unless it is in the Trash. */
+  deleted_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,7 +167,7 @@ export type TradeInput = Omit<
   'id' | 'checklist_score' | 'checklist_earned' | 'checklist_possible'
   | 'trigger_fired' | 'grade_letter' | 'live_score' | 'live_trigger' | 'live_letter' | 'rubric_version'
   | 'created_at' | 'updated_at' | 'position_x' | 'position_y'
-  | 'deleted_at' | 'dismissed_flags'
+  | 'deleted_at' | 'deleted_reason' | 'dismissed_flags'
 >;
 
 export interface TradeShot {

@@ -20,20 +20,20 @@ const every = (v: ChecklistAnswer): Answers =>
 const perfect: GradeInput = { ...every(true), sweep_tier: 'major', target_type: 'EQH/EQL' };
 const grade = (a: GradeInput) => gradeUnder(CURRENT_RUBRIC, a);
 
-test('the current rubric is version 2', () => {
-  assert.equal(CURRENT_RUBRIC, 2);
+test('the current rubric is version 3', () => {
+  assert.equal(CURRENT_RUBRIC, 3);
 });
 
 test('the weights add to 100: Prep 25, Setup 55, Trigger 20', () => {
   assert.equal(GRADE_MAX, 100);
   const phase = (i: number) => CHECKLIST_PHASES[i].items.reduce((s, item) => s + item.points, 0);
   assert.deepEqual([phase(0), phase(1), phase(2)], [25, 55, 20]);
-  const w = RUBRICS[2].weights;
+  const w = RUBRICS[3].weights;
   assert.deepEqual(
     [w.chk_htf_bias, w.chk_killzone, w.chk_no_news, w.singular_gap, w.chk_displacement_fvg,
       w.chk_targets_clear, w.chk_clean_path, w.chk_returned_to_fvg, w.chk_inversion_close],
     [10, 10, 5, 10, 10, 10, 5, 5, 15]);
-  assert.deepEqual(RUBRICS[2].sweep, { major: 20, minor: 12, none: 0 });
+  assert.deepEqual(RUBRICS[3].sweep, { major: 20, minor: 12, none: 0 });
 });
 
 test('nothing answered scores 0 and grades F', () => {
@@ -53,8 +53,8 @@ test('the sweep tier is worth 20, 12 or nothing', () => {
   assert.equal(grade({ ...perfect, sweep_tier: 'major' }).earned, 100);
   assert.equal(grade({ ...perfect, sweep_tier: 'minor' }).earned, 92);
   assert.equal(grade({ ...perfect, sweep_tier: 'none' }).earned, 80);
-  // A minor but nameable sweep still passes the gate: 92, A+.
-  assert.equal(grade({ ...perfect, sweep_tier: 'minor' }).letter, 'A+');
+  // A minor but nameable sweep passes the gate — but 92 is not perfect, so A.
+  assert.equal(grade({ ...perfect, sweep_tier: 'minor' }).letter, 'A');
 });
 
 test('GATE: no nameable sweep caps the grade at C, whatever the total', () => {
@@ -111,9 +111,21 @@ test('the trigger fires only when both Phase 3 boxes are ticked', () => {
 
 test('letter bands at every boundary', () => {
   const cases: Array<[number, string]> = [
-    [0, 'F'], [49, 'F'], [50, 'C'], [69, 'C'], [70, 'B'], [79, 'B'], [80, 'A'], [89, 'A'], [90, 'A+'], [100, 'A+'],
+    [0, 'F'], [49, 'F'], [50, 'C'], [69, 'C'], [70, 'B'], [79, 'B'], [80, 'A'], [89, 'A'], [90, 'A'], [99, 'A'], [100, 'A+'],
   ];
   for (const [score, letter] of cases) assert.equal(gradeLetter(score), letter, `score ${score}`);
+});
+
+test('A+ is a perfect trade and nothing less', () => {
+  assert.equal(grade(perfect).letter, 'A+');
+  assert.equal(grade({ ...perfect, chk_clean_path: false }).letter, 'A'); // 95
+  // A box that did not apply is not a point missed: 100% of what applied is still perfect.
+  assert.equal(grade({ ...perfect, chk_no_news: null }).letter, 'A+');
+});
+
+test('rubric 2 keeps its own bands: 92 was an A+ there, and stays one', () => {
+  assert.equal(gradeUnder(2, { ...perfect, sweep_tier: 'minor' }).letter, 'A+');
+  assert.equal(gradeUnder(2, { ...perfect, sweep_tier: 'none' }).letter, 'C');
 });
 
 test('the current rubric version is exactly the live checklist', () => {
@@ -125,7 +137,7 @@ test('the current rubric version is exactly the live checklist', () => {
   for (const [tier, spec] of Object.entries(SWEEP_TIER_SPEC)) {
     assert.equal(rubric.sweep?.[tier as keyof typeof SWEEP_TIER_SPEC], spec.points, tier);
   }
-  for (const score of [0, 49, 50, 69, 70, 79, 80, 89, 90, 100]) {
+  for (const score of [0, 49, 50, 69, 70, 79, 80, 89, 90, 99, 100]) {
     assert.equal(rubric.letters.find(([min]) => score >= min)?.[1], gradeLetter(score), `score ${score}`);
   }
 });
