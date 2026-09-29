@@ -1,12 +1,12 @@
 import { adherenceOf } from './adherence';
 import { conditions } from './conditions';
 import {
-  CHECKLIST_ITEMS, CONTEXT_FLAG_LIST, MONEY_ACCOUNTS, isHypothetical, isTaken, type Account,
+  CHECKLIST_ITEMS, CONTEXT_FLAG_LIST, MONEY_ACCOUNTS, SWEEP_TIER_SPEC, isHypothetical, isTaken, type Account,
 } from './domain';
 import { openFlagsFor } from './flags';
 import { repeatedLessons } from './lessons';
 import { missedPatterns } from './missed';
-import { aggregate, discipline, edge, money, pnlOf } from './stats';
+import { aggregate, discipline, edge, modelBreakdowns, money, pnlOf } from './stats';
 import type { CashEvent, DailyReview, JournalPage, Trade, TradeShot, WeeklyReview } from './types';
 
 /**
@@ -199,6 +199,17 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
       p(table(['Box', 'Unticked', 'R on those trades'],
         boxes.map((x) => [`${x.item.label} (${x.item.points} pts)`, `${x.skipped} of ${x.applied}`, r1(x.r)])));
 
+      // The gates, tested on this month: does the model's own line pay?
+      const gates = modelBreakdowns(taken, taken);
+      const gateRows = [
+        ...gates.sweepTier.map((row) => [`Sweep: ${row.label}`, row.stats.taken, pct(row.stats.winRate), r1(row.stats.totalR)]),
+        ...gates.singularGap.map((row) => [`Gap: ${row.label}`, row.stats.taken, pct(row.stats.winRate), r1(row.stats.totalR)]),
+      ].filter((row) => (row[1] as number) > 0);
+      if (gateRows.length) {
+        h('### The gates: sweep tier and singular gap');
+        p(table(['Answer', 'Trades', 'Win rate', 'R'], gateRows));
+      }
+
       const tags = new Map<string, Trade[]>();
       for (const t of taken) for (const tag of t.mistake_tags) tags.set(tag, [...(tags.get(tag) ?? []), t]);
       const worked = new Map<string, Trade[]>();
@@ -291,7 +302,7 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
     p(`- **Setup:** ${t.setup_type} · ${t.session} · HTF ${t.htf_bias.toLowerCase()} · ${t.premium_discount} · target ${t.target_type}`);
     p(`- **Why I took it:** ${t.reason}${isHypothetical(t.account) && t.skip_reason ? ` · **why I didn't:** ${t.skip_reason}` : ''}`);
     p(`- **Grade:** ${t.checklist_score} (${t.grade_letter})${t.grade_at_entry != null && t.grade_at_entry !== t.checklist_score ? `, ${t.grade_at_entry} at entry` : ''} · trigger ${t.trigger_fired ? 'fired' : '**did not fire**'} · rules ${verdict === 'followed' ? 'followed' : verdict === 'broken' ? '**broken**' : 'not scored'}${t.followed_rules != null ? ` (I said ${t.followed_rules ? 'followed' : 'broken'})` : ''}${t.graded_post_hoc ? ' · graded after the fact' : ''}${t.regrade ? ` · re-graded ${t.regrade}` : ''}`);
-    p(`- **Checklist:** ${CHECKLIST_ITEMS.map((i) => `${t[i.key] === true ? '✓' : t[i.key] === false ? '✗' : 'n/a'} ${i.label}`).join(' · ')}`);
+    p(`- **Checklist:** sweep ${t.sweep_tier ? SWEEP_TIER_SPEC[t.sweep_tier].label : 'not recorded'} · ${CHECKLIST_ITEMS.map((i) => `${t[i.key] === true ? '✓' : t[i.key] === false ? '✗' : i.gate ? '?' : 'n/a'} ${i.label}`).join(' · ')}`);
     const context = CONTEXT_FLAG_LIST.filter((f) => (t as unknown as Record<string, unknown>)[f.key] === true).map((f) => f.label);
     if (context.length) p(`- **Context present:** ${context.join(', ')}`);
     if (t.mistake_tags.length) p(`- **Mistakes tagged:** ${t.mistake_tags.join(', ')}`);

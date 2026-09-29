@@ -92,13 +92,21 @@ export function GroupViewer({
                     className="overflow-hidden rounded-[calc(18px*var(--rk))] border text-left"
                     style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/screenshots/${t.screenshot_path}`}
-                      alt=""
-                      className="aspect-[16/10] w-full object-cover"
-                      style={{ background: 'var(--glass-fill-strong)' }}
-                    />
+                    {/* A quick log can have no chart at all. */}
+                    {t.screenshot_path ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/screenshots/${t.screenshot_path}`}
+                        alt=""
+                        className="aspect-[16/10] w-full object-cover"
+                        style={{ background: 'var(--glass-fill-strong)' }}
+                      />
+                    ) : (
+                      <div className="grid aspect-[16/10] w-full place-items-center text-[11px]"
+                        style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-faint)' }}>
+                        No chart
+                      </div>
+                    )}
                     <div className="p-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <span className="min-w-0">

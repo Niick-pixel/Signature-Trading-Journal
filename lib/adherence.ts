@@ -1,6 +1,7 @@
 import {
-  TAKE_IT_THRESHOLD, isScored, type ChecklistAnswer, type ChecklistKey,
+  TAKE_IT_THRESHOLD, isScored, type ChecklistAnswer, type ChecklistKey, type LegacyChecklistKey, type SweepTier,
 } from './domain';
+import { gradeUnder } from './rubric';
 
 /**
  * Everything the derivation needs, and nothing else — so it can be computed
@@ -14,7 +15,22 @@ export type AdherenceInput = {
   trigger_fired: boolean;
   checklist_score: number;
   mistake_tags: readonly string[];
-} & Partial<Record<ChecklistKey, ChecklistAnswer>>;
+  /** Rubric 2's gates need these; a trade graded under rubric 1 was never held to them. */
+  rubric_version?: number;
+  sweep_tier?: SweepTier | null;
+  target_type?: string;
+} & Partial<Record<ChecklistKey | LegacyChecklistKey, ChecklistAnswer>>;
+
+/**
+ * Whether the trade failed rubric 2's model gate: no nameable sweep, or not
+ * one clean gap. That is not the model, so taking it breaks the plan however
+ * high the rest of the checklist scored — the grade caps at C for the same
+ * reason. The diagonal cap is not a gate: a B trade is still the model.
+ */
+export function failedModelGate(t: AdherenceInput): boolean {
+  return (t.rubric_version ?? 1) >= 2
+    && gradeUnder(t.rubric_version ?? 1, t).caps.some((c) => c.id === 'model');
+}
 
 /**
  * Whether the rules were actually followed, computed rather than asked.
@@ -39,14 +55,16 @@ export type Adherence = 'followed' | 'broken' | 'unscored';
  * same mistake as the form defaulting "followed all rules" to yes, pointing
  * the other way: silence read as a verdict.
  *
- * Once the checklist HAS been answered, all three conditions have to hold. A
- * trade can score 100 and still be a break if the trigger never fired, and it
- * can have fired at 95 and still be a break if I moved the stop afterwards.
+ * Once the checklist HAS been answered, every condition has to hold. A trade
+ * can score 100 and still be a break if the trigger never fired; it can fire
+ * at 95 and still be a break if I moved the stop afterwards; and under rubric
+ * 2 it can score 85 and still be a break if it failed a gate — not the model.
  */
 export function adherenceOf(t: AdherenceInput): Adherence {
   if (!isScored(t)) return 'unscored';
   return t.trigger_fired
     && t.checklist_score >= TAKE_IT_THRESHOLD
+    && !failedModelGate(t)
     && t.mistake_tags.length === 0
     ? 'followed'
     : 'broken';

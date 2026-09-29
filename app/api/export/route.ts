@@ -13,7 +13,9 @@ import type { JournalPage, Trade } from '@/lib/types';
 const CSV_COLUMNS: Array<keyof Trade> = [
   'id', 'date', 'account', 'account_label', 'status', 'instrument', 'direction', 'session',
   'reason', 'setup_type', 'htf_bias', 'premium_discount', 'target_type',
-  'checklist_score', 'grade_letter', 'trigger_fired', 'grade_at_entry', 'graded_post_hoc',
+  // The two gates, structured: major|minor|none and true/false (blank = never recorded).
+  'sweep_tier', 'singular_gap',
+  'checklist_score', 'grade_letter', 'trigger_fired', 'grade_at_entry', 'rubric_version', 'graded_post_hoc',
   'followed_rules', 'regrade', 'mistake_tags',
   'outcome', 'r_multiple', 'contracts', 'risk_dollars', 'risk_percent', 'stop_points',
   'entry_price', 'take_profit', 'stop_loss',

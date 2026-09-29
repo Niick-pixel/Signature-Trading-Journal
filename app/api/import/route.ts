@@ -55,6 +55,11 @@ export async function POST(request: Request) {
       deleted_at: typeof r.deleted_at === 'string' ? r.deleted_at : null,
       created_at: typeof r.created_at === 'string' ? r.created_at : null,
       rubric_version: typeof r.rubric_version === 'number' ? r.rubric_version : null,
+      // An export's checklist_score / grade_letter / trigger_fired are the
+      // frozen grade (see hydrate), and the grade the trade was taken on.
+      grade: typeof r.checklist_score === 'number' && typeof r.grade_letter === 'string'
+        ? { score: r.checklist_score, letter: r.grade_letter, trigger: r.trigger_fired === true }
+        : null,
     });
     imported += 1;
   }

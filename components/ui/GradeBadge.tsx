@@ -64,6 +64,7 @@ export function GradeBadge({
         // Re-keying on the letter makes the badge pop each time the grade
         // actually changes, not on every slider tick.
         key={letter}
+        data-grade-letter={letter}
         initial={{ scale: 0.72 }}
         animate={{ scale: 1 }}
         transition={springBouncy}

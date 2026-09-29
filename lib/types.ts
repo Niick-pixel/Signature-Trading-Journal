@@ -1,6 +1,6 @@
 import type {
   Account, ChecklistAnswer, Direction, HtfBias, Instrument, MistakeTag, Outcome, PremiumDiscount, Reason,
-  Regrade, Session, SetupType, ShotSlot, SkipReason, TargetType, TradeStatus, Tri, WorkedTag,
+  Regrade, Session, SetupType, ShotSlot, SkipReason, SweepTier, TargetType, TradeStatus, Tri, WorkedTag,
   BiasDirection, NewsLevel,
 } from './domain';
 import type { FlagKey } from './flags';
@@ -19,7 +19,6 @@ export interface Trade {
   setup_type: SetupType;
   htf_bias: HtfBias;
   sweep_before_entry: boolean;
-  singular_gap: boolean;
   target_unswept: boolean;
   displacement: boolean;
   mss_confirmed: boolean;
@@ -41,7 +40,20 @@ export interface Trade {
   chk_htf_bias: ChecklistAnswer;
   chk_killzone: ChecklistAnswer;
   chk_no_news: ChecklistAnswer;
+  /** Rubric 1's "Clear sweep of a MAJOR level". Kept for the trades graded under it. */
   chk_sweep: ChecklistAnswer;
+  /**
+   * Rubric 2's sweep, as a tier: major 20, minor 12, none 0. A gate — none
+   * caps the grade at C. Null on a trade logged before the tier existed and
+   * never answered since.
+   */
+  sweep_tier: SweepTier | null;
+  /**
+   * ONE clean, unmistakable FVG. A gate — false caps the grade at C. Null on
+   * a trade logged before it was asked (it used to be an unused context pill,
+   * so an old "no" could not be told from "never looked").
+   */
+  singular_gap: boolean | null;
   chk_displacement_fvg: ChecklistAnswer;
   chk_targets_clear: ChecklistAnswer;
   chk_clean_path: ChecklistAnswer;
@@ -87,7 +99,11 @@ export interface Trade {
   account_label: string | null;
 
   status: TradeStatus;
-  /** The score before the outcome was known. Stats read this, not the current one. */
+  /**
+   * The score before the outcome was known. Written by the server, never the
+   * form: it follows the frozen score while the trade is Planned and is locked
+   * with it the moment the trade leaves Planned (migration 015).
+   */
   grade_at_entry: number | null;
   /** Logged in one shot after the fact. Hindsight grades cannot be pooled with pre-grades. */
   graded_post_hoc: boolean;

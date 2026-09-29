@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import type { SQLInputValue } from 'node:sqlite';
 import { MISTAKE_TAGS, WORKED_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
 import { CURRENT_RUBRIC, gradeUnder } from '../lib/rubric';
+import { GRADE_LETTERS } from '../lib/grade';
 import { getDb } from './index';
 import { deleteScreenshot } from './screenshots';
 import type {
@@ -20,7 +21,7 @@ type Row =
 
 /** Booleans that are always present and always written. */
 const BOOL_COLUMNS = [
-  'macro_time', 'macro_time_auto', 'sweep_before_entry', 'singular_gap', 'target_unswept', 'smt',
+  'macro_time', 'macro_time_auto', 'sweep_before_entry', 'target_unswept', 'smt',
   'displacement', 'mss_confirmed', 'volume_imbalance', 'consequent_encroachment',
   'equal_highs_lows', 'retest_entry', 'news_window', 'quick_log',
   // Phase 3 only. The trigger is always answerable — the other seven boxes are
@@ -49,6 +50,11 @@ const NULLABLE_BOOL_COLUMNS = [
   */
   'chk_htf_bias', 'chk_killzone', 'chk_no_news',
   'chk_sweep', 'chk_displacement_fvg', 'chk_targets_clear', 'chk_clean_path',
+  /*
+    A gate, and never N/A on a new trade — but NULL on every trade logged
+    before it was asked, and "never answered" must not read back as "no".
+  */
+  'singular_gap',
 ] as const;
 
 function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade {
@@ -129,7 +135,7 @@ const WRITABLE = [
   'displacement', 'mss_confirmed', 'volume_imbalance', 'consequent_encroachment',
   'equal_highs_lows', 'retest_entry', 'news_window',
   'chk_htf_bias', 'chk_killzone', 'chk_no_news',
-  'chk_sweep', 'chk_displacement_fvg', 'chk_targets_clear', 'chk_clean_path',
+  'chk_sweep', 'sweep_tier', 'chk_displacement_fvg', 'chk_targets_clear', 'chk_clean_path',
   'chk_returned_to_fvg', 'chk_inversion_close',
   'followed_rules', 'regrade', 'mistake_tag', 'mistake_tags',
   'account', 'account_label', 'status', 'grade_at_entry', 'graded_post_hoc',
@@ -141,12 +147,21 @@ const WRITABLE = [
   'explanation', 'lesson', 'screenshot_path', 'quick_log', 'worked_tags',
 ] as const;
 
-/** The grade, frozen under a rubric version, as the four columns it is stored in. */
+/**
+ * The grade, frozen under a rubric version, as the columns it is stored in —
+ * grade_at_entry included, which the server owns: it is the frozen score, set
+ * while the trade is Planned and locked with it after.
+ */
 function frozen(input: TradeInput, version: number): Record<string, SQLInputValue> {
   const g = gradeUnder(version, input);
-  return { rubric_version: version, score_at_entry: g.score, letter_at_entry: g.letter, trigger_fired_at_entry: g.trigger ? 1 : 0 };
+  return {
+    rubric_version: version, score_at_entry: g.score, letter_at_entry: g.letter,
+    trigger_fired_at_entry: g.trigger ? 1 : 0, grade_at_entry: g.score,
+  };
 }
-const FROZEN = ['rubric_version', 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry'] as const;
+const FROZEN = ['rubric_version', 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry', 'grade_at_entry'] as const;
+/** Every column but the grade, for writes that must not touch it. */
+const UNGRADED = WRITABLE.filter((c) => c !== 'grade_at_entry');
 
 /**
  * SQLite has no boolean type, so every flag goes in and comes out as 0/1.
@@ -180,7 +195,7 @@ export function createTrade(input: TradeInput): Trade {
   const db = getDb();
   const id = crypto.randomUUID();
   // Graded once, now, under the rubric in force — and never again by a rubric change.
-  const cols = [...WRITABLE, ...FROZEN];
+  const cols = [...UNGRADED, ...FROZEN];
   db.prepare(
     `INSERT INTO trades (id, ${cols.join(', ')})
      VALUES (@id, ${cols.map((c) => `@${c}`).join(', ')})`,
@@ -203,16 +218,29 @@ export function importTrade(
     position_x: number | null; position_y: number | null; deleted_at: string | null; created_at: string | null;
     /** The rubric the trade was graded under when it was exported. Absent in older exports. */
     rubric_version?: number | null;
+    /**
+     * The grade the export carried. A trade's answers can be corrected after
+     * its grade locked, so re-grading them on the way back in could give a
+     * different grade from the one it was taken on — the exported one wins.
+     */
+    grade?: { score: number; letter: string; trigger: boolean } | null;
   },
 ): Trade {
-  const columns: string[] = [...WRITABLE, 'position_x', 'position_y', 'deleted_at', ...FROZEN];
+  const columns: string[] = [...UNGRADED, 'position_x', 'position_y', 'deleted_at', ...FROZEN];
   // A restored trade keeps the rubric it was graded under; an export from
   // before rubrics existed was graded under the first one.
   const version = meta.rubric_version && meta.rubric_version > 0 ? meta.rubric_version : 1;
+  const graded = frozen(input, version);
   const values: Record<string, SQLInputValue> = {
     id, ...flatten(input),
     position_x: meta.position_x, position_y: meta.position_y, deleted_at: meta.deleted_at,
-    ...frozen(input, version),
+    ...graded,
+    ...(meta.grade && meta.rubric_version && (GRADE_LETTERS as readonly string[]).includes(meta.grade.letter) ? {
+      score_at_entry: meta.grade.score, letter_at_entry: meta.grade.letter,
+      trigger_fired_at_entry: meta.grade.trigger ? 1 : 0,
+    } : {}),
+    // What the export said, or the frozen score for an export from before it was kept.
+    grade_at_entry: input.grade_at_entry ?? (graded.score_at_entry as number),
   };
   if (meta.created_at) { columns.push('created_at'); values.created_at = meta.created_at; }
 
@@ -270,7 +298,8 @@ export function listTrades(filters: TradeFilters = {}): Trade[] {
  * Position changes are excluded: dragging a node around the board is not an
  * edit to the record of what happened.
  */
-const LOGGED_FIELDS = WRITABLE.filter((c) => c !== 'screenshot_path' || true);
+// grade_at_entry is the server's, not the edit's — see frozen().
+const LOGGED_FIELDS = UNGRADED;
 
 function asText(v: unknown): string | null {
   if (v === null || v === undefined) return null;
@@ -295,15 +324,24 @@ export function updateTrade(id: string, input: TradeInput): Trade | null {
   const before = getTrade(id);
   if (!before) return null;
   /*
-    Edited answers are re-scored — under the rubric this trade was graded
-    with, not today's. Correcting a box you ticked by mistake should change
-    the grade; a rubric change made since should not.
+    The grade at entry is set while the trade is Planned and locked the
+    moment it leaves (migration 015 enforces it in the schema as well).
+
+    A Planned trade has not been taken yet, so an edit re-grades it — under
+    the current rubric, the one the form is showing — and the edit that moves
+    it out of Planned is the last one that can. After that the answers can
+    still be corrected, and the edit log records every change, but the grade
+    the trade was taken on stays what it was: correcting a box after you know
+    the result is exactly how a C setup that won turns into a B.
   */
-  const { rubric_version: _v, ...snapshot } = frozen(input, before.rubric_version);
-  const cols = [...WRITABLE, 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry'];
+  const open = before.status === 'Planned';
+  const cols = open ? [...UNGRADED, ...FROZEN] : UNGRADED;
   getDb()
     .prepare(`UPDATE trades SET ${cols.map((c) => `${c} = @${c}`).join(', ')} WHERE id = @id`)
-    .run({ id, ...flatten(input), ...snapshot });
+    .run(open
+      ? { id, ...flatten(input), ...frozen(input, CURRENT_RUBRIC) }
+      // node:sqlite refuses a named parameter the statement does not use.
+      : { id, ...Object.fromEntries(Object.entries(flatten(input)).filter(([k]) => k !== 'grade_at_entry')) });
   recordEdits(id, before, input);
   return getTrade(id);
 }
@@ -374,6 +412,22 @@ export function bulkUpdate(ids: string[], patch: BulkPatch): number {
     for (const id of ids) {
       const before = getTrade(id);
       if (!before) continue;
+      // A trade that has left Planned cannot go back: its grade is locked.
+      // The rest of the patch still applies to it.
+      if (values.status === 'Planned' && before.status !== 'Planned') {
+        const rest = fields.filter((f) => f !== 'status');
+        if (rest.length) {
+          db.prepare(`UPDATE trades SET ${rest.map((f) => `${f} = @${f}`).join(', ')} WHERE id = @id`)
+            .run({ id, ...Object.fromEntries(rest.map((f) => [f, values[f]])) });
+          for (const f of rest) {
+            const oldV = asText((before as unknown as Record<string, unknown>)[f]);
+            const newV = asText(patch[f as keyof BulkPatch]);
+            if (oldV !== newV) log.run(id, f, oldV, newV);
+          }
+        }
+        n += 1;
+        continue;
+      }
       stmt.run({ id, ...values });
       for (const f of fields) {
         const oldV = asText((before as unknown as Record<string, unknown>)[f]);
@@ -403,7 +457,10 @@ export function settleTrade(id: string, input: SettleInput): Trade | null {
   getDb()
     .prepare(`UPDATE trades SET outcome = @outcome, r_multiple = @r_multiple,
                 status = 'Settled',
-                grade_at_entry = COALESCE(grade_at_entry, score_at_entry, checklist_score)
+                -- Only a Planned trade's grade is still open to set; any
+                -- other is already locked (see migration 015).
+                grade_at_entry = CASE WHEN status = 'Planned'
+                  THEN COALESCE(score_at_entry, checklist_score) ELSE grade_at_entry END
               WHERE id = @id`)
     .run({ id, outcome: input.outcome, r_multiple: input.r_multiple });
 

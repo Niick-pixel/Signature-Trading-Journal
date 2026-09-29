@@ -12,7 +12,6 @@ process.env.SIGNATURE_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'signatur
 const { DatabaseSync } = await import('node:sqlite');
 const { migrate } = await import('../db/migrate');
 const { MIGRATIONS_DIR } = await import('../lib/paths');
-const { checklistScore, gradeLetter, triggerFired } = await import('../lib/grade');
 
 const db = new DatabaseSync(path.join(process.env.SIGNATURE_DATA_DIR!, 'journal.db'));
 migrate(db);
@@ -42,7 +41,7 @@ test('the final schema has every table', () => {
 test('trades carries the frozen grade, quick log and both tag lists', () => {
   const c = cols('trades');
   for (const name of ['rubric_version', 'score_at_entry', 'letter_at_entry', 'trigger_fired_at_entry',
-    'quick_log', 'worked_tags', 'mistake_tags', 'followed_rules', 'account', 'deleted_at', 'updated_at']) {
+    'sweep_tier', 'singular_gap', 'quick_log', 'worked_tags', 'mistake_tags', 'followed_rules', 'account', 'deleted_at', 'updated_at']) {
     assert.ok(c.includes(name), name);
   }
   for (const name of ['bias_direction', 'news', 'news_note', 'checked_in_at']) assert.ok(cols('daily_reviews').includes(name), name);
@@ -73,22 +72,8 @@ test('but still refuses values outside the vocabulary', () => {
   assert.throws(() => insert({ letter_at_entry: 'Z' }));
 });
 
-test('the generated grade columns agree with the app\'s own arithmetic', () => {
-  const answers = [
-    { chk_htf_bias: 1, chk_killzone: 0, chk_no_news: null, chk_sweep: 1, chk_displacement_fvg: 1, chk_targets_clear: 0, chk_clean_path: null, chk_returned_to_fvg: 1, chk_inversion_close: 1 },
-    { chk_htf_bias: 0, chk_killzone: 0, chk_no_news: 0, chk_sweep: 0, chk_displacement_fvg: 0, chk_targets_clear: 0, chk_clean_path: 0, chk_returned_to_fvg: 0, chk_inversion_close: 1 },
-    { chk_htf_bias: 1, chk_killzone: 1, chk_no_news: 1, chk_sweep: null, chk_displacement_fvg: 1, chk_targets_clear: 1, chk_clean_path: 1, chk_returned_to_fvg: 1, chk_inversion_close: 1 },
-  ];
-  for (const a of answers) {
-    const id = insert(a);
-    const row = db.prepare('SELECT checklist_score, grade_letter, trigger_fired FROM trades WHERE id = ?').get(id) as
-      { checklist_score: number; grade_letter: string; trigger_fired: number };
-    const js = Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v == null ? null : v === 1]));
-    assert.equal(row.checklist_score, checklistScore(js));
-    assert.equal(row.grade_letter, gradeLetter(checklistScore(js)));
-    assert.equal(Boolean(row.trigger_fired), triggerFired(js));
-  }
-});
+// The generated grade columns against the app's own arithmetic, on every
+// possible checklist, live in tests/rubric2.test.mts.
 
 test('the database is intact', () => {
   assert.equal((db.prepare('PRAGMA integrity_check').get() as Record<string, string>).integrity_check, 'ok');

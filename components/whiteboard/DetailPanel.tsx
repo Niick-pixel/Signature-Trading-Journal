@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  CHECKLIST_PHASES, CONTEXT_FLAG_LIST, OUTCOMES,
+  CHECKLIST_PHASES, CONTEXT_FLAG_LIST, GATE_KEYS, OUTCOMES, SWEEP_TIER_SPEC,
   type ChecklistAnswer, type Outcome,
 } from '@/lib/domain';
+import { MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { spring, springSoft, scrimExit } from '@/lib/motion';
 import { derivedAdherence } from '@/lib/adherence';
 import type { Trade } from '@/lib/types';
@@ -50,10 +51,10 @@ function Group({ children }: { children: React.ReactNode }) {
  * apply, shown struck through so it reads as removed from the mark rather than
  * failed against it.
  */
-function Check({ on, label }: { on: ChecklistAnswer; label: string }) {
+function Check({ on, label, ...rest }: { on: ChecklistAnswer; label: string; 'data-sweep'?: string }) {
   const na = on === null;
   return (
-    <span className="flex items-center gap-1.5 text-[11px]"
+    <span {...rest} className="flex items-center gap-1.5 text-[11px]"
       style={{ color: on === true ? 'rgb(var(--grade-aplus))' : 'var(--text-faint)' }}>
       <span className="grid size-[14px] place-items-center rounded-full text-[8px]"
         style={{ background: on === true ? 'rgb(var(--grade-aplus) / 0.18)' : 'var(--glass-fill)' }}>
@@ -215,6 +216,16 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                   />
                 </div>
 
+                {/* Rubric 2's gates, stated where they failed. A trade graded
+                    before they existed was never held to them. */}
+                {trade.rubric_version >= 2 && gradeUnder(trade.rubric_version, trade).caps.some((c) => c.id === 'model') && (
+                  <p data-gate-failed
+                    className="mb-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5 text-[12px] font-semibold leading-snug"
+                    style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>
+                    {MODEL_GATE_MESSAGE}
+                  </p>
+                )}
+
                 {/* The plan's hardest rule, stated where it was broken. The
                     0/20 on Phase 3 below says the same thing, but only if you
                     already know what Phase 3 is for. */}
@@ -264,9 +275,13 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                 */}
                 <div className="mb-3 grid gap-3 sm:grid-cols-3">
                   {CHECKLIST_PHASES.map((phase) => {
-                    const earned = phase.items.reduce((n, i) => n + (trade[i.key] === true ? i.points : 0), 0);
+                    const tier = SWEEP_TIER_SPEC[trade.sweep_tier ?? 'none'];
+                    const earned = phase.items.reduce((n, i) => n + (i.kind === 'tier'
+                      ? tier.points : trade[i.key] === true ? i.points : 0), 0);
                     // Points that were on the table on this trade, not in the plan.
-                    const possible = phase.items.reduce((n, i) => n + (trade[i.key] === null ? 0 : i.points), 0);
+                    // Only a box that can be N/A ever leaves the denominator.
+                    const possible = phase.items.reduce((n, i) => n + (
+                      i.kind === 'box' && trade[i.key] === null && !GATE_KEYS.includes(i.key) ? 0 : i.points), 0);
                     return (
                       <Group key={phase.phase}>
                         <div className="flex items-baseline justify-between gap-3 pb-1 pt-1.5">
@@ -278,9 +293,16 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5 pb-2 pt-1">
-                          {phase.items.map((item) => (
+                          {phase.items.map((item) => (item.kind === 'tier' ? (
+                            <Check key={item.key} data-sweep={trade.sweep_tier ?? 'unanswered'}
+                              on={trade.sweep_tier === 'major' || trade.sweep_tier === 'minor' ? true
+                                : trade.sweep_tier === 'none' ? false : null}
+                              label={trade.sweep_tier
+                                ? `Sweep: ${SWEEP_TIER_SPEC[trade.sweep_tier].label} (${SWEEP_TIER_SPEC[trade.sweep_tier].points})`
+                                : 'Sweep: not recorded'} />
+                          ) : (
                             <Check key={item.key} on={trade[item.key]} label={item.label} />
-                          ))}
+                          )))}
                         </div>
                       </Group>
                     );

@@ -2,33 +2,131 @@
 
 import { motion } from 'framer-motion';
 import {
-  CHECKLIST_PHASES, TAKE_IT_THRESHOLD, TRIGGER_KEYS,
-  type ChecklistAnswer, type ChecklistKey,
+  CHECKLIST_ITEMS, CHECKLIST_PHASES, SWEEP_TIERS, SWEEP_TIER_SPEC, TAKE_IT_THRESHOLD,
+  type ChecklistAnswer, type ChecklistKey, type SweepTier,
 } from '@/lib/domain';
 import { press, spring, springBouncy } from '@/lib/motion';
 
 interface ChecklistProps {
   answers: Record<ChecklistKey, ChecklistAnswer>;
   onChange: (key: ChecklistKey, value: ChecklistAnswer) => void;
+  /** The sweep, as a tier. Null on an old trade that never answered it. */
+  sweepTier: SweepTier | null;
+  onSweepTier: (tier: SweepTier) => void;
+  /** Still on the form's starting answer — lit until one is picked. */
+  sweepPending?: boolean;
   accent?: string;
+}
+
+const ITEM = new Map(CHECKLIST_ITEMS.map((i) => [i.key, i]));
+
+/** A small "GATE" mark: failing this caps the grade, whatever the total. */
+function GateMark() {
+  return (
+    <span className="ml-1.5 inline-block rounded-[calc(5px*var(--rk))] px-1 py-px align-[1px] text-[9px] font-bold uppercase tracking-[0.08em]"
+      title="A gate: fail it and the grade stops at C, whatever the total"
+      style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.12)' }}>
+      gate
+    </span>
+  );
+}
+
+/**
+ * The sweep, as three answers rather than a tick.
+ *
+ * "Was there a sweep of a MAJOR level" had no honest answer for a clean sweep
+ * of a minor but nameable pool — ticking it overstated, leaving it overstated
+ * the other way. The tier says which: 20, 12 or nothing, and nothing fails
+ * the gate.
+ */
+function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
+  value: SweepTier | null; onChange: (t: SweepTier) => void; pending: boolean; accent: string;
+  label: string; hint: string;
+}) {
+  const points = value ? SWEEP_TIER_SPEC[value].points : 0;
+  return (
+    <div role="radiogroup" aria-label={label} data-sweep-tier={value ?? 'unanswered'}
+      className="rounded-[calc(14px*var(--rk))] border px-3.5 pb-2.5 pt-2.5"
+      style={{ borderColor: pending ? `rgb(${accent} / 0.55)` : 'var(--glass-stroke)', background: 'var(--glass-fill)' }}>
+      <div className="flex items-start gap-3">
+        <span className="min-w-0 flex-1">
+          <span data-pending={pending ? 'true' : undefined}
+            className="flex items-center gap-1.5 text-[13px] leading-snug"
+            title={pending ? 'Still on its default — pick the one that is true' : undefined}
+            style={{ color: pending ? `rgb(${accent})` : 'var(--text)', fontWeight: pending ? 700 : 500 }}>
+            {pending && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: `rgb(${accent})` }} />}
+            <span>{label}<GateMark /></span>
+          </span>
+          <span className="mt-0.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{hint}</span>
+        </span>
+        <span className="shrink-0 pt-0.5 tabular-nums text-[11px] font-semibold"
+          style={{ color: points ? `rgb(${accent})` : 'var(--text-faint)' }}>
+          {points}/20
+        </span>
+      </div>
+
+      <div className="mt-2 space-y-1">
+        {SWEEP_TIERS.map((tier) => {
+          const spec = SWEEP_TIER_SPEC[tier];
+          const on = value === tier;
+          const fail = tier === 'none';
+          const tone = fail ? 'var(--outcome-loss)' : accent;
+          return (
+            <motion.button
+              key={tier}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-tier={tier}
+              onClick={() => onChange(tier)}
+              whileTap={press}
+              transition={spring}
+              animate={{
+                borderColor: on ? `rgb(${tone} / 0.55)` : 'rgb(0 0 0 / 0)',
+                background: on ? `rgb(${tone} / 0.10)` : 'rgb(0 0 0 / 0)',
+              }}
+              className="flex w-full items-start gap-2.5 rounded-[calc(10px*var(--rk))] border px-2 py-1.5 text-left"
+            >
+              <span className="relative mt-[3px] grid size-[14px] shrink-0 place-items-center rounded-full border"
+                style={{ borderColor: on ? `rgb(${tone})` : 'var(--glass-stroke)' }}>
+                <motion.span className="size-[7px] rounded-full" style={{ background: `rgb(${tone})` }}
+                  animate={{ scale: on ? 1 : 0 }} transition={springBouncy} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12.5px] font-medium leading-snug"
+                  style={{ color: on ? 'var(--text)' : 'var(--text-dim)' }}>{spec.label}</span>
+                <span className="block text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>{spec.hint}</span>
+              </span>
+              <span className="shrink-0 pt-px tabular-nums text-[11px] font-semibold"
+                style={{ color: on ? `rgb(${tone})` : 'var(--text-faint)' }}>{spec.points}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /**
  * The plan's checklist, weighted exactly as written.
  *
  * Each row carries its own point value because the weights are the argument:
- * a clear sweep is worth four times a clean path, and seeing that while
+ * a major sweep is worth four times a clean path, and seeing that while
  * answering is the difference between scoring a trade and rationalising one.
  */
-export function Checklist({ answers, onChange, accent = 'var(--accent)' }: ChecklistProps) {
+export function Checklist({
+  answers, onChange, sweepTier, onSweepTier, sweepPending = false, accent = 'var(--accent)',
+}: ChecklistProps) {
   return (
     <div className="space-y-5">
       {CHECKLIST_PHASES.map((phase) => {
-        const earned = phase.items.reduce(
-          (sum, i) => sum + (answers[i.key] === true ? i.points : 0), 0);
-        // Out of what applied today, not out of what the plan can award.
-        const possible = phase.items.reduce(
-          (sum, i) => sum + (answers[i.key] === null ? 0 : i.points), 0);
+        const earned = phase.items.reduce((sum, i) => sum + (i.kind === 'tier'
+          ? SWEEP_TIER_SPEC[sweepTier ?? 'none'].points
+          : answers[i.key] === true ? i.points : 0), 0);
+        // Out of what applied today, not out of what the plan can award. Only
+        // a box that can be N/A ever leaves the denominator.
+        const possible = phase.items.reduce((sum, i) => sum + (
+          i.kind === 'box' && answers[i.key] === null && ITEM.get(i.key)?.canBeNA ? 0 : i.points), 0);
 
         return (
           <div key={phase.phase}>
@@ -57,11 +155,19 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
 
             <div className="space-y-1.5">
               {phase.items.map((item) => {
+                if (item.kind === 'tier') {
+                  return (
+                    <SweepTierRow key={item.key} value={sweepTier} onChange={onSweepTier}
+                      pending={sweepPending} accent={accent} label={item.label} hint={item.hint} />
+                  );
+                }
+                const spec = ITEM.get(item.key)!;
+                // The trigger and the gates cannot be N/A: without the trigger
+                // there is no entry, and a gate nobody cleared has failed. A
+                // gate unanswered on an old trade shows as an empty box.
+                const canBeNA = spec.canBeNA;
                 const on = answers[item.key] === true;
-                const na = answers[item.key] === null;
-                // Phase 3 is the trigger: without it there is no entry, so
-                // "it did not apply" is not something that can be true of it.
-                const canBeNA = !TRIGGER_KEYS.includes(item.key);
+                const na = canBeNA && answers[item.key] === null;
                 return (
                   /*
                     The row is a container, not a button: it holds the answer
@@ -85,6 +191,7 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
                       type="button"
                       role="switch"
                       aria-checked={on}
+                      data-box={item.key}
                       disabled={na}
                       onClick={() => onChange(item.key, !on)}
                       whileTap={na ? undefined : press}
@@ -120,6 +227,7 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
                           }}
                         >
                           {item.label}
+                          {spec.gate && <GateMark />}
                         </span>
                         {item.hint && (
                           <span className="mt-0.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
@@ -169,8 +277,10 @@ export function Checklist({ answers, onChange, accent = 'var(--accent)' }: Check
       })}
 
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
-        Phase 3 must fire for an entry to exist. At {TAKE_IT_THRESHOLD} or more with the trigger
-        fired, taking it is the rule — hesitating is a rule break, same as oversizing.
+        Phase 3 must fire for an entry to exist. The sweep and the single gap are gates: fail
+        either and the grade stops at C, whatever the total. At {TAKE_IT_THRESHOLD} or more with the
+        trigger fired and both gates passed, taking it is the rule — hesitating is a rule break,
+        same as oversizing.
       </p>
     </div>
   );

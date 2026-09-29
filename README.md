@@ -217,43 +217,55 @@ The database enforces the model rather than trusting the app:
 - The 80-character minimum on `explanation` is a constraint, not just form
   validation.
 - `checklist_score`, `trigger_fired` and `grade_letter` are **generated
-  columns** computed inside SQLite from the nine checklist answers. They cannot
+  columns** computed inside SQLite from the checklist answers, gates included. They cannot
   be written directly and can never disagree with the answers that produced
   them.
 
 ## The checklist
 
-Grading is the plan's own weighted 100-point checklist, in three phases:
+Grading is the plan's own weighted 100-point checklist, in three phases —
+rubric 2, since 2026-09-29 (every version is recorded in
+[`db/RUBRIC.md`](db/RUBRIC.md), and no trade is ever re-graded by a later one):
 
 | Phase | Item | Points |
 |---|---|---|
-| 1 — Prep | Higher timeframe bias is clear | 10 |
+| 1 — Prep (25) | Higher timeframe bias is clear | 10 |
 | | Inside a killzone | 10 |
 | | No NFP / FOMC / CPI conflict | 5 |
-| 2 — Setup | Clear sweep of a MAJOR level | 20 |
-| | Strong FVG after the sweep | 15 |
-| | Targets are clear | 15 |
+| 2 — Setup (55) | Clear sweep of a nameable level — MAJOR 20 · MINOR but nameable 12 · NONE 0 | up to 20 |
+| | Singular gap — ONE clean, unmistakable FVG | 10 |
+| | Strong FVG after the sweep | 10 |
+| | Targets are clear | 10 |
 | | Clean path to target | 5 |
-| 3 — Trigger | Price returned to the FVG | 5 |
+| 3 — Trigger (20) | Price returned to the FVG | 5 |
 | | Inversion candle CLOSED through the FVG | 15 |
 
-Two rules sit on top of the arithmetic, and both are enforced in the schema
-rather than in the form:
+Letters fall out of the score: 90+ is A+, 80+ A, 70+ B, 50+ C, below that F.
+Then the rules on top of the arithmetic, all mirrored in the schema's
+generated columns:
 
+- **Gates.** A sweep of NONE, or anything but one clean gap, is not the model:
+  the grade is capped at **C** whatever the total, and the form says so in red.
+  Neither can be marked N/A.
+- **Diagonal targets cap at B.** Diagonals are subjective and move every candle.
 - **Phase 3 must fire for an entry to exist.** `trigger_fired` is true only when
   both Phase 3 boxes are ticked. A 90-point setup with no inversion close is a
   setup still forming, and the app says so where you can't miss it.
 - **At 70 or more with the trigger fired, taking it is the rule.** Below 70 the
   capture form asks you why you're taking it at all.
 
-Letters fall out of the score: 90+ is A+, 80+ A, 70+ B, 50+ C, below that F.
-Those thresholds are the one part of the grading I chose rather than read off
-the plan — say the word and they move.
+**The grade at entry is permanent.** It can change while a trade is Planned;
+the moment it leaves Planned it is locked, by the app and by triggers in the
+database, and the trade cannot go back to Planned to reopen it. Answers can
+still be corrected — the history records it — but the grade the trade was
+taken on stays.
 
-After the close there is a second, harsher pass: `followed_rules`, an honest
-`regrade`, and a `mistake_tag`. Stats compares the two, because a pattern of
-re-grading below the checklist means the boxes are being ticked to reach a
-number rather than because they were true.
+After the close there is a second, harsher pass: an honest `regrade`, which
+**can only be equal to or lower than the grade at entry** ("Reviews can only
+be harsher. If a C setup won, it was still a C setup."), `followed_rules`, and
+the mistake tags. **Stats → Does the model hold?** splits count, win rate and
+total R by sweep tier, singular gap, target type, account and grade at entry,
+so the gates can be checked against real results as they accumulate.
 
 ## A note on "Not taken"
 

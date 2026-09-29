@@ -50,13 +50,21 @@ export function TrashList({ trades }: { trades: Trade[] }) {
             transition={spring}
             className="glass flex flex-wrap items-center gap-4 rounded-[calc(18px*var(--rk))] p-4"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/screenshots/${trade.screenshot_path}`}
-              alt=""
-              className="size-14 shrink-0 rounded-[calc(10px*var(--rk))] object-cover"
-              style={{ background: 'var(--letterbox)' }}
-            />
+            {/* A quick log can have no chart at all. */}
+            {trade.screenshot_path ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/screenshots/${trade.screenshot_path}`}
+                alt=""
+                className="size-14 shrink-0 rounded-[calc(10px*var(--rk))] object-cover"
+                style={{ background: 'var(--letterbox)' }}
+              />
+            ) : (
+              <div className="grid size-14 shrink-0 place-items-center rounded-[calc(10px*var(--rk))] text-[9.5px]"
+                style={{ background: 'var(--letterbox)', color: 'var(--text-faint)' }}>
+                No chart
+              </div>
+            )}
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">

@@ -49,14 +49,46 @@ export const SETUP_TYPES = [
 ] as const;
 export const HTF_BIASES = ['With bias', 'Against bias', 'No bias defined'] as const;
 export const PREMIUM_DISCOUNTS = ['Discount', 'Equilibrium', 'Premium'] as const;
+/**
+ * What the trade was aimed at, as named, explicit liquidity.
+ *
+ * "Other" is gone: a target you cannot name is not a target, and it was the
+ * option every unplanned trade hid behind. Trendline/diagonal is still here
+ * because it is sometimes the honest answer — but it caps the grade at B (see
+ * lib/rubric.ts), because a diagonal is drawn, not found, and moves every
+ * candle.
+ */
 export const TARGET_TYPES = [
-  'Horizontal liquidity pool',
-  'Opposing FVG',
-  'Data wick',
+  'EQH/EQL',
+  'PDH/PDL',
   'Session high/low',
-  'Diagonal trendline',
-  'Other',
+  'Data wick (ITH/ITL)',
+  'Order block',
+  'CISD',
+  'Trendline/diagonal',
 ] as const;
+/**
+ * Target types no longer offered, still accepted. Trades were filed under
+ * them, and a value dropped from validation makes those trades unsaveable on
+ * their next edit — the same rule as ACCOUNT_VALUES.
+ */
+export const RETIRED_TARGET_TYPES = ['Horizontal liquidity pool', 'Opposing FVG', 'Other'] as const;
+export const TARGET_TYPE_VALUES = [...TARGET_TYPES, ...RETIRED_TARGET_TYPES] as const;
+/** Renamed rather than retired: migration 015 moved every stored row across. */
+export const RENAMED_TARGET_TYPES: Record<string, (typeof TARGET_TYPES)[number]> = {
+  'Data wick': 'Data wick (ITH/ITL)',
+  'Diagonal trendline': 'Trendline/diagonal',
+};
+/** The weakest target class. Caps the grade at B under rubric 2. */
+export const WEAK_TARGET = 'Trendline/diagonal';
+export const WEAK_TARGET_WARNING = 'Diagonals are subjective and move every candle. Weakest target class.';
+
+/** The picker's options: the offered list, plus a retired value an old trade still holds. */
+export function targetTypeOptions(current: TargetType | null): readonly TargetType[] {
+  return current && !(TARGET_TYPES as readonly string[]).includes(current)
+    ? [current, ...TARGET_TYPES] : TARGET_TYPES;
+}
+
 export const OUTCOMES = ['Win', 'Loss', 'Breakeven', 'Scratched', 'Not taken'] as const;
 
 export type Instrument = (typeof INSTRUMENTS)[number];
@@ -66,7 +98,7 @@ export type Reason = (typeof REASONS)[number];
 export type SetupType = (typeof SETUP_TYPES)[number];
 export type HtfBias = (typeof HTF_BIASES)[number];
 export type PremiumDiscount = (typeof PREMIUM_DISCOUNTS)[number];
-export type TargetType = (typeof TARGET_TYPES)[number];
+export type TargetType = (typeof TARGET_TYPE_VALUES)[number];
 export type Outcome = (typeof OUTCOMES)[number];
 
 /** 'Not taken' rows are journalled but never priced — see lib/stats.ts. */
@@ -89,12 +121,14 @@ export function isTaken(outcome: Outcome): boolean {
  * read, and it sat where "What worked" now does. The columns stay: every
  * trade that answered them keeps its answers, an edit passes them through
  * untouched, and the detail panel still shows the ones that were set.
+ *
+ * "Singular gap" left this list for the checklist, where it is a gate: see
+ * CHECKLIST_PHASES and migration 015.
  */
 export const RETIRED_CONTEXT = {
   label: 'The setup',
   flags: [
     { key: 'sweep_before_entry', label: 'Sweep before entry', hint: 'Was liquidity swept near the gap?' },
-    { key: 'singular_gap', label: 'Singular gap', hint: 'Rule 1 — one clean obvious gap, not stacked.' },
     { key: 'displacement', label: 'Displacement', hint: 'Did price actually displace through the gap, or drift?' },
     { key: 'mss_confirmed', label: 'MSS confirmed', hint: 'Had market structure shifted before you entered?' },
     { key: 'volume_imbalance', label: 'Volume imbalance', hint: 'A gap in delivery between the candle bodies.' },
@@ -140,51 +174,83 @@ export const CONTEXT_FLAG_LIST: ContextFlagSpec[] = [
 export const CONTEXT_FLAGS: ContextFlag[] = CONTEXT_FLAG_LIST.map((f) => f.key);
 
 /**
- * The checklist, exactly as the plan states it.
+ * How clean the sweep was. A radio rather than a box, because "was there a
+ * sweep" was the wrong question: a minor but nameable pool is a real sweep and
+ * worth something, a random wiggle is not, and one checkbox could not say so.
+ */
+export const SWEEP_TIERS = ['major', 'minor', 'none'] as const;
+export type SweepTier = (typeof SWEEP_TIERS)[number];
+export const SWEEP_TIER_SPEC: Record<SweepTier, { label: string; points: number; hint: string }> = {
+  major: { label: 'MAJOR', points: 20, hint: 'Session high/low, PDH/PDL, weekly or daily EQH/EQL.' },
+  minor: {
+    label: 'MINOR but nameable', points: 12,
+    hint: 'Intraday short-term high/low, equal highs/lows, a prior session pool — you can point at it and say what it is.',
+  },
+  none: { label: 'NONE', points: 0, hint: 'A random wiggle, or no sweep at all.' },
+};
+
+/**
+ * The checklist, exactly as the plan states it — rubric 2.
  *
- * Three phases, weighted to 100. Phase 3 must fire for an entry to exist — a
- * high score with no inversion close is a setup still forming, not a trade —
- * and once it does fire at 70% or more, taking it is the rule rather than a
- * decision. The weights live here and in the schema's generated columns; the
- * score is computed by SQLite so it can never disagree with the answers.
+ * Three phases, weighted to 100: Prep 25, Setup 55, Trigger 20. Phase 3 must
+ * fire for an entry to exist — a high score with no inversion close is a
+ * setup still forming, not a trade — and once it does fire at 70% or more,
+ * taking it is the rule rather than a decision.
+ *
+ * Two items are GATES rather than points: a sweep of nothing nameable, or more
+ * than one gap, is not this model at all, and caps the grade at C whatever the
+ * total. They cannot be marked N/A — a gate the market "did not offer" is a
+ * gate that failed.
  *
  * The 100 is what the plan can award, not what every trade is marked out of.
- * A Phase 1 or Phase 2 box can be answered "did not apply" — no major level
- * anywhere near price is not a sweep I missed — and its weight then leaves the
- * denominator rather than counting against me. Phase 3 cannot: without the
- * trigger there is no entry to grade at all.
+ * Other Phase 1 and Phase 2 boxes can be answered "did not apply", and their
+ * weight then leaves the denominator rather than counting against me.
+ *
+ * The weights here must match RUBRICS[CURRENT_RUBRIC] in lib/rubric.ts and the
+ * generated columns in the schema; `npm test` fails if they drift.
  */
 export const CHECKLIST_PHASES = [
   {
     phase: 'Phase 1 — Prep',
     note: 'Before anything else is worth looking at.',
     items: [
-      { key: 'chk_htf_bias', points: 10, label: 'Higher timeframe bias is clear', hint: '1H and 4H agree on direction.' },
-      { key: 'chk_killzone', points: 10, label: 'Inside a killzone', hint: 'London 00:00–03:00 or NY AM 07:30–10:00 (CR).' },
-      { key: 'chk_no_news', points: 5, label: 'No NFP / FOMC / CPI conflict', hint: 'Nothing high-impact due while this trade is live.' },
+      { kind: 'box', key: 'chk_htf_bias', points: 10, label: 'Higher timeframe bias is clear', hint: '1H and 4H agree on direction.' },
+      { kind: 'box', key: 'chk_killzone', points: 10, label: 'Inside a killzone', hint: 'London 00:00–03:00 or NY AM 07:30–10:00 (CR).' },
+      { kind: 'box', key: 'chk_no_news', points: 5, label: 'No NFP / FOMC / CPI conflict', hint: 'Nothing high-impact due while this trade is live.' },
     ],
   },
   {
     phase: 'Phase 2 — Setup',
-    note: 'What the chart actually did.',
+    note: 'What the chart actually did. The sweep and the single gap are gates: fail either and it is not the model.',
     items: [
-      { key: 'chk_sweep', points: 20, label: 'Clear sweep of a MAJOR level', hint: 'Session high/low, PDH/PDL, EQH/EQL — not a random wiggle.' },
-      { key: 'chk_displacement_fvg', points: 15, label: 'Strong FVG after the sweep', hint: 'Displacement, not drift.' },
-      { key: 'chk_targets_clear', points: 15, label: 'Targets are clear', hint: 'EQH/EQL, ITH/ITL, OB or CISD — nameable, not hopeful.' },
-      { key: 'chk_clean_path', points: 5, label: 'Clean path to target', hint: 'No opposing EQH/EQL sitting in the way.' },
+      { kind: 'tier', key: 'sweep_tier', points: 20, label: 'Clear sweep of a nameable level', hint: 'Pick the one that is true. Not the one you wish was.' },
+      { kind: 'box', key: 'singular_gap', points: 10, label: 'Singular gap — ONE clean, unmistakable FVG', hint: 'If you drew two overlapping boxes, this is unchecked. Stacked gaps = messy signature.' },
+      { kind: 'box', key: 'chk_displacement_fvg', points: 10, label: 'Strong FVG after the sweep', hint: 'Displacement, not drift.' },
+      { kind: 'box', key: 'chk_targets_clear', points: 10, label: 'Targets are clear', hint: 'EQH/EQL, PDH/PDL, ITH/ITL, OB or CISD — nameable, not hopeful.' },
+      { kind: 'box', key: 'chk_clean_path', points: 5, label: 'Clean path to target', hint: 'No opposing EQH/EQL sitting in the way.' },
     ],
   },
   {
     phase: 'Phase 3 — Trigger',
     note: 'Both of these, or there is no entry. A high score without them is a setup still forming.',
     items: [
-      { key: 'chk_returned_to_fvg', points: 5, label: 'Price returned to the FVG', hint: '' },
-      { key: 'chk_inversion_close', points: 15, label: 'Inversion candle CLOSED through the FVG', hint: 'With momentum. A wick through is not a close through.' },
+      { kind: 'box', key: 'chk_returned_to_fvg', points: 5, label: 'Price returned to the FVG', hint: '' },
+      { kind: 'box', key: 'chk_inversion_close', points: 15, label: 'Inversion candle CLOSED through the FVG', hint: 'With momentum. A wick through is not a close through.' },
     ],
   },
 ] as const;
 
-export type ChecklistKey = (typeof CHECKLIST_PHASES)[number]['items'][number]['key'];
+type PhaseItem = (typeof CHECKLIST_PHASES)[number]['items'][number];
+
+/** A yes/no box on the current checklist. */
+export type ChecklistKey = Extract<PhaseItem, { kind: 'box' }>['key'];
+
+/**
+ * A box that only rubric 1 asked. "Clear sweep of a MAJOR level" became the
+ * sweep tier; its column stays so every trade graded under rubric 1 can still
+ * be graded under it (a planned rubric-1 trade re-scores on edit).
+ */
+export type LegacyChecklistKey = 'chk_sweep';
 
 export interface ChecklistItem {
   key: ChecklistKey;
@@ -194,6 +260,8 @@ export interface ChecklistItem {
   phase: string;
   /** Whether this box can be marked "did not apply" on a given trade. */
   canBeNA: boolean;
+  /** A gate: failing it caps the grade, whatever the total. */
+  gate: boolean;
 }
 
 /**
@@ -203,31 +271,38 @@ export interface ChecklistItem {
  * false — it was not
  * null  — it did not apply, so its points were never on the table
  *
- * The third state exists because not every session offers every condition. If
- * price is nowhere near a major level, "Clear sweep of a MAJOR level" is not a
- * rule that was broken; it is a question the market did not ask. Scoring it as
- * a miss capped a flawless setup at 80 and then reported a rule break.
+ * The third state exists because not every session offers every condition.
+ * Scoring an absent condition as a miss capped a flawless setup and then
+ * reported a rule break. Gates are the exception: see CHECKLIST_PHASES.
  */
 export type ChecklistAnswer = boolean | null;
 
 /** The two Phase 3 answers. Without both, there is no trade. */
 export const TRIGGER_KEYS: ChecklistKey[] = ['chk_returned_to_fvg', 'chk_inversion_close'];
+/** Boxes that are gates. With the sweep tier, these decide whether it is the model at all. */
+export const GATE_KEYS: ChecklistKey[] = ['singular_gap'];
 
 export const CHECKLIST_ITEMS: ChecklistItem[] = CHECKLIST_PHASES.flatMap((p) =>
-  p.items.map((item) => ({
-    ...item,
+  p.items.flatMap((item) => (item.kind === 'box' ? [{
+    key: item.key,
+    points: item.points,
+    label: item.label,
+    hint: item.hint,
     phase: p.phase,
-    // Phase 3 is the trigger. Without the return to the FVG and the inversion
-    // close there is no entry at all, so "it did not apply" cannot be true of
-    // a trade that exists — those two are always on the table.
-    canBeNA: !TRIGGER_KEYS.includes(item.key),
-  })),
+    // Phase 3 is the trigger — without it there is no entry at all — and a
+    // gate the market "did not offer" is a gate that failed. Neither can be N/A.
+    canBeNA: !TRIGGER_KEYS.includes(item.key) && !GATE_KEYS.includes(item.key),
+    gate: GATE_KEYS.includes(item.key),
+  }] : [])),
 );
 
 export const CHECKLIST_KEYS: ChecklistKey[] = CHECKLIST_ITEMS.map((i) => i.key);
 
-/** 10+10+5 + 20+15+15+5 + 5+15 */
-export const GRADE_MAX = CHECKLIST_ITEMS.reduce((sum, i) => sum + i.points, 0);
+/** The sweep tier's row on the checklist. */
+export const SWEEP_ITEM = CHECKLIST_PHASES[1].items[0];
+
+/** 10+10+5 + 20+10+10+10+5 + 5+15 */
+export const GRADE_MAX = CHECKLIST_ITEMS.reduce((sum, i) => sum + i.points, 0) + SWEEP_ITEM.points;
 
 /** "If trigger fires and score >= 70, I ENTER. No exceptions." */
 export const TAKE_IT_THRESHOLD = 70;
@@ -401,6 +476,10 @@ export const CONFIDENCE_LEVELS = [1, 2, 3, 4, 5] as const;
  * item" look identical in the data. This is the one place that distinction is
  * recoverable: if no box is ticked at all, the checklist was skipped.
  */
-export function isScored(t: Partial<Record<ChecklistKey, ChecklistAnswer>>): boolean {
-  return CHECKLIST_KEYS.some((k) => t[k] === true);
+export function isScored(
+  t: Partial<Record<ChecklistKey | LegacyChecklistKey, ChecklistAnswer>> & { sweep_tier?: SweepTier | null },
+): boolean {
+  return CHECKLIST_KEYS.some((k) => t[k] === true)
+    || t.chk_sweep === true
+    || t.sweep_tier === 'major' || t.sweep_tier === 'minor';
 }

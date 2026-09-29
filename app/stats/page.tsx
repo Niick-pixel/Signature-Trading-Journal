@@ -5,7 +5,7 @@ import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isHypothetical, type Account } 
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
-  equityCurves, excursion, forAccount, gradeHonesty, hesitation, money, passedSetups,
+  equityCurves, excursion, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
   preGradedOnly, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
 } from '@/lib/stats';
 import { Histogram } from '@/components/stats/Histogram';
@@ -17,6 +17,8 @@ import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
 import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/Bars';
 import { TitleBar } from '@/components/shell/TitleBar';
 import { MissedPatternsView } from '@/components/stats/MissedPatterns';
+import { BreakdownTable } from '@/components/stats/ModelBreakdown';
+import { CURRENT_RUBRIC } from '@/lib/rubric';
 import { missedPatterns } from '@/lib/missed';
 import { listDailyReviews } from '@/db/reviews';
 
@@ -73,6 +75,24 @@ export default async function StatsPage(
   const noQuick = (await searchParams).quick === '0';
   const quickCount = scoped.filter((t) => t.quick_log).length;
   const trades = (preOnly ? preGradedOnly(scoped) : scoped).filter((t) => !noQuick || !t.quick_log);
+  /*
+    The gates only exist from rubric 2 on. Every trade is in by default — the
+    sweep of an older trade is known when its MAJOR box was ticked — but
+    ?rubric=2 narrows the model tables to trades graded with the gates, which
+    is the only honest test of whether the gates themselves work.
+  */
+  const gatedOnly = (await searchParams).rubric === String(CURRENT_RUBRIC);
+  const sameFilters = (list: typeof all) => (preOnly ? preGradedOnly(list) : list)
+    .filter((t) => (!noQuick || !t.quick_log) && (!gatedOnly || t.rubric_version >= CURRENT_RUBRIC));
+  const model = modelBreakdowns(sameFilters(trades), sameFilters(all));
+  const modelLink = `/stats?${new URLSearchParams({
+    // Always carried, 'All' included: without it the page falls back to
+                  // the remembered account and the filter silently changes accounts.
+                  account,
+    ...(preOnly ? { pregraded: '1' } : {}),
+    ...(noQuick ? { quick: '0' } : {}),
+    ...(gatedOnly ? {} : { rubric: String(CURRENT_RUBRIC) }),
+  })}#model`;
   const agg = aggregate(trades);
   const m = money(trades);
   const e = edge(trades);
@@ -143,7 +163,9 @@ export default async function StatsPage(
               <AccountSwitcher available={accounts} current={account} />
               <a
                 href={`/stats?${new URLSearchParams({
-                  ...(account === 'All' ? {} : { account }),
+                  // Always carried, 'All' included: without it the page falls back to
+                  // the remembered account and the filter silently changes accounts.
+                  account,
                   ...(preOnly ? {} : { pregraded: '1' }),
                   ...(noQuick ? { quick: '0' } : {}),
                 })}`}
@@ -160,7 +182,9 @@ export default async function StatsPage(
               {quickCount > 0 && (
                 <a
                   href={`/stats?${new URLSearchParams({
-                    ...(account === 'All' ? {} : { account }),
+                    // Always carried, 'All' included: without it the page falls back to
+                  // the remembered account and the filter silently changes accounts.
+                  account,
                     ...(preOnly ? { pregraded: '1' } : {}),
                     ...(noQuick ? {} : { quick: '0' }),
                   })}`}
@@ -213,7 +237,7 @@ export default async function StatsPage(
               <Panel
                 n={d.followed.count + d.broken.count}
                 title="Adherence"
-                note="Share of the SCORED trades where the checklist says the rules were followed — trigger fired, 70% or more of the boxes that APPLIED, no mistake tagged. Derived, never self-reported. A box marked N/A takes its points out of the denominator instead of counting as a miss, and a trade whose checklist was left blank counts as neither followed nor broken."
+                note="Share of the SCORED trades where the checklist says the rules were followed — trigger fired, 70% or more of the boxes that APPLIED, both gates passed (rubric 2 trades), no mistake tagged. Derived, never self-reported. A box marked N/A takes its points out of the denominator instead of counting as a miss, and a trade whose checklist was left blank counts as neither followed nor broken."
               >
                 <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
                   <div>
@@ -447,6 +471,41 @@ export default async function StatsPage(
                       Not enough trades yet — each box needs trades on both sides of it to be compared.
                     </p>
                   )}
+                </Panel>
+              </div>
+
+              {/*
+                The rubric's own claims, tested. Every rule the checklist grades
+                by — the sweep tier, the single gap, the target, the letter it
+                all adds up to — split by its answer, with the account table
+                beside them so Live and Demo can be read against each other.
+              */}
+              <div id="model">
+                <Panel
+                  n={model.entryGrade.reduce((n, row) => n + row.stats.taken, 0)}
+                  title="Does the model hold?"
+                  note="Count, win rate and net R for each answer to each gate. If NONE sweeps and stacked gaps pay as well as the rest, the gates are wrong. Trades graded before rubric 2 show their sweep only if the MAJOR box was ticked, and their gap as not recorded."
+                >
+                  <div className="mb-4 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                    <a href={modelLink} data-rubric-filter={gatedOnly ? 'on' : 'off'}
+                      className="rounded-full border px-3 py-1 font-medium"
+                      style={{
+                        borderColor: gatedOnly ? 'rgb(var(--accent) / 0.55)' : 'var(--glass-stroke)',
+                        background: gatedOnly ? 'rgb(var(--accent) / 0.12)' : 'var(--glass-fill)',
+                        color: gatedOnly ? 'rgb(var(--accent))' : 'var(--text-dim)',
+                      }}
+                      title="Only trades graded with the gates (rubric 2)">
+                      Graded with the gates only
+                    </a>
+                    <span>{gatedOnly ? 'Rubric 2 trades only.' : 'Every rubric.'} Passed setups are not counted.</span>
+                  </div>
+                  <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
+                    <BreakdownTable title="Sweep tier" rows={model.sweepTier} note="gate: NONE caps at C" />
+                    <BreakdownTable title="Singular gap" rows={model.singularGap} note="gate: stacked caps at C" />
+                    <BreakdownTable title="Target type" rows={model.targetType} note="diagonal caps at B" />
+                    <BreakdownTable title="Grade at entry" rows={model.entryGrade} note="the frozen letter" />
+                    <BreakdownTable title="Account" rows={model.account} note="every account, same filters" />
+                  </div>
                 </Panel>
               </div>
 

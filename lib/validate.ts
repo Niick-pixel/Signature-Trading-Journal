@@ -1,9 +1,11 @@
 import {
   ACCOUNT_VALUES, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
-  OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
-  TARGET_TYPES, TRADE_STATUSES, WORKED_TAGS,
-  type ChecklistKey, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
+  OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
+  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS,
+  type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
+import { REGRADE_HINT, regradeAllowed, type GradeLetter } from './grade';
+import { CURRENT_RUBRIC, gradeUnder } from './rubric';
 import { MIN_EXPLANATION, MIN_LESSON, type TradeInput } from './types';
 
 /**
@@ -23,7 +25,11 @@ import { MIN_EXPLANATION, MIN_LESSON, type TradeInput } from './types';
  * restore is not a backup.
  */
 export interface WritingFloor {
-  previous?: { explanation: string; lesson: string | null; quick_log?: boolean };
+  previous?: {
+    explanation: string; lesson: string | null; quick_log?: boolean;
+    /** The stored trade's stage, frozen letter and re-grade, for the grade-lock rules. */
+    status?: TradeStatus; letter?: GradeLetter; regrade?: Regrade | null;
+  };
   restoring?: boolean;
 }
 
@@ -128,7 +134,12 @@ export function parseTradeInput(
   const setup_type = oneOf('setup_type', SETUP_TYPES);
   const htf_bias = oneOf('htf_bias', HTF_BIASES);
   const premium_discount = oneOf('premium_discount', PREMIUM_DISCOUNTS);
-  const target_type = oneOf('target_type', TARGET_TYPES);
+  // An older client or an older export may still use a name that was since
+  // changed; it means the same target.
+  if (typeof t.target_type === 'string' && RENAMED_TARGET_TYPES[t.target_type]) {
+    t.target_type = RENAMED_TARGET_TYPES[t.target_type];
+  }
+  const target_type = oneOf('target_type', TARGET_TYPE_VALUES);
   const outcome = oneOf('outcome', OUTCOMES);
 
   const missing = Object.entries({
@@ -140,9 +151,33 @@ export function parseTradeInput(
     ? t.date : null;
   if (!date) return { ok: false, error: 'Invalid date.' };
 
-  return {
-    ok: true,
-    value: {
+  /*
+    The sweep tier and the single gap, rubric 2's gates.
+
+    A restore of an export written before they existed carries rubric 1's
+    MAJOR box and the old singular-gap pill instead, and reads them the way
+    migration 015 read the rows already here: a ticked MAJOR box is a major
+    sweep, anything else unknown; a ticked pill is a yes, an unticked one
+    unknown — because that pill defaulted to off.
+  */
+  const beforeTiers = floor.restoring === true && !(typeof t.rubric_version === 'number' && t.rubric_version >= 2)
+    && t.sweep_tier === undefined;
+  const sweep_tier = oneOf('sweep_tier', SWEEP_TIERS) ?? (beforeTiers && t.chk_sweep === true ? 'major' : null);
+  const singular_gap: Tri = beforeTiers ? (t.singular_gap === true ? true : null) : tri('singular_gap');
+  // Rubric 1's box follows the tier, so a rubric-1 trade can still be graded under rubric 1.
+  const chk_sweep: Tri = sweep_tier ? sweep_tier === 'major' : tri('chk_sweep');
+
+  const status = oneOf('status', TRADE_STATUSES) ?? 'Settled';
+  const regrade = oneOf('regrade', REGRADES);
+  const previous = floor.previous;
+  if (!floor.restoring && previous?.status && previous.status !== 'Planned' && status === 'Planned') {
+    return {
+      ok: false,
+      error: 'This trade has already left Planned, so its grade at entry is locked — it cannot go back to Planned.',
+    };
+  }
+
+  const value: TradeInput = {
       date,
       instrument: instrument!, direction: direction!, session: session!,
       macro_time: bool('macro_time'), macro_time_auto: t.macro_time_auto !== false,
@@ -163,10 +198,14 @@ export function parseTradeInput(
         already sends for a fresh trade.
       */
       ...(Object.fromEntries(CHECKLIST_ITEMS.map(
-        (item) => [item.key, item.canBeNA ? tri(item.key) : bool(item.key)],
+        // A gate reads unanswered as unanswered — see singular_gap above.
+        (item) => [item.key, item.canBeNA || item.gate ? tri(item.key) : bool(item.key)],
       )) as Pick<TradeInput, ChecklistKey>),
+      singular_gap,
+      sweep_tier,
+      chk_sweep,
       followed_rules: tri('followed_rules'),
-      regrade: oneOf('regrade', REGRADES),
+      regrade,
       // Legacy single tag. Nothing writes it any more; it is preserved so the
       // values saved under the old taxonomy are not silently erased on edit.
       mistake_tag: typeof t.mistake_tag === 'string' ? t.mistake_tag : null,
@@ -178,7 +217,7 @@ export function parseTradeInput(
       account: oneOf('account', ACCOUNT_VALUES) ?? 'Live',
       account_label: typeof t.account_label === 'string' && t.account_label.trim()
         ? t.account_label.trim() : null,
-      status: oneOf('status', TRADE_STATUSES) ?? 'Settled',
+      status,
       grade_at_entry: numOrNull('grade_at_entry'),
       // Absent means it was written in one shot, after the fact — which is what
       // every trade logged from the plain form is.
@@ -222,6 +261,25 @@ export function parseTradeInput(
             (v): v is WorkedTag => typeof v === 'string' && (WORKED_TAGS as readonly string[]).includes(v),
           )
         : [],
-    },
   };
+
+  /*
+    Reviews can only be harsher. The re-grade is checked against the grade
+    at entry: the locked one if the trade has left Planned, otherwise the one
+    these answers get now. A re-grade already on record passes unchanged, so
+    a trade re-graded before this rule existed stays saveable.
+  */
+  if (regrade && !floor.restoring && regrade !== previous?.regrade) {
+    const entry = previous?.status && previous.status !== 'Planned' && previous.letter
+      ? previous.letter
+      : gradeUnder(CURRENT_RUBRIC, value).letter;
+    if (!regradeAllowed(entry, regrade)) {
+      return {
+        ok: false,
+        error: `The grade at entry is ${entry}, so the re-grade can be ${entry} or lower — never higher. ${REGRADE_HINT}`,
+      };
+    }
+  }
+
+  return { ok: true, value };
 }

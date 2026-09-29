@@ -4,15 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ACCOUNT_VALUES, SHOT_SLOTS, accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, CONTEXT_GROUPS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
-  OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, SESSIONS, SETUP_TYPES,
-  SKIP_REASONS, TARGET_TYPES, TRADE_STATUSES,
+  OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
+  SKIP_REASONS, TRADE_STATUSES, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
   type Direction, type HtfBias,
   type Instrument, type MistakeTag, type Outcome, type PremiumDiscount, type Regrade,
   type SkipReason, type Reason, type Session, type SetupType, type TargetType,
-  type TradeStatus, type Tri,
+  type SweepTier, type TradeStatus, type Tri,
 } from '@/lib/domain';
-import { checklistEarned, checklistPossible, checklistScore, triggerFired } from '@/lib/grade';
+import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
+import { CURRENT_RUBRIC, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { macroWindowFor } from '@/lib/macro';
 import { press, spring, springSoft, riseIn } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
@@ -23,11 +24,13 @@ const LAST_ACCOUNT_KEY = 'signature.lastAccount';
 /** The questions that start with an answer already in them. */
 const DEFAULTED = [
   'outcome', 'session', 'instrument', 'direction', 'setupType', 'htfBias', 'premiumDiscount', 'targetType',
+  'sweepTier',
 ] as const;
 type DefaultedField = (typeof DEFAULTED)[number];
 const DEFAULTED_LABEL: Record<DefaultedField, string> = {
   outcome: 'How it ended', session: 'Session', instrument: 'Instrument', direction: 'Direction',
   setupType: 'Setup type', htfBias: 'HTF bias', premiumDiscount: 'Premium / discount', targetType: 'Target type',
+  sweepTier: 'Sweep',
 };
 import { Button } from '@/components/ui/Button';
 import { Disclosure } from '@/components/ui/Disclosure';
@@ -100,6 +103,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   );
   const setCheck = (key: ChecklistKey, value: ChecklistAnswer) =>
     setChecks((prev) => ({ ...prev, [key]: value }));
+  /*
+    Starts on NONE, the answer that claims nothing — and lit, like every other
+    default, until one is picked. An old trade that never answered it opens
+    with nothing picked rather than a guess.
+  */
+  const [sweepTier, setSweepTier] = useState<SweepTier | null>(trade ? trade.sweep_tier : 'none');
 
   // Tri-state, starting unanswered. This used to default to `true`, so every
   // trade ever saved claimed full rule adherence whether or not the question
@@ -126,7 +135,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const [setupType, setSetupType] = useState<SetupType>(trade?.setup_type ?? 'iFVG');
   const [htfBias, setHtfBias] = useState<HtfBias>(trade?.htf_bias ?? 'With bias');
   const [premiumDiscount, setPremiumDiscount] = useState<PremiumDiscount>(trade?.premium_discount ?? 'Discount');
-  const [targetType, setTargetType] = useState<TargetType>(trade?.target_type ?? 'Horizontal liquidity pool');
+  const [targetType, setTargetType] = useState<TargetType>(trade?.target_type ?? 'EQH/EQL');
   const [outcome, setOutcome] = useState<Outcome>(trade?.outcome ?? 'Win');
   const [contracts, setContracts] = useState(trade?.contracts?.toString() ?? '');
   const [stopPoints, setStopPoints] = useState(trade?.stop_points?.toString() ?? '');
@@ -161,13 +170,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const draftValues = useMemo(() => ({
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
   }), [
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
   ]);
@@ -198,6 +207,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('lesson')) setLesson(v.lesson);
     if (has('context')) setContext(v.context);
     if (has('checks')) setChecks(v.checks);
+    if (has('sweepTier')) setSweepTier(v.sweepTier);
     if (has('date')) setDate(v.date);
     if (has('instrument')) setInstrument(v.instrument);
     if (has('direction')) setDirection(v.direction);
@@ -254,10 +264,27 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  const earned = checklistEarned(checks);
-  const possible = checklistPossible(checks);
-  const total = checklistScore(checks);
-  const fired = triggerFired(checks);
+  /*
+    The grade these answers get under the current rubric, gates and all. On a
+    trade that has left Planned it is only the LIVE grade: the grade at entry
+    is locked (see db/trades.ts) and is what the badge shows.
+  */
+  const live = gradeUnder(CURRENT_RUBRIC, { ...checks, sweep_tier: sweepTier, target_type: targetType });
+  const locked = editing && trade!.status !== 'Planned';
+  const entryLetter = locked ? trade!.grade_letter : live.letter;
+  const modelGate = live.caps.some((c) => c.id === 'model') && (!locked || trade!.rubric_version >= 2);
+  const diagonalCap = !modelGate && live.caps.some((c) => c.id === 'diagonal') && (!locked || trade!.rubric_version >= 2);
+  // Reviews can only be harsher: the picker offers the entry letter and below.
+  const regradeChoices = useMemo(() => {
+    const allowed = regradeOptions(entryLetter);
+    // A re-grade from before this rule stays on the record, and in the picker.
+    const kept = trade?.regrade && !allowed.includes(trade.regrade) ? [trade.regrade] : [];
+    return [...kept, ...allowed];
+  }, [entryLetter, trade?.regrade]);
+  // An answer changed and the entry grade fell below the re-grade already picked.
+  useEffect(() => {
+    if (regrade && !regradeChoices.includes(regrade)) setRegrade(null);
+  }, [regrade, regradeChoices]);
   const planned = status === 'Planned';
   const accent = reason ? reasonAccent(reason) : 'var(--accent)';
   /*
@@ -309,6 +336,10 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       ...context,
       premium_discount: premiumDiscount, target_type: targetType,
       ...checks,
+      sweep_tier: sweepTier,
+      // Rubric 1's box. The server derives it from the tier when there is one;
+      // an old trade that never answered the tier keeps what it had.
+      chk_sweep: trade?.chk_sweep ?? null,
       followed_rules: followedRules,
       regrade,
       // The legacy single tag is carried through untouched so an edit never
@@ -318,9 +349,9 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       worked_tags: workedTags,
       account, account_label: accountLabel.trim() || null,
       status,
-      // Freeze the score as it stands now if this is being planned before the
-      // outcome is known; a one-shot entry has no pre-outcome grade to keep.
-      grade_at_entry: status === 'Planned' ? total : (trade?.grade_at_entry ?? total),
+      // The server's to set: it is the frozen score, locked once the trade
+      // leaves Planned. Sent only so an older server still gets a value.
+      grade_at_entry: trade?.grade_at_entry ?? live.score,
       // True unless this record was opened as a Plan and settled later.
       graded_post_hoc: trade ? trade.graded_post_hoc : status !== 'Planned',
       entry_price: trade?.entry_price ?? null,
@@ -536,9 +567,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         <div className="mb-7">
           <Field
             label="Stage"
-            hint="Planned hides the outcome until you settle it, and freezes the grade you gave it before you knew."
+            hint={locked
+              ? 'This trade has left Planned, so its grade at entry is locked — it cannot go back.'
+              : 'Planned hides the outcome until you settle it. The grade stays open while it is Planned and locks the moment it leaves.'}
            group>
-            <Segmented value={status} onChange={setStatus} options={TRADE_STATUSES} />
+            <Segmented value={status} onChange={setStatus}
+              options={locked ? TRADE_STATUSES.filter((st) => st !== 'Planned') : TRADE_STATUSES} />
           </Field>
         </div>
 
@@ -677,7 +711,20 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Field label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
           <Field label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
           <Field label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
-          <Field label="Target type" pending={pending('targetType')}><Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }} options={TARGET_TYPES} /></Field>
+          <Field label="Target type" pending={pending('targetType')}>
+            <Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }}
+              options={targetTypeOptions(trade?.target_type ?? null)} />
+            {/* Said where the choice is made, not only where the grade is. */}
+            <AnimatePresence initial={false}>
+              {targetType === WEAK_TARGET && (
+                <motion.p data-target-warning initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }} transition={springSoft}
+                  className="mt-1.5 overflow-hidden text-[11px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
+                  {WEAK_TARGET_WARNING} Max grade B.
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </Field>
         </div>
         {!planned && (
           <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline={false} />
@@ -793,8 +840,10 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
 
 
         {/* After the close: the honest part. */}
-        <Field label="Honest re-grade" hint="After the close, and allowed to be harsher than before it.">
-          <Select value={regrade} onChange={setRegrade} options={REGRADES} placeholder="Not re-graded yet" />
+        <Field label="Honest re-grade" hint={`Graded ${entryLetter} at entry${locked ? ' (locked)' : ''}. ${REGRADE_HINT}`}>
+          <div data-regrade-options={regradeChoices.join(' ')}>
+            <Select value={regrade} onChange={setRegrade} options={regradeChoices} placeholder="Not re-graded yet" />
+          </div>
         </Field>
 
         <Field
@@ -833,11 +882,57 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             Checklist
           </span>
 
-          <div className="mb-6">
-            <GradeBadge total={earned} max={possible} size="lg" showPrompt triggerFired={fired} />
+          <div className="mb-6 space-y-3">
+            {locked ? (
+              /*
+                The grade the trade was taken on, not the one these answers
+                would get now. The live grade is still shown when they differ,
+                so a correction is visible without rewriting history.
+              */
+              <div data-grade-locked={trade!.grade_letter}>
+                <GradeBadge total={trade!.checklist_score} max={100} size="lg" showPrompt
+                  triggerFired={trade!.trigger_fired} letter={trade!.grade_letter} />
+                <p className="mt-2 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+                  Grade at entry, locked when this trade left Planned
+                  {trade!.rubric_version < CURRENT_RUBRIC ? ` (rubric ${trade!.rubric_version})` : ''}. Changing the
+                  boxes is recorded in its history but cannot change it.
+                  {(live.letter !== trade!.grade_letter || live.score !== trade!.checklist_score) && (
+                    <span data-live-grade className="block" style={{ color: 'var(--text-dim)' }}>
+                      These answers now: {live.letter} · {live.score}%.
+                    </span>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <GradeBadge total={live.earned} max={live.possible} size="lg" showPrompt
+                triggerFired={live.trigger} letter={live.letter} />
+            )}
+            {/* The gates outrank the total: said in red, above the boxes that caused it. */}
+            <AnimatePresence initial={false}>
+              {modelGate && (
+                <motion.div key="gate" data-gate-banner role="alert"
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  transition={springSoft}
+                  className="rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12.5px] font-semibold leading-snug"
+                  style={{
+                    color: 'rgb(var(--outcome-loss))', borderColor: 'rgb(var(--outcome-loss) / 0.45)',
+                    background: 'rgb(var(--outcome-loss) / 0.10)',
+                  }}>
+                  {MODEL_GATE_MESSAGE}
+                </motion.div>
+              )}
+              {diagonalCap && (
+                <motion.p key="diag" data-diagonal-cap initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="text-[11.5px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
+                  Trendline/diagonal target — max grade B.
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
-          <Checklist answers={checks} onChange={setCheck} accent={accent} />
+          <Checklist answers={checks} onChange={setCheck} accent={accent}
+            sweepTier={sweepTier} onSweepTier={(t) => { setSweepTier(t); confirm('sweepTier'); }}
+            sweepPending={pending('sweepTier')} />
 
           {/*
             Recorded here, beside the score, because it only measures anything

@@ -1,11 +1,12 @@
 import {
   ACCOUNT_VALUES, isHypothetical, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
-  SKIP_REASONS, TAKE_IT_THRESHOLD, TARGET_TYPES, isTaken,
+  RETIRED_TARGET_TYPES, SKIP_REASONS, SWEEP_TIERS, SWEEP_TIER_SPEC, TAKE_IT_THRESHOLD, TARGET_TYPES,
+  TARGET_TYPE_VALUES, isTaken,
   type Account, type ChecklistKey, type MistakeTag, type Reason, type SkipReason,
   type TargetType,
 } from './domain';
 import { adherenceGap, adherenceOf, derivedAdherence, type AdherenceGap } from './adherence';
-import { GRADE_BUCKETS } from './grade';
+import { GRADE_BUCKETS, GRADE_LETTERS } from './grade';
 import { localDay } from './day';
 import { isMacroTime } from './macro';
 import type { Trade } from './types';
@@ -207,7 +208,7 @@ export function rByReason(trades: Trade[]): Group<Reason>[] {
 }
 
 export function rByTargetType(trades: Trade[]): Group<TargetType>[] {
-  return [...groupBy(trades, (t) => t.target_type, TARGET_TYPES)]
+  return [...groupBy(trades, (t) => t.target_type, TARGET_TYPE_VALUES)]
     .filter(([, ts]) => ts.length > 0)
     .map(([key, ts]) => ({ key, trades: ts, stats: aggregate(ts) }))
     .sort((a, b) => a.stats.totalR - b.stats.totalR);
@@ -785,4 +786,72 @@ export function rByWorkedTag(trades: Trade[]): Array<{ tag: string; count: numbe
     }
   }
   return [...out].map(([tag, v]) => ({ tag, ...v })).sort((a, b) => b.totalR - a.totalR);
+}
+
+
+/**
+ * Does the model hold? The gates and the rubric, checked against results.
+ *
+ * Rubric 2 says a sweep of nothing nameable, or more than one gap, is not the
+ * model — and that a diagonal is the weakest target there is. Those are claims
+ * about what makes money, so they get tested like one: count, win rate and net
+ * R for each side of each rule. If the NONE sweeps and the stacked gaps earn
+ * as much as the rest, the gates are wrong and should go.
+ */
+export interface BreakdownRow {
+  key: string;
+  label: string;
+  /** Retired value, or not recorded: shown, but set apart from the rest. */
+  muted?: boolean;
+  stats: Aggregate;
+}
+
+export interface ModelBreakdowns {
+  sweepTier: BreakdownRow[];
+  targetType: BreakdownRow[];
+  singularGap: BreakdownRow[];
+  account: BreakdownRow[];
+  entryGrade: BreakdownRow[];
+}
+
+function breakdown(
+  trades: Trade[],
+  keyOf: (t: Trade) => string,
+  order: Array<{ key: string; label: string; muted?: boolean; always?: boolean }>,
+): BreakdownRow[] {
+  return order
+    .map(({ key, label, muted, always }) => {
+      const group = trades.filter((t) => keyOf(t) === key);
+      return { key, label, muted, always, stats: aggregate(group) };
+    })
+    .filter((row) => row.always || row.stats.count > 0)
+    .map(({ always: _a, ...row }) => row);
+}
+
+/**
+ * `trades` is the stats page's selection (one account, filters applied);
+ * `everyAccount` is the same selection before the account was chosen, for
+ * the one table that compares accounts.
+ */
+export function modelBreakdowns(trades: Trade[], everyAccount: Trade[]): ModelBreakdowns {
+  return {
+    sweepTier: breakdown(trades, (t) => t.sweep_tier ?? 'unrecorded', [
+      ...SWEEP_TIERS.map((tier) => ({ key: tier, label: SWEEP_TIER_SPEC[tier].label, always: true })),
+      { key: 'unrecorded', label: 'Not recorded', muted: true },
+    ]),
+    targetType: breakdown(trades, (t) => t.target_type, [
+      ...TARGET_TYPES.map((key) => ({ key, label: key, always: true })),
+      ...RETIRED_TARGET_TYPES.map((key) => ({ key, label: `${key} (retired)`, muted: true })),
+    ]),
+    singularGap: breakdown(trades, (t) => (t.singular_gap == null ? 'unrecorded' : t.singular_gap ? 'yes' : 'no'), [
+      { key: 'yes', label: 'One clean gap', always: true },
+      { key: 'no', label: 'Stacked / messy', always: true },
+      { key: 'unrecorded', label: 'Not recorded', muted: true },
+    ]),
+    account: breakdown(everyAccount, (t) => t.account, ACCOUNT_VALUES.map((a) => ({
+      key: a, label: isHypothetical(a) ? `${a} (hypothetical)` : a, muted: isHypothetical(a),
+    }))),
+    entryGrade: breakdown(trades, (t) => t.grade_letter,
+      GRADE_LETTERS.map((l) => ({ key: l, label: l, always: true }))),
+  };
 }

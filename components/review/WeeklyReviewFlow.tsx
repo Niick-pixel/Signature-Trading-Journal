@@ -126,10 +126,18 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
                 </span>
               </div>
 
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/screenshots/${trade.screenshot_path}`} alt="Chart"
-                className="mb-4 max-h-[38vh] w-full rounded-[calc(16px*var(--rk))] object-contain"
-                style={{ background: 'var(--letterbox)' }} />
+              {/* A quick log can have no chart at all. */}
+              {trade.screenshot_path ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/api/screenshots/${trade.screenshot_path}`} alt="Chart"
+                  className="mb-4 max-h-[38vh] w-full rounded-[calc(16px*var(--rk))] object-contain"
+                  style={{ background: 'var(--letterbox)' }} />
+              ) : (
+                <p className="mb-4 rounded-[calc(16px*var(--rk))] px-4 py-6 text-center text-[12px]"
+                  style={{ background: 'var(--letterbox)', color: 'var(--text-faint)' }}>
+                  No chart — logged fast.
+                </p>
+              )}
 
               {flagsFor(trade).length > 0 && (
                 <ul className="mb-4 space-y-1">
