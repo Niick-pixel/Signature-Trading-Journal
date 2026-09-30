@@ -19,6 +19,8 @@ const { createTrade, softDeleteTrade, dismissFlag } = await import('../db/trades
 const { createCashEvent } = await import('../db/cash');
 const { saveDailyReview, saveWeeklyReview } = await import('../db/reviews');
 const { createJournalPage } = await import('../db/journal');
+const { savePrep } = await import('../db/prep');
+const { parsePrepData } = await import('../lib/prep');
 const { parseTradeInput } = await import('../lib/validate');
 const exportRoute = await import('../app/api/export/route');
 const importRoute = await import('../app/api/import/route');
@@ -70,6 +72,7 @@ function fingerprint() {
     daily: rows('SELECT * FROM daily_reviews ORDER BY day'),
     weekly: rows('SELECT week_start, summary, reviewed_ids FROM weekly_reviews ORDER BY week_start'),
     pages: rows('SELECT id, day, title, body, pinned, created_at FROM journal_pages ORDER BY id'),
+    prep: rows('SELECT day, data, started_at, completed_at FROM session_prep ORDER BY day'),
   };
   return {
     counts: Object.fromEntries(Object.entries(snap).map(([k, v]) => [k, v.length])),
@@ -105,8 +108,12 @@ test('export → wipe → import restores every row exactly', async () => {
   saveDailyReview('2026-09-20', { sleep_hours: 7, state_of_mind: 4, bias: 'Up', bias_direction: 'Bullish', news: 'High', news_note: 'CPI 8:30' }, { checkIn: true });
   saveWeeklyReview('2026-09-14', 'Held the line.', [a.id]);
   createJournalPage({ day: '2026-09-20', title: 'Notes', body: '<p>Patience.</p>', pinned: false });
+  savePrep('2026-09-20', parsePrepData({
+    steps: { htf: 'done', eqhl: 'done' }, levels: [{ id: 'l1', step: 'eqhl', kind: 'EQH', price: 30906 }],
+    draw: { direction: 'Up', target: 30906 },
+  }), true);
   const before = fingerprint();
-  assert.deepEqual(before.counts, { trades: 4, cash: 1, daily: 1, weekly: 1, pages: 1 });
+  assert.deepEqual(before.counts, { trades: 4, cash: 1, daily: 1, weekly: 1, pages: 1, prep: 1 });
 
   const zip = Buffer.from(await (await exportRoute.GET()).arrayBuffer());
   const json = unzip(zip, 'trades.json').toString('utf8');
@@ -115,7 +122,7 @@ test('export → wipe → import restores every row exactly', async () => {
   (globalThis as { __signatureDb?: { close(): void } }).__signatureDb?.close();
   delete (globalThis as { __signatureDb?: unknown }).__signatureDb;
   for (const f of ['journal.db', 'journal.db-wal', 'journal.db-shm']) fs.rmSync(path.join(DIR, f), { force: true });
-  assert.deepEqual(fingerprint().counts, { trades: 0, cash: 0, daily: 0, weekly: 0, pages: 0 });
+  assert.deepEqual(fingerprint().counts, { trades: 0, cash: 0, daily: 0, weekly: 0, pages: 0, prep: 0 });
 
   const res = await importRoute.POST(new Request('http://local/api/import', { method: 'POST', body: json }));
   assert.equal(res.status, 200);

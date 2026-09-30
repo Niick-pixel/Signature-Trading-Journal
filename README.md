@@ -189,6 +189,47 @@ name your motive before there is any data on screen to rationalise with. Submit
 stays disabled until there is an image, a reason, and 80 characters of
 explanation.
 
+## Before the session: check-in and chart prep
+
+**The morning check-in** (title bar, or **M**) is four questions in thirty
+seconds: sleep, state of mind, bias, news.
+
+**The chart prep** (title bar, or **P**) is the longer routine before New
+York — about ten minutes, eleven steps, each a short list of things to mark
+on the chart and tick as they go on:
+
+1. Higher timeframe picture — daily/4H range, premium or discount
+2. Previous day and week — PDH, PDL, PWH, PWL
+3. Overnight sessions — Asia and London highs and lows, the midnight open
+4. Equal highs and lows
+5. Important gaps — 1H/4H FVGs, NWOG/NDOG, volume imbalances
+6. High resistance and support zones
+7. Liquidity from the order-book heatmap (the link is in Settings)
+8. The draw on liquidity — one target, one invalidation
+9. If–then plans, long and short
+10. News and timing
+11. Commit — most trades, the loss that ends the day
+
+Prices typed along the way build **today's map**: every level on one ladder,
+split at the current price, with the target and invalidation marked.
+Yesterday's equal highs/lows, gaps, zones and heatmap walls can be brought
+forward with one click. Every step can be skipped; nothing waits on it. When it
+was started is recorded, like the check-in, because a plan written after the
+open is written knowing how the open went.
+
+## Talking it through with Claude
+
+- **Calendar → Review {month} with Claude** — the month's numbers, rules,
+  mornings, chart preps and every trade, as one Markdown document (or a zip
+  with the charts).
+- **Journal → Discuss the journal with Claude** — your pages (last 30 days,
+  90 days, or everything), each on its day with the morning, the chart prep,
+  the trades and their lessons, and a note on what to look for: recurring
+  themes, where the writing and the trading disagree.
+
+Both are downloads to attach to a new chat. Nothing leaves the machine on its
+own.
+
 ## Appearance
 
 Signature opens in **light mode** and stays there — it does not follow your OS

@@ -40,6 +40,7 @@ export function Shortcuts() {
         case 'd': return go('/day');
         case 'w': return go('/review');
         case 'm': e.preventDefault(); openCheckIn(); return;
+        case 'p': return go('/prep');
         case 's': e.preventDefault(); window.dispatchEvent(new Event(SETTINGS_TOGGLE)); return;
         case 't': e.preventDefault(); window.dispatchEvent(new Event(THEME_TOGGLE)); return;
         case '1': case '2': case '3': case '4': return go(TABS[Number(k) - 1]);

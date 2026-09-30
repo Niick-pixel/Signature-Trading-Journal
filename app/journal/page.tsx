@@ -2,6 +2,8 @@ import { listJournalPages } from '@/db/journal';
 import { listTrades } from '@/db/trades';
 import { TitleBar } from '@/components/shell/TitleBar';
 import { JournalBook } from '@/components/journal/JournalBook';
+import { ReviewExport } from '@/components/money/ReviewExport';
+import { JOURNAL_RANGES } from '@/lib/journalExport';
 import type { DayTradeSummary } from '@/components/journal/DayStrip';
 
 export const dynamic = 'force-dynamic';
@@ -47,12 +49,24 @@ export default async function JournalRoute() {
       <TitleBar />
       <div className="signature-enter min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[82rem] px-6 pb-16 pt-4">
-          <header className="mb-5">
-            <h1 className="text-[22px] font-semibold tracking-tight">Journal</h1>
-            <p className="mt-1 text-[13px]" style={{ color: 'var(--text-dim)' }}>
-              Not about one trade. Ideas, a summary of a week, something noticed on a Tuesday.
-              Nothing here is required and nothing is scored.
-            </p>
+          {/* Above the book, so the export menu opens over it: the page's
+              entrance animation makes each section its own layer, and a
+              later layer would otherwise paint over the menu. */}
+          <header className="relative z-20 mb-5 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-[22px] font-semibold tracking-tight">Journal</h1>
+              <p className="mt-1 text-[13px]" style={{ color: 'var(--text-dim)' }}>
+                Not about one trade. Ideas, a summary of a week, something noticed on a Tuesday.
+                Nothing here is required and nothing is scored.
+              </p>
+            </div>
+            {/* The writing, handed to Claude to talk through — with the days it was written on. */}
+            <ReviewExport
+              label="the journal"
+              title="Discuss the journal with Claude"
+              blurb="Your pages in order, each with the day it was written on — the morning, the chart prep, the trades and their lessons — plus what to look for. Attach it to a new Claude chat."
+              options={JOURNAL_RANGES.map((r) => ({ href: `/api/journal-export?range=${r.id}`, title: r.label, note: `.md — ${r.note}` }))}
+            />
           </header>
 
           <JournalBook initial={pages} tradesByDay={byDay} />

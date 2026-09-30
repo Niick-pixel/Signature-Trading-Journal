@@ -160,7 +160,6 @@ function CheckInForm({ day, existing, onDone }: {
     const saved = await res.json() as DailyReview;
     window.dispatchEvent(new CustomEvent(SAVED, { detail: saved }));
     setDone(saved);
-    window.setTimeout(onDone, 1800);
   }
 
   const when = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -187,6 +186,16 @@ function CheckInForm({ day, existing, onDone }: {
           <p className="mt-1.5 text-[13px]" style={{ color: 'var(--text-dim)' }}>
             {planLine(done) || 'Written before the session.'}
           </p>
+          {/* The four questions are the quick half; the chart is the rest. */}
+          <p className="mx-auto mt-5 max-w-[22rem] text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
+            Next, the chart: levels, equal highs and lows, gaps, zones and the heatmap, marked one at a time.
+          </p>
+          <div className="mt-4 flex justify-center gap-2">
+            <a href="/prep" onClick={onDone} data-checkin-to-prep>
+              <Button variant="primary" tabIndex={-1}>Prep the chart — about 10 minutes</Button>
+            </a>
+            <Button onClick={onDone}>Later</Button>
+          </div>
         </motion.div>
       ) : (
         <motion.div key="form" exit={{ opacity: 0, scale: 0.98 }} transition={spring}>

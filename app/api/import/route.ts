@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getTrade, importTrade } from '@/db/trades';
 import { importCashEvent, listCashEvents, parseCashInput } from '@/db/cash';
 import { getJournalPage, importJournalPage, parseJournalInput } from '@/db/journal';
+import { getPrep, restorePrep } from '@/db/prep';
+import { parsePrepData } from '@/lib/prep';
 import { getDailyReview, getWeeklyReview, restoreCheckIn, restoreReviewCreated, saveDailyReview, saveWeeklyReview } from '@/db/reviews';
 import { BIAS_DIRECTIONS, NEWS_LEVELS } from '@/lib/domain';
 import { parseTradeInput } from '@/lib/validate';
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as
     {
       trades?: unknown; cash?: unknown; journal?: unknown; format?: unknown;
-      daily_reviews?: unknown; weekly_reviews?: unknown;
+      daily_reviews?: unknown; weekly_reviews?: unknown; session_prep?: unknown;
     } | null;
 
   if (!body || !Array.isArray(body.trades)) {
@@ -155,7 +157,20 @@ export async function POST(request: Request) {
     }
   }
 
+  // The chart prep, matched on day like the reviews.
+  let preps = 0;
+  if (Array.isArray(body.session_prep)) {
+    for (const raw of body.session_prep as Record<string, unknown>[]) {
+      if (!raw || !isDay(raw.day) || getPrep(raw.day)) continue;
+      restorePrep({
+        day: raw.day, data: parsePrepData(raw.data),
+        started_at: strOrNull(raw.started_at), completed_at: strOrNull(raw.completed_at),
+      });
+      preps += 1;
+    }
+  }
+
   return NextResponse.json({
-    imported, skipped, rejected, cash, cashSkipped, journal, journalSkipped, reviews, reviewsSkipped,
+    imported, skipped, rejected, cash, cashSkipped, journal, journalSkipped, reviews, reviewsSkipped, preps,
   });
 }

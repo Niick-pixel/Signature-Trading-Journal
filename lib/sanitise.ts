@@ -166,3 +166,33 @@ export function toPlainText(html: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * A journal page as Markdown, for the Claude export: headings, lists, bold,
+ * italics and quotes kept, so a page reads the way it was written instead of
+ * as one run of text. Images become a marker — the export is text.
+ */
+export function toMarkdown(html: string): string {
+  let s = html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ');
+  s = s.replace(/<img[^>]*>/gi, '[image]');
+  s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n## $1\n\n');
+  s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n### $1\n\n');
+  s = s.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n#### $1\n\n');
+  s = s.replace(/<(strong|b)(\s[^>]*)?>([\s\S]*?)<\/\1>/gi, '**$3**');
+  s = s.replace(/<(em|i)(\s[^>]*)?>([\s\S]*?)<\/\1>/gi, '*$3*');
+  s = s.replace(/<(u|s|strike|del)(\s[^>]*)?>([\s\S]*?)<\/\1>/gi, '$3');
+  s = s.replace(/<a [^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, text: string) => (href && href !== text ? `${text} (${href})` : text));
+  s = s.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m, inner: string) =>
+    `\n\n${inner.replace(/<[^>]*>/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => `> ${l}`).join('\n')}\n\n`);
+  // Numbered lists count; bullets are bullets.
+  s = s.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_m, inner: string) => {
+    let n = 0;
+    return `\n${inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_x, li: string) => `${(n += 1)}. ${li.trim()}\n`)}\n`;
+  });
+  s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_m, li: string) => `- ${li.trim()}\n`);
+  s = s.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|ul|ol|pre)>/gi, '\n\n');
+  s = s.replace(/<[^>]*>/g, '');
+  s = s.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  return s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}

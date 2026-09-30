@@ -26,6 +26,11 @@ export interface Preferences {
   /** Offer the morning check-in on the first screen of a trading day. */
   askCheckIn: boolean;
   /**
+   * The order-book heatmap the chart prep opens for its liquidity step. Any
+   * link works; it opens in the browser, outside the app.
+   */
+  heatmapUrl: string;
+  /**
    * Filter combinations worth returning to — "all rule breaks", "all A+
    * losers". Stored per machine with the rest of the furniture, because they
    * describe how I want to look at the journal rather than what happened in it.
@@ -49,6 +54,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   dimPassed: true,
   reduceMotion: false,
   askCheckIn: true,
+  heatmapUrl: 'https://openmarket.xyz/chart/JUSJIzyA',
   savedViews: [],
 };
 

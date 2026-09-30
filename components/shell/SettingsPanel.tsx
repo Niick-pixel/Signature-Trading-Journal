@@ -242,6 +242,24 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Section>
 
             <Section
+              title="Chart prep"
+              hint="The longer routine before New York: eleven steps marked on the chart, from the daily down to the order book. Opens from the title bar, or press P."
+            >
+              <label className="block">
+                <span className="mb-1.5 block text-[11px]" style={{ color: 'var(--text-faint)' }}>Order-book heatmap link</span>
+                <input
+                  value={prefs.heatmapUrl}
+                  onChange={(e) => update({ heatmapUrl: e.target.value.trim() })}
+                  placeholder="https://…"
+                  spellCheck={false}
+                  aria-label="Order-book heatmap link"
+                  className="w-full rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12px] outline-none"
+                  style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)', color: 'var(--text)' }}
+                />
+              </label>
+            </Section>
+
+            <Section
               title="Keyboard"
               hint="Single keys move you around: N new trade, M the morning, 1–4 the tabs, J and K through the board's trades."
             >

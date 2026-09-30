@@ -5,6 +5,7 @@ import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { listJournalPages } from '@/db/journal';
 import { listDailyReviews, listWeeklyReviews } from '@/db/reviews';
+import { listPreps } from '@/db/prep';
 import { SCREENSHOTS_DIR } from '@/lib/paths';
 import { makeZip } from '@/lib/zip';
 import type { JournalPage, Trade } from '@/lib/types';
@@ -103,14 +104,16 @@ export async function GET() {
   */
   const dailyReviews = listDailyReviews();
   const weeklyReviews = listWeeklyReviews();
+  const sessionPrep = listPreps();
   const now = new Date();
 
   const payload = {
     format: 'signature-journal',
     // Bumped as the payload grew: 2 added cash, 3 added the journal, 4 added the
-    // daily and weekly reviews. An older file simply has no key for the newer
-    // things, which the importer reads as "none" rather than as an error.
-    version: 4,
+    // daily and weekly reviews, 5 the chart prep. An older file simply has no
+    // key for the newer things, which the importer reads as "none" rather than
+    // as an error.
+    version: 5,
     exported_at: now.toISOString(),
     count: trades.length,
     trades,
@@ -118,6 +121,7 @@ export async function GET() {
     journal,
     daily_reviews: dailyReviews,
     weekly_reviews: weeklyReviews,
+    session_prep: sessionPrep,
   };
 
   const zip = makeZip([

@@ -8,6 +8,7 @@ import { repeatedLessons } from './lessons';
 import { missedPatterns } from './missed';
 import { aggregate, discipline, edge, modelBreakdowns, money, pnlOf } from './stats';
 import type { CashEvent, DailyReview, JournalPage, Trade, TradeShot, WeeklyReview } from './types';
+import { prepMarkdown, type SessionPrep } from './prep';
 
 /**
  * A month of the journal, written to be read by Claude.
@@ -36,6 +37,8 @@ export interface MonthlyInput {
   cash: CashEvent[];
   /** Extra screenshots per trade id. */
   shots: Map<string, TradeShot[]>;
+  /** The chart prep, per day. Optional: an older caller has none. */
+  preps?: SessionPrep[];
   now?: Date;
 }
 
@@ -270,6 +273,18 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
   if (findings.length) {
     h('### What my mornings say, across every review ever written');
     for (const f of findings) p(`- ${f}`);
+  }
+
+  /* ---------------------------------------------------------- chart prep */
+  const monthPreps = (input.preps ?? []).filter((pr) => inMonth(pr.day)).sort((a, b) => a.day.localeCompare(b.day));
+  if (monthPreps.length) {
+    h('## My chart prep, day by day');
+    p('_Levels and plans marked on the chart before New York. Worth checking against what each day then did: did price go to the target, did the trades follow a plan?_');
+    for (const pr of monthPreps) {
+      const day = real.filter((t) => t.date.slice(0, 10) === pr.day && isTaken(t.outcome));
+      h(`### ${pr.day}${day.length ? ` — ${day.length} trade${day.length === 1 ? '' : 's'}, ${r1(day.reduce((s, t) => s + (t.r_multiple ?? 0), 0))}` : ' — no trades'}`);
+      p(prepMarkdown(pr));
+    }
   }
 
   /* ---------------------------------------------------------- hesitation */

@@ -13,7 +13,13 @@ import { press, spring, springSoft } from '@/lib/motion';
  * the zip adds every chart, named after its trade, for when the review should
  * look at the entries too.
  */
-export function ReviewExport({ month, label }: { month: string; label: string }) {
+export function ReviewExport({ month, label, options, title, blurb }: {
+  month?: string; label: string;
+  /** Replaces the monthly menu — the journal export passes its ranges. */
+  options?: Array<{ href: string; title: string; note: string }>;
+  title?: string;
+  blurb?: string;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -42,7 +48,7 @@ export function ReviewExport({ month, label }: { month: string; label: string })
         <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden>
           <path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 15.5h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Review {label} with Claude
+        {title ?? `Review ${label} with Claude`}
       </motion.button>
 
       <AnimatePresence>
@@ -61,11 +67,12 @@ export function ReviewExport({ month, label }: { month: string; label: string })
             <div className="glass rounded-[calc(18px*var(--rk))] p-3"
               style={{ background: 'color-mix(in srgb, var(--bg-raised) 94%, transparent)' }}>
               <p className="px-2 pb-2 pt-1 text-[11.5px] leading-snug" style={{ color: 'var(--text-dim)' }}>
-                The whole month as one document: numbers, rules, mornings, misses and every trade with what you
-                wrote — plus what to ask. Attach it to a new Claude chat; it explains itself.
+                {blurb ?? 'The whole month as one document: numbers, rules, mornings, misses and every trade with what you wrote — plus what to ask. Attach it to a new Claude chat; it explains itself.'}
               </p>
-              <Option href={`/api/review-export?month=${month}&format=md`} title="Document only" note=".md — the numbers and your writing" />
-              <Option href={`/api/review-export?month=${month}&format=zip`} title="With charts" note=".zip — the document plus every chart, named after its trade" />
+              {(options ?? [
+                { href: `/api/review-export?month=${month}&format=md`, title: 'Document only', note: '.md — the numbers and your writing' },
+                { href: `/api/review-export?month=${month}&format=zip`, title: 'With charts', note: '.zip — the document plus every chart, named after its trade' },
+              ]).map((o) => <Option key={o.href} {...o} />)}
             </div>
           </motion.div>
         )}

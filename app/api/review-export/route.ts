@@ -8,6 +8,7 @@ import { shotsForMany } from '@/db/shots';
 import { SCREENSHOTS_DIR } from '@/lib/paths';
 import { makeZip } from '@/lib/zip';
 import { monthlyReview } from '@/lib/monthly';
+import { listPreps } from '@/db/prep';
 
 /**
  * One month, written for a review conversation with Claude.
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
     pages: listJournalPages(),
     cash: listCashEvents(),
     shots: shotsForMany(inMonth.map((t) => t.id)),
+    preps: listPreps(),
   });
 
   if (format === 'md') {

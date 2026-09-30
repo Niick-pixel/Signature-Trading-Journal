@@ -33,7 +33,7 @@ test('the final schema has every table', () => {
   const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as Array<{ name: string }>).map((r) => r.name);
   assert.deepEqual(tables, [
     'app_settings', 'board_edges', 'board_notes', 'cash_events', 'daily_reviews', 'flag_dismissals',
-    'journal_pages', 'playbooks', 'schema_migrations', 'trade_edits', 'trade_partials', 'trade_screenshots',
+    'journal_pages', 'playbooks', 'schema_migrations', 'session_prep', 'trade_edits', 'trade_partials', 'trade_screenshots',
     'trades', 'weekly_reviews',
   ]);
 });
