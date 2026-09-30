@@ -189,33 +189,31 @@ name your motive before there is any data on screen to rationalise with. Submit
 stays disabled until there is an image, a reason, and 80 characters of
 explanation.
 
-## Before the session: check-in and chart prep
+## Before the session: the check-in
 
-**The morning check-in** (title bar, or **M**) is four questions in thirty
-seconds: sleep, state of mind, bias, news.
+One window (title bar, **M**, or **P** to go straight to the chart), two halves:
 
-**The chart prep** (title bar, or **P**) is the longer routine before New
-York — about ten minutes, eleven steps, each a short list of things to mark
-on the chart and tick as they go on:
+**Morning** — four questions in thirty seconds: sleep, state of mind, bias, news,
+and the most trades you will take.
 
-1. Higher timeframe picture — daily/4H range, premium or discount
-2. Previous day and week — PDH, PDL, PWH, PWL
-3. Overnight sessions — Asia and London highs and lows, the midnight open
-4. Equal highs and lows
-5. Important gaps — 1H/4H FVGs, NWOG/NDOG, volume imbalances
-6. High resistance and support zones
-7. Liquidity from the order-book heatmap (the link is in Settings)
-8. The draw on liquidity — one target, one invalidation
-9. If–then plans, long and short
-10. News and timing
-11. Commit — most trades, the loss that ends the day
+**Chart** — ten short steps before New York, each a few marks to tick as you
+draw them on the chart and a few answers to tap. Nothing is typed: the levels
+belong on the chart, not retyped into the app.
 
-Prices typed along the way build **today's map**: every level on one ladder,
-split at the current price, with the target and invalidation marked.
-Yesterday's equal highs/lows, gaps, zones and heatmap walls can be brought
-forward with one click. Every step can be skipped; nothing waits on it. When it
-was started is recorded, like the check-in, because a plan written after the
-open is written knowing how the open went.
+1. Higher timeframe — daily and 4H trend, premium or discount
+2. Previous day and week — which of PDH, PDL, PWH, PWL are already taken
+3. Equal highs and lows — where the clean resting liquidity is
+4. Important gaps — which kinds are on the chart, where the nearest unfilled one is
+5. Resistance and support — is price at one, or between
+6. Liquidity from the order-book heatmap (the link is in Settings) — which side is heavier, are the walls holding
+7. Draw on liquidity — up or down, the first target, how clear it is
+8. The plan — longs, shorts, both or no trade, and which sweep to wait for
+9. News and timing — first entry and done-by time
+10. Commit — only the model, stop after two losses, loss limit set, step away
+
+The overnight session highs and lows are not a step — a TradingView script
+draws them already. Every step can be skipped; nothing waits on it. When it was
+started is recorded, because a plan made after the open knows how the open went.
 
 ## Talking it through with Claude
 

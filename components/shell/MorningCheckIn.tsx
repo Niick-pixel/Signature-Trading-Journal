@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Collapse } from '@/components/ui/Collapse';
-import { press, spring } from '@/lib/motion';
+import { press, spring, springSoft } from '@/lib/motion';
 import { localDay } from '@/lib/day';
 import { BIAS_DIRECTIONS, NEWS_LEVELS, type BiasDirection, type NewsLevel } from '@/lib/domain';
 import type { DailyReview } from '@/lib/types';
@@ -14,6 +14,7 @@ import { Field, Input } from '@/components/ui/Field';
 import { Choice } from '@/components/ui/Choice';
 import { Scale } from '@/components/ui/Scale';
 import { usePreferences } from './PreferencesProvider';
+import { ChartPrep, usePrepProgress } from '@/components/prep/ChartPrep';
 
 /*
   The morning check-in.
@@ -33,9 +34,11 @@ const OPEN = 'signature:checkin-open';
 const SAVED = 'signature:checkin';
 const ASKED_KEY = 'signature.checkin.asked';
 
-/** Opens the check-in from anywhere — the title bar chip, a shortcut. */
-export function openCheckIn() {
-  window.dispatchEvent(new Event(OPEN));
+export type CheckInTab = 'morning' | 'chart';
+
+/** Opens the check-in from anywhere — the title bar chip, a shortcut — optionally on the chart half. */
+export function openCheckIn(tab?: CheckInTab) {
+  window.dispatchEvent(new CustomEvent(OPEN, { detail: tab }));
 }
 
 const DIRECTION_ACCENT: Record<BiasDirection, string> = {
@@ -73,6 +76,8 @@ export function MorningCheckIn() {
   const [open, setOpen] = useState(false);
   const [day, setDay] = useState<string | null>(null);
   const [existing, setExisting] = useState<DailyReview | null>(null);
+  const [tab, setTab] = useState<CheckInTab>('morning');
+  const prep = usePrepProgress();
 
   const load = useCallback(async (d: string) => {
     const res = await fetch(`/api/daily?day=${d}&context=1`).then((r) => r.json()).catch(() => null) as
@@ -82,11 +87,14 @@ export function MorningCheckIn() {
 
   // Opened on request: always today's, loaded fresh so an edit elsewhere shows.
   useEffect(() => {
-    const onOpen = async () => {
+    const onOpen = async (e: Event) => {
       const d = localDay();
       const res = await load(d);
       setDay(d);
       setExisting(res?.review ?? null);
+      // Asked for by name, or wherever there is still something to do.
+      const asked = (e as CustomEvent<CheckInTab | undefined>).detail;
+      setTab(asked ?? (res?.review?.checked_in_at ? 'chart' : 'morning'));
       setOpen(true);
     };
     window.addEventListener(OPEN, onOpen);
@@ -112,6 +120,7 @@ export function MorningCheckIn() {
       if (res.review?.checked_in_at || res.tradesToday > 0) return;
       setDay(d);
       setExisting(res.review);
+      setTab('morning');
       setOpen(true);
     }, 900);
     return () => { cancelled = true; window.clearTimeout(t); };
@@ -123,14 +132,46 @@ export function MorningCheckIn() {
   }, [day]);
 
   return (
-    <Overlay open={open} onClose={close} className="w-[30rem] max-w-full max-h-[90vh] overflow-y-auto rounded-[calc(26px*var(--rk))] p-7">
-      {day && <CheckInForm key={`${day}-${existing?.updated_at ?? 'new'}`} day={day} existing={existing} onDone={close} />}
+    <Overlay open={open} onClose={close} className="w-[34rem] max-w-full max-h-[90vh] overflow-y-auto rounded-[calc(26px*var(--rk))] p-7"
+      // Something to work through, not glance at: solid enough that the board behind stays behind.
+      surface="color-mix(in srgb, var(--bg-raised) 94%, transparent)">
+      {/* The two halves of the morning, in one window. */}
+      <div role="tablist" aria-label="Check-in" className="mb-6 flex gap-1 rounded-full p-1" style={{ background: 'var(--glass-fill-strong)' }}>
+        {(['morning', 'chart'] as const).map((t) => {
+          const on = tab === t;
+          const label = t === 'morning'
+            ? `Morning${existing?.checked_in_at ? ' ✓' : ''}`
+            : `Chart${prep ? ` ${prep.answered}/${prep.total}` : ''}`;
+          return (
+            <button key={t} type="button" role="tab" aria-selected={on} data-checkin-tab={t} onClick={() => setTab(t)}
+              className="relative flex-1 rounded-full px-3 py-1.5 text-[12px] font-medium">
+              {on && <motion.span layoutId="checkin-tab" transition={springSoft} className="absolute inset-0 rounded-full"
+                style={{ background: 'var(--bg-raised)', boxShadow: 'var(--shadow-card)' }} />}
+              <span className="relative" style={{ color: on ? 'var(--text)' : 'var(--text-dim)' }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={springSoft}>
+          {day && tab === 'morning' && (
+            // Keyed on the day only: saving hands the new review back up, and a
+            // key that changed with it would remount the form and lose the
+            // "done — now the chart" screen the save just showed.
+            <CheckInForm key={day} day={day} existing={existing} onDone={close}
+              onSaved={setExisting} onChart={() => setTab('chart')} />
+          )}
+          {day && tab === 'chart' && <ChartPrep review={existing} onClose={close} />}
+        </motion.div>
+      </AnimatePresence>
     </Overlay>
   );
 }
 
-function CheckInForm({ day, existing, onDone }: {
+function CheckInForm({ day, existing, onDone, onSaved, onChart }: {
   day: string; existing: DailyReview | null; onDone: () => void;
+  onSaved: (r: DailyReview) => void; onChart: () => void;
 }) {
   const [sleep, setSleep] = useState(existing?.sleep_hours?.toString() ?? '');
   const [mind, setMind] = useState<number | null>(existing?.state_of_mind ?? null);
@@ -160,6 +201,7 @@ function CheckInForm({ day, existing, onDone }: {
     const saved = await res.json() as DailyReview;
     window.dispatchEvent(new CustomEvent(SAVED, { detail: saved }));
     setDone(saved);
+    onSaved(saved);
   }
 
   const when = new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -187,13 +229,11 @@ function CheckInForm({ day, existing, onDone }: {
             {planLine(done) || 'Written before the session.'}
           </p>
           {/* The four questions are the quick half; the chart is the rest. */}
-          <p className="mx-auto mt-5 max-w-[22rem] text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
-            Next, the chart: levels, equal highs and lows, gaps, zones and the heatmap, marked one at a time.
+          <p className="mx-auto mt-5 max-w-[24rem] text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
+            Next, the chart: ten short steps, ticks and taps — mark each thing on your chart and move on.
           </p>
           <div className="mt-4 flex justify-center gap-2">
-            <a href="/prep" onClick={onDone} data-checkin-to-prep>
-              <Button variant="primary" tabIndex={-1}>Prep the chart — about 10 minutes</Button>
-            </a>
+            <Button variant="primary" onClick={onChart} data-checkin-to-prep>Prep the chart</Button>
             <Button onClick={onDone}>Later</Button>
           </div>
         </motion.div>
@@ -278,21 +318,24 @@ export function CheckInChip() {
     return () => { alive = false; window.removeEventListener(SAVED, onSaved); };
   }, []);
 
+  const prep = usePrepProgress();
   if (review === undefined) return null;
   const done = !!review?.checked_in_at;
-  const line = done ? planLine(review!) : '';
+  const chart = prep && prep.answered > 0
+    ? (prep.answered === prep.total ? 'chart ✓' : `chart ${prep.answered}/${prep.total}`) : null;
+  const line = done ? [planLine(review!), chart].filter(Boolean).join(' · ') : '';
 
   return (
     <motion.button
       type="button"
       data-checkin-chip={done ? 'done' : 'todo'}
-      onClick={openCheckIn}
+      onClick={() => openCheckIn()}
       whileTap={press}
       whileHover={{ y: -1 }}
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={spring}
-      title={done ? 'Your morning check-in — click to change it (M)' : 'Four questions before the session (M)'}
+      title={done ? 'Your morning and the chart prep (M, or P for the chart)' : 'Four questions, then the chart, before the session (M)'}
       className="flex max-w-[22rem] items-center gap-2 rounded-full border px-3 py-1 text-[11.5px] font-medium"
       style={{
         borderColor: done ? 'var(--glass-stroke)' : 'rgb(var(--accent) / 0.45)',

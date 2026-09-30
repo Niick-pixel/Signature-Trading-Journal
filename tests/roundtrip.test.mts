@@ -109,8 +109,8 @@ test('export → wipe → import restores every row exactly', async () => {
   saveWeeklyReview('2026-09-14', 'Held the line.', [a.id]);
   createJournalPage({ day: '2026-09-20', title: 'Notes', body: '<p>Patience.</p>', pinned: false });
   savePrep('2026-09-20', parsePrepData({
-    steps: { htf: 'done', eqhl: 'done' }, levels: [{ id: 'l1', step: 'eqhl', kind: 'EQH', price: 30906 }],
-    draw: { direction: 'Up', target: 30906 },
+    steps: { htf: 'done', eqhl: 'done' }, ticks: { htf: [0, 1] },
+    answers: { 'htf.daily': 'Uptrend', 'draw.target': 'EQH', 'prior.taken': ['PDH'] },
   }), true);
   const before = fingerprint();
   assert.deepEqual(before.counts, { trades: 4, cash: 1, daily: 1, weekly: 1, pages: 1, prep: 1 });

@@ -16,7 +16,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
     items: [
       { keys: ['N'], label: 'New trade' },
       { keys: ['M'], label: 'Morning check-in' },
-      { keys: ['P'], label: 'Chart prep before New York' },
+      { keys: ['P'], label: 'Chart prep (in the check-in)' },
       { keys: ['D'], label: "Today's daily review" },
       { keys: ['W'], label: 'Weekly review' },
       { keys: ['1', '2', '3', '4'], label: 'Whiteboard, Stats, Calendar, Journal' },

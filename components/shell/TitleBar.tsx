@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 import { Wordmark } from './Wordmark';
 import { CheckInChip } from './MorningCheckIn';
-import { PrepChip } from '@/components/prep/PrepChip';
 import { AccountPicker } from './AccountPicker';
 import { UpdateChip } from './UpdateChip';
 import { Suspense } from 'react';
@@ -89,7 +88,6 @@ export function TitleBar() {
         <UpdateChip />
         <Suspense fallback={null}><AccountPicker /></Suspense>
         <CheckInChip />
-        <PrepChip />
       </div>
     </header>
   );
