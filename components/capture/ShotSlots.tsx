@@ -97,21 +97,21 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
           scale: flash ? 1.012 : 1,
         }}
         transition={spring}
-        className="glass relative grid min-h-[200px] cursor-pointer place-items-center overflow-hidden rounded-[calc(24px*var(--rk))] p-4"
+        className="glass relative grid min-h-[118px] cursor-pointer place-items-center overflow-hidden rounded-[calc(24px*var(--rk))] p-4"
       >
         <AnimatePresence mode="wait">
           {shown ? (
             <motion.div key={shownSlot} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }} transition={springBouncy} className="relative w-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={shown} alt={`${shownSlot} chart`} className="max-h-[380px] w-full rounded-[calc(16px*var(--rk))] object-contain" />
+              <img src={shown} alt={`${shownSlot} chart`} className="max-h-[220px] w-full rounded-[calc(16px*var(--rk))] object-contain" />
               <span className="absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
                 style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-dim)' }}>{shownSlot}</span>
             </motion.div>
           ) : (
             <motion.div key="empty" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96 }} transition={spring} className="px-6 text-center">
-              <div className="mx-auto mb-3.5 grid size-11 place-items-center rounded-[calc(14px*var(--rk))]"
+              <div className="mx-auto mb-2 grid size-9 place-items-center rounded-[calc(14px*var(--rk))]"
                 style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-dim)' }}>
                 <svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden>
                   <rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
@@ -130,7 +130,7 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
         </AnimatePresence>
       </motion.div>
 
-      <div className="mt-2.5 grid grid-cols-4 gap-2">
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
         {SHOT_SLOTS.map((slot) => {
           const url = urls[slot];
           const on = shownSlot === slot;
@@ -145,7 +145,7 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
                 transition={spring}
                 animate={{ scale: flash === slot ? 1.05 : 1 }}
                 title={url ? `Show the ${slot} chart` : `Add the ${slot} chart`}
-                className="relative grid h-16 w-full place-items-center overflow-hidden rounded-[calc(12px*var(--rk))] border text-[10.5px]"
+                className="relative grid h-11 w-full place-items-center overflow-hidden rounded-[calc(12px*var(--rk))] border text-[10.5px]"
                 style={{
                   borderStyle: url ? 'solid' : 'dashed',
                   borderColor: on ? 'rgb(var(--accent) / 0.65)' : 'var(--glass-stroke)',
@@ -171,9 +171,6 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
           );
         })}
       </div>
-      <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-        One chart is enough. The rest are there when you have them.
-      </p>
 
       <input
         ref={input}

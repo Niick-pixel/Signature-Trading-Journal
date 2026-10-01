@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Background, BackgroundVariant, ReactFlowProvider, useReactFlow,
   type Edge, type Node, type NodeChange,
@@ -397,6 +397,26 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   // which read as the whole board rearranging itself.
   const [placed, setPlaced] = useState(false);
   const placedFor = useRef<string | null>(null);
+  /*
+    The view the board OPENS at, worked out before it is first drawn.
+
+    The board used to be drawn at (0, 0) and then moved to the saved view a
+    moment later. Every card's layout animation chased that move, and every
+    group played its entrance on top — so each visit to the Whiteboard tab
+    looked like the whole board shaking itself into place. Now the board is
+    not drawn until its view is known, and it is drawn there: nothing moves.
+  */
+  const [openView, setOpenView] = useState<View | null>(null);
+  useLayoutEffect(() => {
+    if (openView) return;
+    const width = canvasRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    const view = readView(groupMode) ?? {
+      x: Math.round(width / 2 - layout.nominalWidth / 2), y: TOP_CLEARANCE + 200, zoom: 1,
+    };
+    placedFor.current = groupMode;
+    setOpenView(view);
+    setPlaced(true);
+  }, [openView, groupMode, layout.nominalWidth]);
   useEffect(() => {
     if (!flowReady) return;
     if (layout.clusters.length === 0) { setPlaced(true); return; }
@@ -980,11 +1000,13 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         <EdgeKey chains={prefs.showReasonEdges} leaks={prefs.showLeakEdges} />
       </div>
 
+      {openView && (
       <LiveFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        defaultViewport={openView}
         onInit={() => setFlowReady(true)}
         // An attribute on the canvas rather than state: toggling it must not
         // re-render the board, or the thing meant to make moving cheap costs a
@@ -1082,6 +1104,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
           <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--board-dots)" />
         )}
       </LiveFlow>
+      )}
 
       {/*
         A filtered board says so, on the board. The toolbar count alone was

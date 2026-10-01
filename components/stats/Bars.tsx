@@ -88,9 +88,11 @@ export function SignedBars({ rows }: { rows: BarRow[] }) {
               {/* The zero line sits dead centre; bars grow out from it. */}
               <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: 'var(--glass-stroke)' }} />
               <motion.div
-                initial={{ width: 0 }}
+                // Drawn at their length on arrival; they glide only when a
+                // number changes (another account, a filter).
+                initial={false}
                 animate={{ width: `${width}%` }}
-                transition={{ ...spring, delay: i * 0.03 }}
+                transition={spring}
                 className="absolute inset-y-0 rounded-full"
                 style={{
                   background: `rgb(${accent} / 0.85)`,
@@ -122,9 +124,9 @@ export function RateBars({ rows }: { rows: BarRow[] }) {
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--glass-fill)' }}>
             <motion.div
-              initial={{ width: 0 }}
+              initial={false}
               animate={{ width: `${Math.max(0, Math.min(100, row.value))}%` }}
-              transition={{ ...spring, delay: i * 0.03 }}
+              transition={spring}
               className="h-full rounded-full"
               style={{
                 background: `rgb(${row.accent ?? WIN} / 0.85)`,
@@ -147,9 +149,8 @@ export function Stat({
     : 'var(--text)';
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      // Dimmed as the animation's target, like Panel — see there.
-      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1, y: 0 }}
+      initial={false}
+      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1 }}
       transition={springSoft}
       className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5"
       data-card
@@ -195,12 +196,10 @@ export function Panel({ title, note, n, children }: {
     <motion.section
       // Rises in as it scrolls into view, once — the panels further down
       // used to finish animating before anyone could see them.
-      initial={{ opacity: 0, y: 12, scale: 0.992 }}
-      // A card on too few trades settles dimmed. Its opacity is the
-      // animation's target, not a style — a style would be overwritten by the
-      // animation on its way to 1, and the card would never look thin.
-      whileInView={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: '0px 0px -40px 0px' }}
+      // Still on arrival — the page itself fades in once (.signature-enter).
+      // A card on too few trades is simply dimmed.
+      initial={false}
+      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1 }}
       transition={springSoft}
       className="glass rounded-[calc(24px*var(--rk))] p-6"
       data-card

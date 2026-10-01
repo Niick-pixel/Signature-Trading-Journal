@@ -55,13 +55,8 @@ function ClusterNodeInner({ data }: NodeProps) {
     <motion.div
       // No `layout`: React Flow moves the region, and a layout animation on top
       // of that measured it every frame of a drag and animated against it.
-      // Regions settle in worst-first, which is also the order you should read
-      // them. The trade nodes deliberately have no entrance of their own: they
-      // share a layoutId with the detail panel, and a competing initial state
-      // breaks that transition.
-      initial={{ opacity: 0, scale: 0.97, y: 6 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ ...springLayout, delay: Math.min(index, 8) * 0.045 }}
+      // No entrance either. Every group rising in on every visit to the tab
+      // read as the board shaking; the board now simply appears where it was.
       style={{
         width: cluster.width,
         height: cluster.height,

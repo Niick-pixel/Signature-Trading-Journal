@@ -442,11 +442,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   useEffect(() => { submitRef.current = () => { void submit(); }; });
 
   return (
-    <motion.div {...riseIn} transition={spring} className="glass mx-auto rounded-[calc(28px*var(--rk))] p-6 sm:p-8 xl:p-10 2xl:p-8">
-      <div className="mb-7 flex items-start justify-between gap-4 2xl:mb-5">
+    <motion.div {...riseIn} transition={spring} className="glass mx-auto rounded-[calc(28px*var(--rk))] p-5 sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold">{editing ? 'Edit trade' : 'New trade'}</h1>
-          <p className="mt-1 text-[13px]" style={{ color: 'var(--text-dim)' }}>
+          <h1 className="text-[20px] font-semibold">{editing ? 'Edit trade' : 'New trade'}</h1>
+          <p className="mt-0.5 text-[12.5px]" style={{ color: 'var(--text-dim)' }}>
             {editing
               ? 'Paste a new chart to replace the screenshot, or leave it as it is.'
               : 'Name the motive before the data. That is the whole point.'}
@@ -541,9 +541,9 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         grid would put the writing, the facts and the trade across row one and
         drop the score alone on row two beside two empty cells.
       */}
-      <div className="grid gap-x-8 gap-y-8 lg:grid-cols-2 lg:gap-y-7 xl:grid-cols-3 xl:gap-y-6 2xl:grid-cols-4">
+      <div className="grid items-start gap-x-6 gap-y-5 lg:grid-cols-2 xl:grid-cols-4 2xl:gap-x-7">
         {/* A — the trade. */}
-        <div className="space-y-7 xl:col-start-1 xl:row-start-1 2xl:col-auto 2xl:row-auto">
+        <div className="space-y-4">
         {/* 1 — how it ended. You already know this before you start typing, and
             burying it behind a disclosure made it the last thing recorded. */}
         {/*
@@ -551,8 +551,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           backtest R and live R summing into one number would make every other
           figure in the app a lie.
         */}
-        <div className="mb-7 grid gap-5 sm:grid-cols-2">
-          <Field
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field quiet
             label="Account"
             hint={isHypothetical(account)
               // Missed is not Passed: Passed is a setup you chose not to take,
@@ -563,13 +563,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           >
             <Select value={account} onChange={setAccount} options={accountOptions(account)} />
           </Field>
-          <Field label="Account label" hint="Optional — which prop firm, which phase.">
+          <Field quiet label="Account label" hint="Optional — which prop firm, which phase.">
             <Input placeholder="—" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
           </Field>
           {/* A missed trade's most useful fact is why it was missed — the
               hesitation patterns on Stats split by exactly this. */}
           {isHypothetical(account) && outcome !== 'Not taken' && (
-            <Field label="Why you didn't take it" hint="Fear, a rule, not at the screen, or it simply went without you." className="sm:col-span-2">
+            <Field quiet label="Why you didn't take it" hint="Fear, a rule, not at the screen, or it simply went without you." className="sm:col-span-2">
               <Select value={skipReason} onChange={setSkipReason} options={SKIP_REASONS} placeholder="Why really?" />
             </Field>
           )}
@@ -579,8 +579,8 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           Two-stage logging is available, never required. 'Settled' stays the
           default so a finished trade can still be written in one pass.
         */}
-        <div className="mb-7">
-          <Field
+        <div>
+          <Field quiet
             label="Stage"
             hint={locked
               ? 'This trade has left Planned, so its grade at entry is locked — it cannot go back.'
@@ -603,7 +603,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             </Collapse>
           ) : (
             <Collapse key="outcome">
-              <Field label="How did it end" pending={pending('outcome')} group>
+              <Field quiet label="How did it end" pending={pending('outcome')} group>
                 <Segmented
                   value={outcome}
                   onChange={(o) => { setOutcome(o); confirm('outcome'); }}
@@ -637,7 +637,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           {outcome === 'Not taken' && (
             <Collapse key="not-taken">
               <div className="space-y-5 pt-1">
-                <Field label="Would it have hit TP?" hint="Go back and check. Guessing defeats the point." group>
+                <Field quiet label="Would it have hit TP?" hint="Go back and check. Guessing defeats the point." group>
                   <Segmented
                     value={wouldHaveHitTp === null ? 'Unknown' : wouldHaveHitTp ? 'Yes' : 'No'}
                     onChange={(v) => setWouldHaveHitTp(v === 'Unknown' ? null : v === 'Yes')}
@@ -645,16 +645,16 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                     accentFor={(v) => (v === 'Yes' ? 'var(--outcome-win)' : v === 'No' ? 'var(--outcome-loss)' : 'var(--outcome-neutral)')}
                   />
                 </Field>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="What it would have paid (R)" hint="Go and check. A guess here is worse than a blank.">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field quiet label="What it would have paid (R)" hint="Go and check. A guess here is worse than a blank.">
                     <Input type="number" step="0.1" inputMode="decimal" placeholder="—"
                       value={wouldBeR} onChange={(e) => setWouldBeR(e.target.value)} />
                   </Field>
-                  <Field label="R left on the table">
+                  <Field quiet label="R left on the table">
                     <Input type="number" step="0.1" inputMode="decimal" placeholder="—"
                       value={rLeftOnTable} onChange={(e) => setRLeftOnTable(e.target.value)} />
                   </Field>
-                  <Field label="Real reason" hint="Not the story — the reason.">
+                  <Field quiet label="Real reason" hint="Not the story — the reason.">
                     <Select value={skipReason} onChange={setSkipReason} options={SKIP_REASONS} placeholder="Why really?" />
                   </Field>
                 </div>
@@ -665,7 +665,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
 
 
         {/* 2 — reason, before anything else. */}
-        <Field label="Why did you take it" hint="Answer honestly. Nothing else in this app works if this is wrong.">
+        <Field quiet label="Why did you take it" hint="Answer honestly. Nothing else in this app works if this is wrong.">
           <Select
             value={reason}
             onChange={setReason}
@@ -678,12 +678,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
 
         {/* B — when it happened, and on what. Facts about the trade, so they
             sit with the trade rather than in a heap at the bottom. */}
-        <div className="space-y-7 xl:col-start-1 xl:row-start-2 2xl:col-auto 2xl:row-auto">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Date & time">
+        <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field quiet label="Date & time">
             <Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Session" pending={pending('session')}>
+          <Field quiet label="Session" pending={pending('session')}>
             <Select value={session} onChange={(v) => { setSession(v); confirm('session'); }} options={SESSIONS} />
           </Field>
         </div>
@@ -700,13 +700,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <span style={{ color: 'var(--text-faint)' }}>from the entry time</span>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Instrument" pending={pending('instrument')}><Select value={instrument} onChange={(v) => { setInstrument(v); confirm('instrument'); }} options={INSTRUMENTS} /></Field>
-          <Field label="Direction" pending={pending('direction')}><Select value={direction} onChange={(v) => { setDirection(v); confirm('direction'); }} options={DIRECTIONS} /></Field>
-          <Field label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
-          <Field label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
-          <Field label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
-          <Field label="Target type" pending={pending('targetType')}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field quiet label="Instrument" pending={pending('instrument')}><Select value={instrument} onChange={(v) => { setInstrument(v); confirm('instrument'); }} options={INSTRUMENTS} /></Field>
+          <Field quiet label="Direction" pending={pending('direction')}><Select value={direction} onChange={(v) => { setDirection(v); confirm('direction'); }} options={DIRECTIONS} /></Field>
+          <Field quiet label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
+          <Field quiet label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
+          <Field quiet label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
+          <Field quiet label="Target type" pending={pending('targetType')}>
             <Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }}
               options={targetTypeOptions(trade?.target_type ?? null)} />
             {/* Said where the choice is made, not only where the grade is. */}
@@ -728,19 +728,19 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         {/* What it paid. Numbers are facts about the trade, so they sit with
             the rest of the record rather than with the writing — and it keeps
             the writing column under the height the checklist sets. */}
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="R multiple" hint="Signed, e.g. 2.4 or -1. Leave blank to settle later.">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Field quiet label="R" hint="R multiple, signed — e.g. 2.4 or -1. Leave blank to settle later.">
             <Input type="number" step="0.1" inputMode="decimal" placeholder="—"
               value={rMultiple} onChange={(e) => setRMultiple(e.target.value)} />
           </Field>
-          <Field label="Contracts">
+          <Field quiet label="Contracts">
             <Input type="number" step="1" min="0" placeholder="—" value={contracts} onChange={(e) => setContracts(e.target.value)} />
           </Field>
-          <Field label="P&L ($)" hint="What the account actually did. Signed — a loss is negative.">
+          <Field quiet label="P&L $" hint="What the account actually did. Signed — a loss is negative.">
             <Input type="number" step="0.01" inputMode="decimal" placeholder="—"
               value={pnlDollars} onChange={(e) => setPnlDollars(e.target.value)} />
           </Field>
-          <Field label="Stop (points)" hint="Optional — it is on the screenshot.">
+          <Field quiet label="Stop pts" hint="Stop in points. Optional — it is on the screenshot.">
             <Input type="number" step="0.25" min="0" placeholder="—" value={stopPoints} onChange={(e) => setStopPoints(e.target.value)} />
           </Field>
         </div>
@@ -751,7 +751,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           whether the stop is too tight or the target too greedy, which no
           win rate will ever tell me.
         */}
-        <TriState
+        <TriState inline
           value={reached1R}
           onChange={setReached1R}
           label="Reached +1R before the stop?"
@@ -759,13 +759,43 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         />
 
         {/*
+          Recorded here, near the facts, because it only measures anything
+          if it is set before the outcome is known. Answered afterwards it is
+          just the result wearing a different hat.
+        */}
+        <div>
+          <Field quiet label="Confidence at entry" hint="Optional. Only worth anything if you set it before you knew.">
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <motion.button
+                  key={n}
+                  type="button"
+                  aria-pressed={confidence === n}
+                  onClick={() => setConfidence(confidence === n ? null : n)}
+                  whileTap={press}
+                  transition={spring}
+                  animate={{
+                    borderColor: confidence === n ? `rgb(${accent} / 0.6)` : 'var(--glass-stroke)',
+                    background: confidence === n ? `rgb(${accent} / 0.12)` : 'var(--glass-fill)',
+                  }}
+                  className="flex-1 rounded-[calc(10px*var(--rk))] border py-1 text-[12px] font-medium"
+                  style={{ color: confidence === n ? `rgb(${accent})` : 'var(--text-faint)' }}
+                >
+                  {'★'.repeat(n)}
+                </motion.button>
+              ))}
+            </div>
+          </Field>
+        </div>
+
+        {/*
           What worked, where "The setup" used to be. The post-mortem had only a
           mistakes half, which teaches what to avoid and nothing about what to
           repeat — and a loss traded well looks exactly like a loss traded
           badly until this is filled in.
         */}
-        <Field label="What worked" hint="Pick every one that applies — on losers too. A good trade can lose." group>
-          <TagPicker value={workedTags} onChange={setWorkedTags} options={WORKED_TAGS} tone="win" />
+        <Field quiet label="What worked" hint="Pick every one that applies — on losers too. A good trade can lose." group>
+          <TagPicker small value={workedTags} onChange={setWorkedTags} options={WORKED_TAGS} tone="win" />
         </Field>
 
         {/* The context pills are retired (see CONTEXT_GROUPS); an edit still
@@ -773,15 +803,15 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         </div>
 
         {/* C — the writing, and the reckoning that goes with it. */}
-        <div className="space-y-7 xl:col-start-2 xl:row-start-1 xl:row-span-2 2xl:col-auto 2xl:row-auto 2xl:row-span-1">
+        <div className="space-y-4">
         {/* 3 — the writing. */}
-        <Field label="Explanation">
+        <Field quiet label="Explanation">
           <ExplanationField
             value={explanation}
             onChange={setExplanation}
             minChars={MIN_EXPLANATION}
             kept={keptExplanation}
-            minRows={8}
+            minRows={5}
             placeholder="What did you see, what did you expect, and what made you click the button?"
           />
         </Field>
@@ -793,7 +823,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           there is no outcome to draw a lesson from yet.
         */}
         {!planned && (
-          <Field
+          <Field quiet
             label="Lesson"
             hint={`What would you do differently? At least ${MIN_LESSON} characters — a label is not a lesson.`}
           >
@@ -803,7 +833,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
               required
               minChars={MIN_LESSON}
               kept={keptLesson}
-              minRows={8}
+              minRows={5}
               placeholder="Next time: the sweep was there but I took it before the candle closed. Wait for the close, even when it looks like it is leaving without me."
             />
           </Field>
@@ -817,12 +847,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           </div>
         </Field>
 
-        <Field
+        <Field quiet
           label="What went wrong"
           hint="Pick every one that applies. A bad trade usually has three."
           group
         >
-          <TagPicker value={mistakeTags} onChange={setMistakeTags} />
+          <TagPicker small value={mistakeTags} onChange={setMistakeTags} />
         </Field>
 
         {/*
@@ -836,7 +866,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           the height of the whole card. This costs nothing and buys the last
           hundred and thirty pixels.
         */}
-        <TriState
+        <TriState inline
           value={followedRules}
           onChange={setFollowedRules}
           label="Followed ALL rules"
@@ -845,15 +875,16 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
         </div>
 
         {/* D — the score. */}
-        <div className="space-y-7 xl:col-start-3 xl:row-start-1 xl:row-span-2 2xl:col-auto 2xl:row-auto 2xl:row-span-1">
+        <div className="space-y-4">
         {/* 5 — the checklist, with the live score. */}
         <div>
-          <span className="mb-4 block text-[11px] font-medium uppercase tracking-[0.07em]"
-            style={{ color: 'var(--text-faint)' }}>
-            Checklist
+          <span className="mb-2 block cursor-help text-[11px] font-medium uppercase tracking-[0.07em]"
+            style={{ color: 'var(--text-faint)' }}
+            title="Hover any line for what it means. Phase 3 must fire for an entry to exist. The sweep and the single gap are gates: fail either and the grade stops at C, whatever the total. At 70 or more with the trigger fired and both gates passed, taking it is the rule — hesitating is a rule break, same as oversizing.">
+            Checklist <span aria-hidden className="normal-case opacity-60">ⓘ</span>
           </span>
 
-          <div className="mb-6 space-y-3">
+          <div className="mb-3 space-y-2">
             {locked ? (
               /*
                 The grade the trade was taken on, not the one these answers
@@ -861,7 +892,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                 so a correction is visible without rewriting history.
               */
               <div data-grade-locked={trade!.grade_letter}>
-                <GradeBadge total={trade!.checklist_score} max={100} size="lg" showPrompt
+                <GradeBadge total={trade!.checklist_score} max={100} size="md" showPrompt
                   triggerFired={trade!.trigger_fired} letter={trade!.grade_letter} />
                 <p className="mt-2 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
                   Grade at entry, locked when this trade left Planned
@@ -875,7 +906,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                 </p>
               </div>
             ) : (
-              <GradeBadge total={live.earned} max={live.possible} size="lg" showPrompt
+              <GradeBadge total={live.earned} max={live.possible} size="md" showPrompt
                 triggerFired={live.trigger} letter={live.letter} />
             )}
             {/* The gates outrank the total: said in red, above the boxes that caused it. */}
@@ -914,43 +945,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             sweepLevel={sweepLevel} onSweepLevel={setSweepLevel}
             futuresConfirmed={futuresConfirmed} onFuturesConfirmed={setFuturesConfirmed}
             htfDelivery={htfDelivery} onHtfDelivery={setHtfDelivery} />
-
-          {/*
-            Recorded here, beside the score, because it only measures anything
-            if it is set before the outcome is known. Answered afterwards it is
-            just the result wearing a different hat.
-          */}
-          <div className="mt-6">
-            <Field label="Confidence at entry" hint="Optional. Only worth anything if you set it before you knew.">
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <motion.button
-                    key={n}
-                    type="button"
-                    aria-pressed={confidence === n}
-                    onClick={() => setConfidence(confidence === n ? null : n)}
-                    whileTap={press}
-                    transition={spring}
-                    animate={{
-                      borderColor: confidence === n ? `rgb(${accent} / 0.6)` : 'var(--glass-stroke)',
-                      background: confidence === n ? `rgb(${accent} / 0.12)` : 'var(--glass-fill)',
-                    }}
-                    className="flex-1 rounded-[calc(12px*var(--rk))] border py-2 text-[13px] font-medium"
-                    style={{ color: confidence === n ? `rgb(${accent})` : 'var(--text-faint)' }}
-                  >
-                    {'★'.repeat(n)}
-                  </motion.button>
-                ))}
-              </div>
-            </Field>
-          </div>
-
         </div>
         </div>
       </div>
 
 
-      <div className="mt-9 flex items-center justify-between gap-5 2xl:mt-6">
+      <div className="mt-5 flex items-center justify-between gap-5">
         <div className="min-w-0 text-[12px]" style={{ color: 'var(--text-faint)' }}>
           <AnimatePresence mode="wait">
             <motion.span

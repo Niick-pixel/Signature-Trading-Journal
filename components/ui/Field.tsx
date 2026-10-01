@@ -5,9 +5,15 @@ import { motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
 
 export function Field({
-  label, hint, children, className = '', group = false, pending = false,
+  label, hint, children, className = '', group = false, pending = false, quiet = false,
 }: {
   label: string; hint?: string; children: React.ReactNode; className?: string;
+  /**
+   * The hint as a tooltip on the label instead of a line under the field —
+   * for quick answers, where a sentence under every one is what made the
+   * trade form taller than the screen.
+   */
+  quiet?: boolean;
   /**
    * Still on the value the form started with — not yet looked at. The label
    * lights up until an option is picked (the same one counts), so a default
@@ -27,14 +33,15 @@ export function Field({
     <Tag className={`block ${className}`} {...(group ? { role: 'group', 'aria-label': label } : {})}>
       <span
         data-pending={pending ? 'true' : undefined}
-        title={pending ? 'Still on its default — pick an option to confirm it' : undefined}
-        className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-[0.07em] transition-[color,font-weight] duration-300"
+        title={pending ? 'Still on its default — pick an option to confirm it' : quiet ? hint : undefined}
+        className={`${quiet ? 'mb-1.5' : 'mb-2'} flex items-center gap-1.5 text-[11px] uppercase tracking-[0.07em] transition-[color,font-weight] duration-300`}
         style={{ color: pending ? 'rgb(var(--accent))' : 'var(--text-faint)', fontWeight: pending ? 700 : 500 }}>
         {pending && <span aria-hidden className="size-1.5 rounded-full" style={{ background: 'rgb(var(--accent))' }} />}
         {label}
+        {quiet && hint && <span aria-hidden className="cursor-help normal-case opacity-60">ⓘ</span>}
       </span>
       {children}
-      {hint && <span className="mt-1.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{hint}</span>}
+      {hint && !quiet && <span className="mt-1.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{hint}</span>}
     </Tag>
   );
 }

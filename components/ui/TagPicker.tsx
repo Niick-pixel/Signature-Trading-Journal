@@ -22,15 +22,15 @@ interface TagPickerProps<T extends string> {
  * throws the other two away along with the pattern they would have shown.
  */
 export function TagPicker<T extends string>({
-  value, onChange, options = MISTAKE_TAGS as unknown as readonly T[], tone = 'loss', name,
-}: TagPickerProps<T>) {
+  value, onChange, options = MISTAKE_TAGS as unknown as readonly T[], tone = 'loss', name, small = false,
+}: TagPickerProps<T> & { small?: boolean }) {
   const toggle = (tag: T) =>
     onChange(value.includes(tag) ? value.filter((t) => t !== tag) : [...value, tag]);
   const hue = tone === 'win' ? 'var(--outcome-win)' : 'var(--outcome-loss)';
 
   return (
     // Named only when asked: inside a Field group the field already names it.
-    <div className="flex flex-wrap gap-2" {...(name ? { role: 'group', 'aria-label': name } : {})}>
+    <div className={`flex flex-wrap ${small ? 'gap-1.5' : 'gap-2'}`} {...(name ? { role: 'group', 'aria-label': name } : {})}>
       {options.map((tag) => {
         const on = value.includes(tag);
         return (
@@ -46,7 +46,7 @@ export function TagPicker<T extends string>({
               boxShadow: on ? `0 0 14px rgb(${hue} / 0.20)` : '0 0 0 rgb(0 0 0 / 0)',
             }}
             transition={spring}
-            className="rounded-full border px-3 py-1.5 text-[12px] font-medium"
+            className={`rounded-full border font-medium ${small ? 'px-2.5 py-1 text-[11.5px]' : 'px-3 py-1.5 text-[12px]'}`}
             style={{ color: on ? `rgb(${hue})` : 'var(--text-dim)' }}
           >
             {tag}

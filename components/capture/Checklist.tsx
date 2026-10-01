@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import {
-  CHECKLIST_ITEMS, CHECKLIST_PHASES, SWEEP_TIERS, SWEEP_TIER_SPEC, TAKE_IT_THRESHOLD,
+  CHECKLIST_ITEMS, CHECKLIST_PHASES, SWEEP_TIERS, SWEEP_TIER_SPEC,
   type ChecklistAnswer, type ChecklistKey, type SweepTier,
 } from '@/lib/domain';
 import { press, spring, springBouncy } from '@/lib/motion';
@@ -46,9 +46,9 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
   const points = value ? SWEEP_TIER_SPEC[value].points : 0;
   return (
     <div role="radiogroup" aria-label={label} data-sweep-tier={value ?? 'unanswered'}
-      className="rounded-[calc(14px*var(--rk))] border px-3.5 pb-2.5 pt-2.5"
+      className="rounded-[calc(14px*var(--rk))] border px-3 pb-2 pt-2"
       style={{ borderColor: pending ? `rgb(${accent} / 0.55)` : 'var(--glass-stroke)', background: 'var(--glass-fill)' }}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3" title={hint}>
         <span className="min-w-0 flex-1">
           <span data-pending={pending ? 'true' : undefined}
             className="flex items-center gap-1.5 text-[13px] leading-snug"
@@ -57,7 +57,6 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
             {pending && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: `rgb(${accent})` }} />}
             <span>{label}<GateMark /></span>
           </span>
-          <span className="mt-0.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{hint}</span>
         </span>
         <span className="shrink-0 pt-0.5 tabular-nums text-[11px] font-semibold"
           style={{ color: points ? `rgb(${accent})` : 'var(--text-faint)' }}>
@@ -65,7 +64,8 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
         </span>
       </div>
 
-      <div className="mt-2 space-y-1">
+      {/* Three choices side by side; what each one means is in its tooltip. */}
+      <div className="mt-1.5 grid grid-cols-3 gap-1">
         {SWEEP_TIERS.map((tier) => {
           const spec = SWEEP_TIER_SPEC[tier];
           const on = value === tier;
@@ -85,19 +85,19 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
                 borderColor: on ? `rgb(${tone} / 0.55)` : 'rgb(0 0 0 / 0)',
                 background: on ? `rgb(${tone} / 0.10)` : 'rgb(0 0 0 / 0)',
               }}
-              className="flex w-full items-start gap-2.5 rounded-[calc(10px*var(--rk))] border px-2 py-1.5 text-left"
+              title={spec.hint}
+              className="flex w-full items-center gap-2 rounded-[calc(10px*var(--rk))] border px-2 py-1.5 text-left"
             >
-              <span className="relative mt-[3px] grid size-[14px] shrink-0 place-items-center rounded-full border"
+              <span className="relative grid size-[14px] shrink-0 place-items-center rounded-full border"
                 style={{ borderColor: on ? `rgb(${tone})` : 'var(--glass-stroke)' }}>
                 <motion.span className="size-[7px] rounded-full" style={{ background: `rgb(${tone})` }}
                   animate={{ scale: on ? 1 : 0 }} transition={springBouncy} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] font-medium leading-snug"
-                  style={{ color: on ? 'var(--text)' : 'var(--text-dim)' }}>{spec.label}</span>
-                <span className="block text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>{spec.hint}</span>
+                <span className="block truncate text-[12px] font-medium leading-snug"
+                  style={{ color: on ? 'var(--text)' : 'var(--text-dim)' }}>{spec.label.split(' ')[0]}</span>
               </span>
-              <span className="shrink-0 pt-px tabular-nums text-[11px] font-semibold"
+              <span className="shrink-0 tabular-nums text-[11px] font-semibold"
                 style={{ color: on ? `rgb(${tone})` : 'var(--text-faint)' }}>{spec.points}</span>
             </motion.button>
           );
@@ -118,7 +118,7 @@ export function Checklist({
   answers, onChange, sweepTier, onSweepTier, sweepPending = false, accent = 'var(--accent)',
 }: ChecklistProps) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {CHECKLIST_PHASES.map((phase) => {
         const earned = phase.items.reduce((sum, i) => sum + (i.kind === 'tier'
           ? SWEEP_TIER_SPEC[sweepTier ?? 'none'].points
@@ -130,7 +130,7 @@ export function Checklist({
 
         return (
           <div key={phase.phase}>
-            <div className="mb-2 flex items-baseline justify-between gap-3">
+            <div className="mb-1.5 flex items-baseline justify-between gap-3" title={phase.note ?? undefined}>
               <span className="text-[11px] font-medium uppercase tracking-[0.07em]"
                 style={{ color: 'var(--text-faint)' }}>
                 {phase.phase}
@@ -147,13 +147,8 @@ export function Checklist({
               </motion.span>
             </div>
 
-            {phase.note && (
-              <p className="mb-2.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
-                {phase.note}
-              </p>
-            )}
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {phase.items.map((item) => {
                 if (item.kind === 'tier') {
                   return (
@@ -185,7 +180,8 @@ export function Checklist({
                       opacity: na ? 0.55 : 1,
                     }}
                     transition={spring}
-                    className="flex w-full items-start gap-1 rounded-[calc(14px*var(--rk))] border pr-2 text-left"
+                    title={item.hint || undefined}
+                    className="flex w-full items-center gap-1 rounded-[calc(12px*var(--rk))] border pr-2 text-left"
                   >
                     <motion.button
                       type="button"
@@ -196,9 +192,9 @@ export function Checklist({
                       onClick={() => onChange(item.key, !on)}
                       whileTap={na ? undefined : press}
                       transition={spring}
-                      className="flex min-w-0 flex-1 items-start gap-3 py-2.5 pl-3.5 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-3 text-left"
                     >
-                      <span className="relative mt-0.5 grid size-[17px] shrink-0 place-items-center">
+                      <span className="relative grid size-[16px] shrink-0 place-items-center">
                         <motion.span
                           className="absolute inset-0 rounded-[calc(5px*var(--rk))]"
                           animate={{
@@ -220,7 +216,7 @@ export function Checklist({
 
                       <span className="min-w-0 flex-1">
                         <span
-                          className="block text-[13px] font-medium leading-snug"
+                          className="block text-[12.5px] font-medium leading-snug"
                           style={{
                             color: on ? 'var(--text)' : 'var(--text-dim)',
                             textDecoration: na ? 'line-through' : undefined,
@@ -229,11 +225,6 @@ export function Checklist({
                           {item.label}
                           {spec.gate && <GateMark />}
                         </span>
-                        {item.hint && (
-                          <span className="mt-0.5 block text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
-                            {item.hint}
-                          </span>
-                        )}
                       </span>
                     </motion.button>
 
@@ -251,7 +242,7 @@ export function Checklist({
                         onClick={() => onChange(item.key, na ? false : null)}
                         whileTap={press}
                         transition={spring}
-                        className="mt-2.5 shrink-0 rounded-[calc(7px*var(--rk))] px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
+                        className="shrink-0 rounded-[calc(7px*var(--rk))] px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
                         style={{
                           color: na ? 'var(--text-dim)' : on ? `rgb(${accent})` : 'var(--text-faint)',
                           background: na ? 'var(--glass-fill-strong)' : 'transparent',
@@ -262,7 +253,7 @@ export function Checklist({
                       </motion.button>
                     ) : (
                       <span
-                        className="mt-2.5 shrink-0 px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
+                        className="shrink-0 px-1.5 py-0.5 tabular-nums text-[11px] font-semibold"
                         style={{ color: on ? `rgb(${accent})` : 'var(--text-faint)' }}
                       >
                         {item.points}
@@ -276,12 +267,6 @@ export function Checklist({
         );
       })}
 
-      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
-        Phase 3 must fire for an entry to exist. The sweep and the single gap are gates: fail
-        either and the grade stops at C, whatever the total. At {TAKE_IT_THRESHOLD} or more with the
-        trigger fired and both gates passed, taking it is the rule — hesitating is a rule break,
-        same as oversizing.
-      </p>
     </div>
   );
 }
