@@ -5,7 +5,7 @@ import {
   type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
 import { REGRADE_HINT, regradeAllowed, type GradeLetter } from './grade';
-import { CURRENT_RUBRIC, gradeUnder } from './rubric';
+import { CURRENT_RUBRIC, HTF_DELIVERIES, SWEEP_LEVELS, gradeUnder } from './rubric';
 import { MIN_EXPLANATION, MIN_LESSON, type TradeInput } from './types';
 
 /**
@@ -167,6 +167,15 @@ export function parseTradeInput(
   // Rubric 1's box follows the tier, so a rubric-1 trade can still be graded under rubric 1.
   const chk_sweep: Tri = sweep_tier ? sweep_tier === 'major' : tri('chk_sweep');
 
+  /*
+    Rubric 4 (trial): the liquidity event, named — picked from fixed lists,
+    so the trial's tables group cleanly. Anything else reads as not named
+    (dropped, never refused), which is also what an older client means.
+  */
+  const sweep_level = oneOf('sweep_level', SWEEP_LEVELS);
+  const htf_delivery = oneOf('htf_delivery', HTF_DELIVERIES);
+  const sweep_futures_confirmed = tri('sweep_futures_confirmed');
+
   const status = oneOf('status', TRADE_STATUSES) ?? 'Settled';
   const regrade = oneOf('regrade', REGRADES);
   const previous = floor.previous;
@@ -204,6 +213,9 @@ export function parseTradeInput(
       singular_gap,
       sweep_tier,
       chk_sweep,
+      sweep_level,
+      sweep_futures_confirmed,
+      htf_delivery,
       followed_rules: tri('followed_rules'),
       regrade,
       // Legacy single tag. Nothing writes it any more; it is preserved so the

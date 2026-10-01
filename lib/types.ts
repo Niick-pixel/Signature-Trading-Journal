@@ -54,6 +54,15 @@ export interface Trade {
    * so an old "no" could not be told from "never looked").
    */
   singular_gap: boolean | null;
+  /**
+   * Rubric 4 (trial). The swept level, picked from SWEEP_LEVELS — "Asia low".
+   * Under rubric 4 a sweep with no level named is no sweep. Null before 018.
+   */
+  sweep_level: string | null;
+  /** Rubric 4 (trial). The sweep also happened on NQ futures. Null = never checked. */
+  sweep_futures_confirmed: boolean | null;
+  /** Rubric 4 (trial). The HTF array price delivered from, picked — "5m FVG". Non-empty = delivered. */
+  htf_delivery: string | null;
   chk_displacement_fvg: ChecklistAnswer;
   chk_targets_clear: ChecklistAnswer;
   chk_clean_path: ChecklistAnswer;

@@ -16,6 +16,8 @@ const CSV_COLUMNS: Array<keyof Trade> = [
   'reason', 'setup_type', 'htf_bias', 'premium_discount', 'target_type',
   // The two gates, structured: major|minor|none and true/false (blank = never recorded).
   'sweep_tier', 'singular_gap',
+  // Rubric 4 (trial): the liquidity event, named.
+  'sweep_level', 'sweep_futures_confirmed', 'htf_delivery',
   'checklist_score', 'grade_letter', 'trigger_fired', 'grade_at_entry', 'rubric_version', 'graded_post_hoc',
   'followed_rules', 'regrade', 'mistake_tags',
   'outcome', 'r_multiple', 'contracts', 'risk_dollars', 'risk_percent', 'stop_points',

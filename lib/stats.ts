@@ -7,6 +7,8 @@ import {
 } from './domain';
 import { adherenceGap, adherenceOf, derivedAdherence, type AdherenceGap } from './adherence';
 import { GRADE_BUCKETS, GRADE_LETTERS } from './grade';
+import { TRIAL_SAMPLE, trialEventOf } from './rubric';
+export { trialEventOf };
 import { localDay } from './day';
 import { isMacroTime } from './macro';
 import type { Trade } from './types';
@@ -808,6 +810,8 @@ export interface BreakdownRow {
 
 export interface ModelBreakdowns {
   sweepTier: BreakdownRow[];
+  /** Rubric 4 (trial): the liquidity event each trade had, as rubric 4 reads it. */
+  liquidityTrial: BreakdownRow[];
   targetType: BreakdownRow[];
   singularGap: BreakdownRow[];
   account: BreakdownRow[];
@@ -829,6 +833,30 @@ function breakdown(
 }
 
 /**
+ * The trial's verdict on its one new path: delivery-only setups, taken.
+ * Promotion needs TRIAL_SAMPLE of them and a positive average R.
+ *
+ * `missed` are the delivery-only setups skipped under rubric 3 and logged in
+ * the Missed account with the R they would have had. They count towards the
+ * verdict — a rule is tested by what its setups do, not by whether money was
+ * on them — but never towards any real total, and the split is reported so
+ * the verdict says how much of it is hypothetical.
+ */
+export function deliveryOnlyVerdict(trades: Trade[], missed: Trade[] = []): {
+  n: number; real: number; missed: number; avgR: number | null; ready: boolean; positive: boolean | null;
+} {
+  const pick = (ts: Trade[]) => ts.filter((t) => trialEventOf(t) === 'delivery');
+  const real = aggregate(pick(trades));
+  const hyp = aggregate(pick(missed));
+  const n = real.taken + hyp.taken;
+  const avgR = n ? (real.totalR + hyp.totalR) / n : null;
+  return {
+    n, real: real.taken, missed: hyp.taken, avgR, ready: n >= TRIAL_SAMPLE,
+    positive: avgR == null ? null : avgR > 0,
+  };
+}
+
+/**
  * `trades` is the stats page's selection (one account, filters applied);
  * `everyAccount` is the same selection before the account was chosen, for
  * the one table that compares accounts.
@@ -838,6 +866,13 @@ export function modelBreakdowns(trades: Trade[], everyAccount: Trade[]): ModelBr
     sweepTier: breakdown(trades, (t) => t.sweep_tier ?? 'unrecorded', [
       ...SWEEP_TIERS.map((tier) => ({ key: tier, label: SWEEP_TIER_SPEC[tier].label, always: true })),
       { key: 'unrecorded', label: 'Not recorded', muted: true },
+    ]),
+    liquidityTrial: breakdown(trades, trialEventOf, [
+      { key: 'both', label: 'Sweep + delivery', always: true },
+      { key: 'sweep', label: 'Sweep only', always: true },
+      { key: 'delivery', label: 'Delivery only', always: true },
+      { key: 'none', label: 'None named', always: true },
+      { key: 'unrecorded', label: 'Before the trial', muted: true },
     ]),
     targetType: breakdown(trades, (t) => t.target_type, [
       ...TARGET_TYPES.map((key) => ({ key, label: key, always: true })),

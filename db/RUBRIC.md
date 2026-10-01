@@ -44,6 +44,65 @@ each one was and why it changed.
 `npm test` fails if the live checklist and the current version disagree, so
 step 1 cannot be skipped by accident.
 
+## Trial rubrics
+
+A rubric can run **on trial** before it is allowed to count. `TRIAL_RUBRIC`
+in `lib/rubric.ts` names it. A trial rubric is graded beside
+`CURRENT_RUBRIC` on every read — the capture form, the detail panel, and its
+own table in Stats — but it is **never written onto a trade**: every trade is
+still graded and frozen under the current rubric. Trying a rule can therefore
+never re-grade history, move a live number, or change what the checklist
+tells you to do today.
+
+A trial ends one of two ways:
+
+- **Promoted:** the sample is in (`TRIAL_SAMPLE` taken trades on the new path)
+  and it pays. Raise `CURRENT_RUBRIC` to it and follow "Changing the rubric"
+  above — including the migration that rebuilds the generated columns — then
+  set `TRIAL_RUBRIC` to `null` and move its section out of trial.
+- **Dropped:** the sample is in and it does not pay. Set `TRIAL_RUBRIC` to
+  `null` and record why below. The answers it collected stay on the trades.
+
+## Version 4 — ON TRIAL since 2026-10-01 (not in force)
+
+Rubric 3's gate accepts only a sweep. Dodgy's own setup sheet accepts a
+liquidity sweep **or** a delivery from a higher-timeframe FVG — an A either
+way — and asks for **both** at A+. His own graded examples agree: the one
+delivery-only trade in his published breakdown was a B+, not an A. Rubric 4
+tests that path, with three new answers (migration 018):
+
+| Answer | What it is |
+| --- | --- |
+| `sweep_level` | The swept level, picked from a list: PDH, PDL, PWH, PWL, Asia/London high or low, EQH, EQL, intraday high or low, data wick. |
+| `sweep_futures_confirmed` | The sweep also happened on NQ futures, not only on the CFD wick. |
+| `htf_delivery` | The HTF array delivered from, picked: timeframe (5m–Daily) and FVG or OB. |
+
+Same items, weights and letter bands as version 3. The sweep tier becomes the
+**liquidity event**, still 20 points and still a gate:
+
+| Liquidity event | Points | Ceiling |
+| --- | --- | --- |
+| Sweep + delivery | 20 | A+ — the only way to an A+ |
+| Major sweep, level picked | 20 | A |
+| Minor sweep, level picked **and** confirmed on NQ futures | 12 | A |
+| Delivery only, picked | 12 | **B** |
+| None of the above | 0 | **C** (gate) |
+
+- A sweep with no level picked is no sweep — if none of the listed levels fits, there was no sweep. A MINOR sweep not confirmed on
+  futures is no sweep: a two-point CFD wick past a level did not run the stops
+  that sit on the exchange.
+- The single gap stays a gate, and a Trendline/diagonal target still caps at B.
+
+Promotion test: `TRIAL_SAMPLE` (30) taken delivery-only trades with a positive
+average R, and no drag on the sweep trades. Setups skipped under rubric 3 can
+be logged in the Missed account with their would-be R: they count towards this
+verdict on every account's Stats page (shown as "n taken, m from Missed"), so
+the sample fills without risking money, and they still never touch a real
+total. Stats shows the running count and verdict.
+
+Nothing is typed: the level and the delivery are picked from fixed lists, so
+the trial's tables group cleanly and the prices stay on the chart.
+
 ## Version 3 — in force since 2026-09-29
 
 Identical to version 2 — same items, weights, gates and diagonal cap — with

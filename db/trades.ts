@@ -55,6 +55,8 @@ const NULLABLE_BOOL_COLUMNS = [
     before it was asked, and "never answered" must not read back as "no".
   */
   'singular_gap',
+  // Rubric 4 (trial): never checked must not read back as "not confirmed".
+  'sweep_futures_confirmed',
 ] as const;
 
 function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade {
@@ -137,6 +139,7 @@ const WRITABLE = [
   'chk_htf_bias', 'chk_killzone', 'chk_no_news',
   'chk_sweep', 'sweep_tier', 'chk_displacement_fvg', 'chk_targets_clear', 'chk_clean_path',
   'chk_returned_to_fvg', 'chk_inversion_close',
+  'sweep_level', 'sweep_futures_confirmed', 'htf_delivery',
   'followed_rules', 'regrade', 'mistake_tag', 'mistake_tags',
   'account', 'account_label', 'status', 'grade_at_entry', 'graded_post_hoc',
   'entry_price', 'take_profit', 'stop_loss',

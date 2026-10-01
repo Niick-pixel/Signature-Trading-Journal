@@ -5,7 +5,7 @@ import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isHypothetical, type Account } 
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
-  equityCurves, excursion, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
+  deliveryOnlyVerdict, equityCurves, excursion, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
   preGradedOnly, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
 } from '@/lib/stats';
 import { Histogram } from '@/components/stats/Histogram';
@@ -18,7 +18,7 @@ import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/B
 import { TitleBar } from '@/components/shell/TitleBar';
 import { MissedPatternsView } from '@/components/stats/MissedPatterns';
 import { BreakdownTable } from '@/components/stats/ModelBreakdown';
-import { GATES_SINCE } from '@/lib/rubric';
+import { GATES_SINCE, TRIAL_RUBRIC, TRIAL_SAMPLE } from '@/lib/rubric';
 import { missedPatterns } from '@/lib/missed';
 import { listDailyReviews } from '@/db/reviews';
 
@@ -85,6 +85,10 @@ export default async function StatsPage(
   const sameFilters = (list: typeof all) => (preOnly ? preGradedOnly(list) : list)
     .filter((t) => (!noQuick || !t.quick_log) && (!gatedOnly || t.rubric_version >= GATES_SINCE));
   const model = modelBreakdowns(sameFilters(trades), sameFilters(all));
+  // The trial counts the skipped setups logged in Missed as well — on any
+  // account's page, not only on Missed's (where they are already the selection).
+  const trialVerdict = deliveryOnlyVerdict(sameFilters(trades),
+    account !== 'All' && isHypothetical(account) ? [] : sameFilters(all.filter((t) => isHypothetical(t.account))));
   const modelLink = `/stats?${new URLSearchParams({
     // Always carried, 'All' included: without it the page falls back to
                   // the remembered account and the filter silently changes accounts.
@@ -505,6 +509,23 @@ export default async function StatsPage(
                     <BreakdownTable title="Target type" rows={model.targetType} note="diagonal caps at B" />
                     <BreakdownTable title="Grade at entry" rows={model.entryGrade} note="the frozen letter" />
                     <BreakdownTable title="Account" rows={model.account} note="every account, same filters" />
+                    {TRIAL_RUBRIC != null && (
+                      <div data-trial-verdict={trialVerdict.ready ? (trialVerdict.positive ? 'promote' : 'drop') : 'collecting'}>
+                        <BreakdownTable title={`Liquidity event · rubric ${TRIAL_RUBRIC} trial`} rows={model.liquidityTrial}
+                          note="delivery only caps at B" />
+                        <p className="mt-2 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+                          Delivery-only setups: {trialVerdict.n}/{TRIAL_SAMPLE}
+                          {trialVerdict.missed > 0 && <> ({trialVerdict.real} taken, {trialVerdict.missed} from Missed)</>}
+                          {trialVerdict.avgR != null && <> · avg {trialVerdict.avgR >= 0 ? '+' : '−'}{Math.abs(trialVerdict.avgR).toFixed(2)}R</>}
+                          {'. '}
+                          {!trialVerdict.ready
+                            ? 'Still collecting — log the ones you skip in Missed so the sample fills without risking money.'
+                            : trialVerdict.positive
+                              ? `Sample is in and positive: rubric ${TRIAL_RUBRIC} has earned a promotion review.`
+                              : 'Sample is in and not positive: drop the delivery path — the sweep-only gate was right.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </Panel>
               </div>

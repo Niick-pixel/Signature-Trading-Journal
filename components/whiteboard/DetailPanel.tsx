@@ -8,7 +8,7 @@ import {
 } from '@/lib/domain';
 import { DeleteTradeDialog } from './DeleteTradeDialog';
 import { dialogIsOpen } from '@/components/ui/Overlay';
-import { GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
+import { GATES_SINCE, MODEL_GATE_MESSAGE, TRIAL_RUBRIC, gradeUnder, trialEventOf } from '@/lib/rubric';
 import { spring, springSoft, scrimExit } from '@/lib/motion';
 import { derivedAdherence } from '@/lib/adherence';
 import type { Trade } from '@/lib/types';
@@ -359,6 +359,21 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                     <Row label="HTF bias" value={trade.htf_bias} />
                     <Row label="Premium / discount" value={trade.premium_discount} />
                     <Row label="Target" value={trade.target_type} />
+                    {/* Rubric 4 (trial): only on trades that answered it. */}
+                    {TRIAL_RUBRIC != null && trialEventOf(trade) !== 'unrecorded' && (
+                      <>
+                        {trade.sweep_level && (
+                          <Row label="Swept level" value={trade.sweep_level
+                            + (trade.sweep_futures_confirmed === true ? ' · futures ✓'
+                              : trade.sweep_futures_confirmed === false ? ' · not on futures' : '')} />
+                        )}
+                        {trade.htf_delivery && <Row label="HTF delivery" value={trade.htf_delivery} />}
+                        <Row label={`Rubric ${TRIAL_RUBRIC} (trial)`} value={(() => {
+                          const g = gradeUnder(TRIAL_RUBRIC, trade);
+                          return <span data-trial-grade={g.letter}>{g.letter} · {g.score}%</span>;
+                        })()} />
+                      </>
+                    )}
                     <Row label="Entry / TP / SL"
                       value={`${trade.entry_price ?? '—'} · ${trade.take_profit ?? '—'} · ${trade.stop_loss ?? '—'}`} />
                   </Group>

@@ -44,6 +44,7 @@ import { TogglePill } from '@/components/ui/TogglePill';
 import { TriState } from '@/components/ui/TriState';
 import { TagPicker } from '@/components/ui/TagPicker';
 import { Checklist } from './Checklist';
+import { TrialLiquidity } from './TrialLiquidity';
 import { clearDraft, readDraft, writeDraft } from '@/lib/draft';
 import { ExplanationField } from './ExplanationField';
 import { ScreenshotDropzone } from './ScreenshotDropzone';
@@ -108,6 +109,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     with nothing picked rather than a guess.
   */
   const [sweepTier, setSweepTier] = useState<SweepTier | null>(trade ? trade.sweep_tier : 'none');
+  /*
+    Rubric 4 (trial): the liquidity event, named. Empty and unset by default —
+    nothing here claims a level or a confirmation nobody picked.
+  */
+  const [sweepLevel, setSweepLevel] = useState(trade?.sweep_level ?? '');
+  const [futuresConfirmed, setFuturesConfirmed] = useState<Tri>(trade?.sweep_futures_confirmed ?? null);
+  const [htfDelivery, setHtfDelivery] = useState(trade?.htf_delivery ?? '');
 
   // Tri-state, starting unanswered. This used to default to `true`, so every
   // trade ever saved claimed full rule adherence whether or not the question
@@ -169,13 +177,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const draftValues = useMemo(() => ({
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, sweepTier, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
   }), [
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, sweepTier, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
   ]);
@@ -207,6 +215,9 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('context')) setContext(v.context);
     if (has('checks')) setChecks(v.checks);
     if (has('sweepTier')) setSweepTier(v.sweepTier);
+    if (has('sweepLevel')) setSweepLevel(v.sweepLevel);
+    if (has('futuresConfirmed')) setFuturesConfirmed(v.futuresConfirmed);
+    if (has('htfDelivery')) setHtfDelivery(v.htfDelivery);
     if (has('date')) setDate(v.date);
     if (has('instrument')) setInstrument(v.instrument);
     if (has('direction')) setDirection(v.direction);
@@ -336,6 +347,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       premium_discount: premiumDiscount, target_type: targetType,
       ...checks,
       sweep_tier: sweepTier,
+      // Rubric 4 (trial). A level typed for a sweep that was then changed to
+      // NONE is dropped rather than kept as a level nothing was swept at.
+      sweep_level: sweepTier === 'major' || sweepTier === 'minor' ? sweepLevel.trim() || null : null,
+      sweep_futures_confirmed: sweepTier === 'major' || sweepTier === 'minor' ? futuresConfirmed : null,
+      htf_delivery: htfDelivery.trim() || null,
       // Rubric 1's box. The server derives it from the tier when there is one;
       // an old trade that never answered the tier keeps what it had.
       chk_sweep: trade?.chk_sweep ?? null,
@@ -888,6 +904,16 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Checklist answers={checks} onChange={setCheck} accent={accent}
             sweepTier={sweepTier} onSweepTier={(t) => { setSweepTier(t); confirm('sweepTier'); }}
             sweepPending={pending('sweepTier')} />
+
+          <TrialLiquidity accent={accent}
+            answers={{
+              ...checks, sweep_tier: sweepTier, target_type: targetType,
+              sweep_level: sweepLevel, sweep_futures_confirmed: futuresConfirmed, htf_delivery: htfDelivery,
+            }}
+            sweepTier={sweepTier}
+            sweepLevel={sweepLevel} onSweepLevel={setSweepLevel}
+            futuresConfirmed={futuresConfirmed} onFuturesConfirmed={setFuturesConfirmed}
+            htfDelivery={htfDelivery} onHtfDelivery={setHtfDelivery} />
 
           {/*
             Recorded here, beside the score, because it only measures anything
