@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <rect width="1024" height="1024" rx="232" fill="#E9E2D4"/>
+  
   <!-- The gap: between the first candle's high (below) and the third's low (above). -->
   <rect x="140" y="452" width="744" height="96" rx="30" fill="#8A5205" fill-opacity="0.38"/>
   <!-- 1: the candle before, hollow (down) -->

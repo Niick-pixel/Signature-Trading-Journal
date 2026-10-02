@@ -3,24 +3,27 @@
 /**
  * The brand lockup in the title bar.
  *
- * The strip that carries the window buttons was otherwise empty, which read as
- * dead space rather than restraint. The mark is the same stroke as the app icon
- * — drift, sweep the low, invert through the gap, leave — at a size where it
- * still reads.
+ * The mark is a fair value gap: three candles, and the band is the empty space
+ * between the first candle's top and the third candle's bottom — nothing
+ * touches it. This is the 32px drawing (brand/signature-mark-small.svg), on
+ * whole pixels, which stays crisp at title-bar size where the full drawing
+ * goes soft. Its colours come from the theme (--mark-*).
  */
 export function Wordmark() {
   return (
     <div className="flex select-none items-center gap-2">
-      <svg width="18" height="18" viewBox="0 0 1024 1024" aria-hidden className="shrink-0">
-        <rect width="1024" height="1024" rx="232" fill="var(--mark-ground)" />
-        <rect x="150" y="452" width="724" height="120" rx="18" fill="var(--mark-ink)" fillOpacity="0.22" />
-        <path
-          d="M 148 566 C 214 560, 232 500, 292 502 C 356 504, 344 628, 402 700
-             C 438 744, 496 748, 528 690 C 566 620, 548 452, 606 396
-             C 660 344, 700 372, 744 330 C 786 290, 836 268, 876 258"
-          fill="none" stroke="var(--mark-ink)" strokeWidth="86"
-          strokeLinecap="round" strokeLinejoin="round"
-        />
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden className="shrink-0">
+        <rect width="32" height="32" rx="7" fill="var(--mark-ground)" stroke="var(--glass-stroke)" strokeWidth="0.75" />
+        <g shapeRendering="crispEdges">
+          <rect x="4" y="14" width="24" height="3" fill="var(--mark-gap)" />
+          <rect x="7.5" y="18" width="1" height="2" fill="var(--mark-ink)" />
+          <rect x="5.8" y="20.8" width="4.4" height="3.4" rx="0.8" fill="none" stroke="var(--mark-ink)" strokeWidth="1.6" shapeRendering="geometricPrecision" />
+          <rect x="7.5" y="25" width="1" height="2" fill="var(--mark-ink)" />
+          <rect x="15" y="7" width="2" height="20" fill="var(--mark-ink)" />
+          <rect x="13" y="9" width="6" height="16" rx="1" fill="var(--mark-ink)" />
+          <rect x="23" y="6" width="2" height="7" fill="var(--mark-ink)" />
+          <rect x="21" y="8" width="6" height="4" rx="1" fill="var(--mark-ink)" />
+        </g>
       </svg>
       <span
         className="text-[12px] font-semibold"

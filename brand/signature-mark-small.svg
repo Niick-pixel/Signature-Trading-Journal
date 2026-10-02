@@ -1,15 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <defs>
-    <linearGradient id="ink" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#a7f3d0"/>
-    </linearGradient>
-  </defs>
-  <!-- Simplified for 16-48px: no glow, no gap outline, a heavier stroke.
-       At those sizes the detail in the full mark turns to mush. -->
-  <rect width="1024" height="1024" rx="232" fill="#0d0d12"/>
-  <rect x="150" y="452" width="724" height="120" rx="18" fill="#5eead4" fill-opacity="0.20"/>
-  <path d="M 148 566 C 214 560, 232 500, 292 502 C 356 504, 344 628, 402 700
-           C 438 744, 496 748, 528 690 C 566 620, 548 452, 606 396
-           C 660 344, 700 372, 744 330 C 786 290, 836 268, 876 258"
-        fill="none" stroke="url(#ink)" stroke-width="78" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
+  <rect width="32" height="32" rx="7" fill="#E9E2D4" shape-rendering="geometricPrecision"/>
+  <rect x="4" y="14" width="24" height="3" fill="#8A5205" fill-opacity="0.38"/>
+  <rect x="7.5" y="18" width="1" height="2" fill="#241B12"/><rect x="5.8" y="20.8" width="4.4" height="3.4" rx="0.8" fill="none" stroke="#241B12" stroke-width="1.6" shape-rendering="geometricPrecision"/><rect x="7.5" y="25" width="1" height="2" fill="#241B12"/>
+  <rect x="15" y="7" width="2" height="20" fill="#241B12"/><rect x="13" y="9" width="6" height="16" rx="1" fill="#241B12"/>
+  <rect x="23" y="6" width="2" height="7" fill="#241B12"/><rect x="21" y="8" width="6" height="4" rx="1" fill="#241B12"/>
 </svg>

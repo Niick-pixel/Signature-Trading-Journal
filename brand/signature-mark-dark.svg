@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" rx="232" fill="#0E1220"/>
+  <!-- The gap: between the first candle's high (below) and the third's low (above). -->
+  <rect x="140" y="452" width="744" height="96" rx="30" fill="#DAAE60" fill-opacity="0.3"/>
+  <!-- 1: the candle before, hollow (down) -->
+  <path d="M268 600V630M268 780V840" stroke="#DAAE60" stroke-width="40" stroke-linecap="round"/><rect x="214" y="650" width="108" height="110" rx="16" fill="none" stroke="#DAAE60" stroke-width="40"/>
+  <!-- 2: the displacement candle that leaves the gap -->
+  <path d="M512 240V300M512 770V834" stroke="#DAAE60" stroke-width="40" stroke-linecap="round"/><rect x="434" y="300" width="156" height="470" rx="26" fill="#DAAE60"/>
+  <!-- 3: the candle after, whose low stays above the gap -->
+  <path d="M756 206V262M756 392V400" stroke="#DAAE60" stroke-width="40" stroke-linecap="round"/><rect x="682" y="262" width="148" height="130" rx="26" fill="#DAAE60"/>
+</svg>
