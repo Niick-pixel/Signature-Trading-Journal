@@ -9,8 +9,14 @@
  * leaves the furniture behind.
  */
 export interface Preferences {
-  /** Multiplies every font size in the app. */
+  /** Multiplies every font size in the app — on top of Fit to screen. */
   textScale: number;
+  /**
+   * Scale the whole interface with the window, so a 2560px monitor gets
+   * larger text and a laptop a tighter layout. Desktop app only; a browser
+   * has its own Ctrl +/-.
+   */
+  fitScreen: boolean;
   /** Card size on the whiteboard. */
   boardDensity: 'compact' | 'normal' | 'roomy';
   /** Dotted lines joining trades that share a reason. */
@@ -47,6 +53,7 @@ export interface SavedView {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   textScale: 1,
+  fitScreen: true,
   boardDensity: 'normal',
   showReasonEdges: true,
   showLeakEdges: true,
@@ -57,6 +64,24 @@ export const DEFAULT_PREFERENCES: Preferences = {
   heatmapUrl: 'https://openmarket.xyz/chart/JUSJIzyA',
   savedViews: [],
 };
+
+export const TEXT_SIZES = ['Small', 'Normal', 'Large', 'Huge'] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];
+export const TEXT_SCALE: Record<TextSize, number> = {
+  Small: 0.9, Normal: 1, Large: 1.15, Huge: 1.3,
+};
+
+/** The named size nearest a scale — a hand-edited file may hold anything. */
+export function textSizeOf(scale: number): TextSize {
+  return TEXT_SIZES.reduce((best, k) => (Math.abs(TEXT_SCALE[k] - scale) < Math.abs(TEXT_SCALE[best] - scale) ? k : best), 'Normal' as TextSize);
+}
+
+/** One size up (+1) or down (-1) from a scale, or back to Normal (0). */
+export function stepTextScale(scale: number, step: number): number {
+  if (step === 0) return TEXT_SCALE.Normal;
+  const i = TEXT_SIZES.indexOf(textSizeOf(scale));
+  return TEXT_SCALE[TEXT_SIZES[Math.min(TEXT_SIZES.length - 1, Math.max(0, i + Math.sign(step)))]];
+}
 
 export const PREFERENCES_KEY = 'signature:preferences';
 export const PREFERENCES_COOKIE = 'signature_prefs';
@@ -101,6 +126,11 @@ export function writePreferences(prefs: Preferences): void {
 /** Pushes the preferences that are pure CSS onto the document. */
 export function applyPreferences(prefs: Preferences): void {
   const root = document.documentElement;
-  root.style.setProperty('--text-scale', String(prefs.textScale));
+  // In the desktop app the size is Chromium's page zoom, set by the main
+  // process from the window's size (electron/display.js). CSS zoom stays at 1
+  // there — the two would multiply. In a browser the CSS zoom is all there is.
+  const desktop = window.signature?.display;
+  root.style.setProperty('--text-scale', desktop ? '1' : String(prefs.textScale));
+  if (desktop) void desktop.set({ fit: prefs.fitScreen, scale: prefs.textScale }).catch(() => {});
   root.dataset.reduceMotion = prefs.reduceMotion ? 'true' : 'false';
 }

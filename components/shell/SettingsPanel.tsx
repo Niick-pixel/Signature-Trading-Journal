@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import { TogglePill } from '@/components/ui/TogglePill';
 import { usePreferences } from './PreferencesProvider';
-import type { Preferences } from '@/lib/preferences';
+import { TEXT_SCALE, TEXT_SIZES, textSizeOf, type Preferences } from '@/lib/preferences';
 import { ThemeGrid } from './ThemeGrid';
 import { SETTINGS_TOGGLE, SHEET_OPEN } from './Shortcuts';
 
@@ -16,10 +16,6 @@ interface Info {
   trades: number;
 }
 
-const TEXT_SIZES = ['Small', 'Normal', 'Large', 'Huge'] as const;
-const TEXT_SCALE: Record<(typeof TEXT_SIZES)[number], number> = {
-  Small: 0.9, Normal: 1, Large: 1.15, Huge: 1.3,
-};
 const DENSITIES = ['compact', 'normal', 'roomy'] as const;
 
 /**
@@ -58,6 +54,17 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
   const importRef = useRef<HTMLInputElement>(null);
   const [backup, setBackup] = useState<{ latest: { name: string; taken: string } | null; count: number } | null>(null);
   const [backingUp, setBackingUp] = useState(false);
+  const [desktop, setDesktop] = useState(false);
+  const [zoom, setZoom] = useState<DisplayWire | null>(null);
+
+  // The zoom the window is drawn at, kept current as the window is resized.
+  useEffect(() => {
+    const d = window.signature?.display;
+    if (!d) return;
+    setDesktop(true);
+    void d.state().then(setZoom).catch(() => {});
+    return d.onChange(setZoom);
+  }, []);
   // Desktop only: where the journal is, and updates.
   const [desk, setDesk] = useState<{ dataDir: string; mode: string; canMove: boolean; version: string } | null>(null);
   const [upd, setUpd] = useState<(UpdateState & { auto?: boolean }) | null>(null);
@@ -135,8 +142,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const currentSize = (Object.keys(TEXT_SCALE) as (typeof TEXT_SIZES)[number][])
-    .find((k) => TEXT_SCALE[k] === prefs.textScale) ?? 'Normal';
+  const currentSize = textSizeOf(prefs.textScale);
 
   return (
     <AnimatePresence>
@@ -169,9 +175,28 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
             </Section>
 
             <Section
-              title="Text size"
-              hint="Scales every bit of text in the app. Useful on a 1440p screen where the default reads small."
+              title="Size"
+              hint={desktop
+                ? 'Fit to screen scales the whole app with the window — larger on a 1440p monitor, tighter on a laptop. Text size adjusts on top. Ctrl = and Ctrl − step it too.'
+                : 'Scales every bit of text in the app.'}
             >
+              {desktop && (
+                <div className="mb-2.5 flex items-center gap-3">
+                  <TogglePill
+                    checked={prefs.fitScreen}
+                    onChange={(fitScreen) => update({ fitScreen })}
+                    label="Fit to screen"
+                    hint="Scale the whole interface with the size of the window."
+                  />
+                  {zoom && (
+                    <span data-zoom className="text-[11px] tabular-nums leading-snug" style={{ color: 'var(--text-faint)' }}
+                      title="The scale this window is drawn at: fitting × text size">
+                      {Math.round(zoom.zoom * 100)}% in this window
+                      {prefs.fitScreen && zoom.fit !== 1 && <><br />{Math.round(zoom.fit * 100)}% from its size</>}
+                    </span>
+                  )}
+                </div>
+              )}
               <Segmented
                 value={currentSize}
                 onChange={(size) => update({ textScale: TEXT_SCALE[size] })}

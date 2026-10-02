@@ -65,7 +65,11 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
       </div>
 
       {/* Three choices side by side; what each one means is in its tooltip. */}
-      <div className="mt-1.5 grid grid-cols-3 gap-1">
+      {/* A container query, not a breakpoint: what matters is the checklist
+          column's width, which a narrow window and a large text size both
+          shrink. When it is tight the points go (they are in the title) so
+          the tier names never truncate. */}
+      <div className="@container mt-1.5 grid grid-cols-3 gap-1">
         {SWEEP_TIERS.map((tier) => {
           const spec = SWEEP_TIER_SPEC[tier];
           const on = value === tier;
@@ -85,8 +89,8 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
                 borderColor: on ? `rgb(${tone} / 0.55)` : 'rgb(0 0 0 / 0)',
                 background: on ? `rgb(${tone} / 0.10)` : 'rgb(0 0 0 / 0)',
               }}
-              title={spec.hint}
-              className="flex w-full items-center gap-2 rounded-[calc(10px*var(--rk))] border px-2 py-1.5 text-left"
+              title={`${spec.hint} (${spec.points} points)`}
+              className="flex w-full items-center gap-1.5 rounded-[calc(10px*var(--rk))] border px-1.5 py-1.5 text-left @[24rem]:gap-2 @[24rem]:px-2"
             >
               <span className="relative grid size-[14px] shrink-0 place-items-center rounded-full border"
                 style={{ borderColor: on ? `rgb(${tone})` : 'var(--glass-stroke)' }}>
@@ -97,7 +101,7 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
                 <span className="block truncate text-[12px] font-medium leading-snug"
                   style={{ color: on ? 'var(--text)' : 'var(--text-dim)' }}>{spec.label.split(' ')[0]}</span>
               </span>
-              <span className="shrink-0 tabular-nums text-[11px] font-semibold"
+              <span className="hidden shrink-0 tabular-nums text-[11px] font-semibold @[24rem]:inline"
                 style={{ color: on ? `rgb(${tone})` : 'var(--text-faint)' }}>{spec.points}</span>
             </motion.button>
           );

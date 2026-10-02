@@ -1,4 +1,5 @@
-// The window as you left it: size, position, maximised or not, and page zoom.
+// The window as you left it: size, position, maximised or not, and how the
+// interface is scaled (see display.js).
 //
 // The window used to be created at a fixed 1440x920 every launch, never
 // maximised, and forgot any Ctrl +/- zoom — the server runs on a new random
@@ -10,6 +11,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { screen } = require('electron');
+const { normalise } = require('./display');
 
 const DEFAULTS = { width: 1440, height: 920 };
 const MIN_VISIBLE = 120;
@@ -26,7 +28,11 @@ function read(file) {
       ground: hex(s.ground) ? s.ground : null,
       maximized: s.maximized === true,
       fullscreen: s.fullscreen === true,
-      zoomFactor: num(s.zoomFactor) && s.zoomFactor >= 0.5 && s.zoomFactor <= 3 ? s.zoomFactor : 1,
+      // Fit to screen and the Text size, so the first frame is drawn at the
+      // right scale instead of jumping once the page reports its settings.
+      // (An older file's fixed zoomFactor is ignored: the zoom now follows the
+      // window.)
+      display: normalise(s.display),
     };
   } catch {
     return null;   // first run, or a file someone edited by hand
@@ -60,7 +66,7 @@ function restoreWindowState(dataDir) {
     // app opening "minimised".
     maximize: saved ? saved.maximized : true,
     fullscreen: Boolean(usable && saved.fullscreen),
-    zoomFactor: saved ? saved.zoomFactor : 1,
+    display: saved ? saved.display : normalise(null),
     ground: saved ? saved.ground : null,
     symbol: saved && saved.ground ? symbolFor(saved.ground) : null,
   };
@@ -85,10 +91,16 @@ function rememberGround(dataDir, color) {
   } catch { /* no window file yet: the next write carries it */ }
 }
 
+let display = null;
+/** Fit to screen and the Text size, kept with the window for the next launch. */
+function rememberDisplay(value) {
+  display = normalise(value);
+}
+
 /** Keep the file current as the window changes, and once more on close. */
-function trackWindowState(win, file) {
+function trackWindowState(win, file, initialDisplay) {
   let timer = null;
-  let zoomFactor = null;
+  if (!display) display = normalise(initialDisplay);
 
   const write = () => {
     if (!win || win.isDestroyed()) return;
@@ -100,7 +112,7 @@ function trackWindowState(win, file) {
         bounds: win.getNormalBounds(),
         maximized: win.isMaximized(),
         fullscreen: win.isFullScreen(),
-        zoomFactor: zoomFactor ?? win.webContents.getZoomFactor(),
+        display,
         ...(ground ? { ground } : {}),
       };
       fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -114,10 +126,8 @@ function trackWindowState(win, file) {
   for (const event of ['resize', 'move']) win.on(event, soon);
   for (const event of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) win.on(event, write);
 
-  // Ctrl + wheel reports itself; the View menu's zoom items do not, so the
-  // zoom is also read fresh on close.
-  win.webContents.on('zoom-changed', () => setTimeout(() => { zoomFactor = null; write(); }, 50));
-  win.on('close', () => { clearTimeout(timer); zoomFactor = null; write(); });
+  win.on('close', () => { clearTimeout(timer); write(); });
+  return { save: soon };
 }
 
-module.exports = { restoreWindowState, trackWindowState, rememberGround };
+module.exports = { restoreWindowState, trackWindowState, rememberGround, rememberDisplay };

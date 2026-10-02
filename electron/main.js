@@ -2,13 +2,14 @@
 // process starts and owns — nothing is ever served to an outside browser, and
 // the server dies with the window.
 
-const { app, BrowserWindow, shell, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Menu, dialog, ipcMain, screen } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
 const http = require('node:http');
-const { restoreWindowState, trackWindowState, rememberGround } = require('./window-state');
+const { restoreWindowState, trackWindowState, rememberGround, rememberDisplay } = require('./window-state');
+const { zoomFor, normalise } = require('./display');
 const { resolveInstalled, readLocation, writeLocation, copyJournal, journalFolderIn, isJournal } = require('./data-location');
 const { setupUpdates } = require('./updater');
 
@@ -246,8 +247,54 @@ function stopServer() {
   });
 }
 
+/** The window-button strip's height at 100%; it grows with the interface. */
+const TITLE_BAR_HEIGHT = 44;
+/** What the strip is painted with now, so a re-zoom can repaint it the same. */
+let titleBarPalette = null;
+/** Fit to screen and the Text size, as the renderer last reported them. */
+let display = normalise(null);
+/** The zoom in force and the part of it that fitting contributed. */
+let scaled = { fit: 1, zoom: 1 };
+
+function paintTitleBar() {
+  if (process.platform === 'darwin' || !mainWindow || mainWindow.isDestroyed() || !titleBarPalette) return;
+  try {
+    mainWindow.setTitleBarOverlay({ ...titleBarPalette, height: Math.round(TITLE_BAR_HEIGHT * scaled.zoom) });
+  } catch {
+    /* not every platform supports a title bar overlay */
+  }
+}
+
+/** Re-fits the interface to the window; see display.js. */
+function applyZoom(force = false) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const next = zoomFor(mainWindow.getContentBounds(), display);
+  const changed = next.zoom !== scaled.zoom || next.fit !== scaled.fit;
+  scaled = next;
+  if (force || mainWindow.webContents.getZoomFactor() !== next.zoom) mainWindow.webContents.setZoomFactor(next.zoom);
+  if (changed || force) {
+    paintTitleBar();
+    mainWindow.webContents.send('signature:display', { ...display, ...scaled });
+  }
+}
+
+/**
+ * The content size the window will open at, before it exists: the screen's
+ * work area when it opens maximised, its saved size otherwise. Used for the
+ * first frame's zoom; the first resize corrects anything this gets wrong.
+ */
+function openingSize(state) {
+  const o = state.options;
+  if (!state.maximize && !state.fullscreen) return { width: o.width, height: o.height };
+  const where = o.x != null ? screen.getDisplayMatching({ x: o.x, y: o.y, width: o.width, height: o.height }) : screen.getPrimaryDisplay();
+  return state.fullscreen ? where.bounds : where.workArea;
+}
+
 function createWindow(port) {
   const state = restoreWindowState(DATA_DIR);
+  display = state.display;
+  scaled = zoomFor(openingSize(state), display);
+  titleBarPalette = state.ground ? { color: state.ground, symbolColor: state.symbol } : TITLE_BAR.light;
   mainWindow = new BrowserWindow({
     ...state.options,
     minWidth: 960,
@@ -257,7 +304,7 @@ function createWindow(port) {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     titleBarOverlay: process.platform === 'darwin'
       ? undefined
-      : { ...(state.ground ? { color: state.ground, symbolColor: state.symbol } : TITLE_BAR.light), height: 44 },
+      : { ...titleBarPalette, height: Math.round(TITLE_BAR_HEIGHT * scaled.zoom) },
     trafficLightPosition: process.platform === 'darwin' ? { x: 18, y: 20 } : undefined,
     show: false,
     webPreferences: {
@@ -265,6 +312,8 @@ function createWindow(port) {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: true,
+      // Drawn at the fitted size from the first frame — no jump once it loads.
+      zoomFactor: scaled.zoom,
     },
   });
 
@@ -275,14 +324,14 @@ function createWindow(port) {
     else if (state.maximize) mainWindow.maximize();
     mainWindow.show();
   });
-  // The saved zoom, once, on the first load. After that Chromium keeps
-  // whatever zoom is set for the rest of the session; re-applying the startup
-  // value on a later reload would undo a zoom made from the View menu, which
-  // reports no event.
-  mainWindow.webContents.once('did-finish-load', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.setZoomFactor(state.zoomFactor);
-  });
-  trackWindowState(mainWindow, state.file);
+  // The interface follows the window: re-fitted whenever its size changes
+  // (in steps — see display.js), and on every load, since Chromium keeps zoom
+  // per site and a reload must not bring back a stale one.
+  let fitTimer = null;
+  const refit = () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => applyZoom(), 60); };
+  for (const event of ['resize', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) mainWindow.on(event, refit);
+  mainWindow.webContents.on('did-finish-load', () => applyZoom(true));
+  windowState = trackWindowState(mainWindow, state.file, display);
 
   // Any real link opens in the user's browser, not inside the app frame.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -325,6 +374,19 @@ const TITLE_BAR = {
   dark: { color: '#131009', symbolColor: '#c0a883' },
 };
 
+let windowState = null;
+
+// The renderer owns the Settings; it reports Fit to screen and the Text size
+// here, where the zoom is applied, and is told the zoom that results.
+ipcMain.handle('signature:display', (_event, value) => {
+  display = normalise(value);
+  rememberDisplay(display);
+  windowState?.save();
+  applyZoom();
+  return { ...display, ...scaled };
+});
+ipcMain.handle('signature:display-state', () => ({ ...display, ...scaled }));
+
 ipcMain.on('signature:titlebar-theme', (_event, theme) => {
   // Six themes send their own colours; the old 'light' | 'dark' still works.
   const valid = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
@@ -334,13 +396,10 @@ ipcMain.on('signature:titlebar-theme', (_event, theme) => {
   // Remembered so the next launch opens on the right ground instead of
   // flashing cream before a dark theme paints.
   rememberGround(DATA_DIR, palette.color);
+  titleBarPalette = palette;
   if (process.platform === 'darwin' || !mainWindow || mainWindow.isDestroyed()) return;
-  try {
-    mainWindow.setBackgroundColor(palette.color);
-    mainWindow.setTitleBarOverlay({ ...palette, height: 44 });
-  } catch {
-    /* not every platform supports a title bar overlay */
-  }
+  mainWindow.setBackgroundColor(palette.color);
+  paintTitleBar();
 });
 
 // The Settings panel offers to reveal the journal folder; only the main
@@ -424,6 +483,8 @@ function showFailurePage(win, reason) {
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 }
 
+const textSize = (step) => mainWindow?.webContents.send('signature:text-size', step);
+
 function buildMenu() {
   const isMac = process.platform === 'darwin';
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -443,7 +504,23 @@ function buildMenu() {
     // Paste must stay wired up — pasting a chart out of TradingView is the
     // primary way trades get into this app.
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    // Chromium's own zoom items would fight Fit to screen, which re-fits on
+    // the next resize; these step the Text size instead, which it multiplies.
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { label: 'Larger Text', accelerator: 'CmdOrCtrl+=', click: () => textSize(1) },
+        { label: 'Larger Text', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: () => textSize(1) },
+        { label: 'Smaller Text', accelerator: 'CmdOrCtrl+-', click: () => textSize(-1) },
+        { label: 'Normal Text Size', accelerator: 'CmdOrCtrl+0', click: () => textSize(0) },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
     { role: 'windowMenu' },
   ]));
 }

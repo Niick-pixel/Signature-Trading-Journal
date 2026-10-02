@@ -13,6 +13,16 @@ declare global {
     checkedAt?: string;
   }
 
+  /**
+   * What the main process reports: `fit` here is the zoom fitting alone
+   * contributes (1 when Fit to screen is off), `zoom` the page zoom in force.
+   */
+  interface DisplayWire {
+    fit: number;
+    scale: number;
+    zoom: number;
+  }
+
   interface Window {
     /** Set once the first page has hydrated; see CountUp. */
     __signatureHydrated?: boolean;
@@ -31,6 +41,12 @@ declare global {
         setAuto: (on: boolean) => Promise<boolean>;
         install: () => Promise<boolean>;
         onChange: (handler: (state: UpdateState) => void) => () => void;
+      };
+      display?: {
+        set: (value: { fit: boolean; scale: number }) => Promise<DisplayWire>;
+        state: () => Promise<DisplayWire>;
+        onChange: (handler: (state: DisplayWire) => void) => () => void;
+        onTextSize: (handler: (step: number) => void) => () => void;
       };
       onNavigate: (handler: (route: string) => void) => () => void;
     };

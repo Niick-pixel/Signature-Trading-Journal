@@ -24,6 +24,22 @@ contextBridge.exposeInMainWorld('signature', {
       return () => ipcRenderer.off('signature:update', listener);
     },
   },
+  /** Fit to screen and the Text size, applied as page zoom by the main process. */
+  display: {
+    set: (value) => ipcRenderer.invoke('signature:display', value),
+    state: () => ipcRenderer.invoke('signature:display-state'),
+    onChange: (handler) => {
+      const listener = (_event, state) => handler(state);
+      ipcRenderer.on('signature:display', listener);
+      return () => ipcRenderer.off('signature:display', listener);
+    },
+    /** View menu: +1 larger, -1 smaller, 0 back to normal. */
+    onTextSize: (handler) => {
+      const listener = (_event, step) => handler(step);
+      ipcRenderer.on('signature:text-size', listener);
+      return () => ipcRenderer.off('signature:text-size', listener);
+    },
+  },
   onNavigate: (handler) => {
     const listener = (_event, route) => handler(route);
     ipcRenderer.on('signature:navigate', listener);
