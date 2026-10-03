@@ -22,8 +22,10 @@ const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * not saturate into a single block of red.
  */
 export function Calendar({
-  grid, cells, today, scale, written,
+  grid, cells, today, scale, written, dayQuery = '',
 }: {
+  /** Appended to each day's link — the Backtest calendar opens Backtest days. */
+  dayQuery?: string;
   grid: Array<string | null>;
   cells: Map<string, DayCell>;
   today: string;
@@ -84,7 +86,7 @@ export function Calendar({
           const fill = flat ? 0.06 : 0.10 + weight * 0.30;
 
           return (
-            <Link key={day} href={`/day?day=${day}`}
+            <Link key={day} href={`/day?day=${day}${dayQuery}`}
               className="group aspect-[5/4] rounded-[calc(12px*var(--rk))] border p-2
                 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
                 hover:-translate-y-[2px] hover:scale-[1.02] hover:[box-shadow:var(--shadow-card)]"

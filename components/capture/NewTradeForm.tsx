@@ -139,11 +139,12 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
 
   const [date, setDate] = useState(() => (trade ? toLocalInput(new Date(trade.date)) : toLocalInput(new Date())));
   /*
-    A backtest needs no date: replayed from a chart months back, its day is not
-    worth looking up, so it starts undated and a date is one click away for
-    the times it matters. Ignored on every other account, which always has one.
+    A backtest never asks for the replayed chart's date: it starts on today,
+    like every trade, so it lands on the Backtest calendar on the day it was
+    done — nothing to look up from months back. "No date" leaves it off the
+    calendar entirely. Ignored on every other account, which always has one.
   */
-  const [undated, setUndated] = useState(trade ? trade.undated : true);
+  const [undated, setUndated] = useState(trade ? trade.undated : false);
   const backtest = isBacktest(account);
   const noDate = backtest && undated;
   const lessonsHere = backtest ? backtestLessons : pastLessons;
@@ -717,7 +718,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
         <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field quiet label="Date & time"
-            hint={backtest ? 'Optional on a backtest — the replayed day rarely matters, and an undated trade stays out of anything that asks when.' : undefined}>
+            hint={backtest ? 'Today by default — the day you did the backtest, which is the day it shows on the Backtest calendar. The replayed chart’s date is not needed. "No date" leaves it off the calendar.' : undefined}>
             {noDate ? (
               <div data-undated className="flex h-[38px] items-center justify-between gap-2 rounded-[calc(12px*var(--rk))] border border-dashed px-3 text-[12.5px]"
                 style={{ borderColor: 'var(--glass-stroke)', color: 'var(--text-faint)' }}>

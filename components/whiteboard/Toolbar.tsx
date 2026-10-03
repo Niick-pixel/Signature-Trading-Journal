@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { OUTCOMES, SESSIONS, type Outcome, type Session } from '@/lib/domain';
-import { ACCOUNT_VALUES, accountLabel, isReal, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, accountLabel, isHypothetical, type Account } from '@/lib/domain';
 import { GRADE_MAX } from '@/lib/grade';
 import { GROUP_LABELS, GROUP_MODES, type GroupMode } from '@/lib/layout';
 import { hasOpenFlags } from '@/lib/flags';
@@ -50,10 +50,11 @@ export function applyFilters(filters: Filters) {
     // The starting list for a weekly review: every record that argues with
     // itself and has not been explained away.
     if (filters.onlyFlagged && !hasOpenFlags(t)) return false;
-    // 'All' is every real account. Missed and Backtest trades are on the board
-    // only when chosen by name: in a reason cluster their R would sit inside
-    // the real total and move it.
-    if (filters.account === 'All' ? !isReal(t.account) : t.account !== filters.account) return false;
+    // 'All' is every real account plus Backtest — which the layout keeps in a
+    // group of its own, so its R never sits inside a real cluster's total
+    // (lib/layout.ts withBacktestsApart). Missed is on the board only when
+    // chosen by name: its trades did not happen.
+    if (filters.account === 'All' ? isHypothetical(t.account) : t.account !== filters.account) return false;
     return true;
   };
 }

@@ -5,7 +5,7 @@ import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { journalDays } from '@/db/journal';
 import { listDailyReviews } from '@/db/reviews';
-import { ACCOUNT_VALUES, MONEY_ACCOUNTS, isBacktest, isHypothetical, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MONEY_ACCOUNTS, isBacktest, isDated, isHypothetical, type Account } from '@/lib/domain';
 import { adherenceOf } from '@/lib/adherence';
 import { balanceFor } from '@/lib/balance';
 import { accountsInUse, forAccount } from '@/lib/stats';
@@ -82,9 +82,11 @@ export default async function CalendarPage(
     : asked && (ACCOUNT_VALUES as readonly string[]).includes(asked)
       ? (asked as Account)
       : fallback;
-  // Backtests are never on the calendar: their date, when they have one, is the
-  // replayed chart's, and a calendar square is a day lived.
-  const scoped = account !== 'All' && isBacktest(account) ? [] : forAccount(all, account);
+  // On its own, Backtest has a calendar like any account — each backtest on
+  // the day it was logged (the form's default) — but never in All, and never
+  // an undated one, which has no day.
+  const backtest = account !== 'All' && isBacktest(account);
+  const scoped = backtest ? forAccount(all, account).filter(isDated) : forAccount(all, account);
   const balance = balanceFor(all, events, account);
   const visibleEvents = account === 'All' ? events : events.filter((e) => e.account === account);
 
@@ -152,7 +154,7 @@ export default async function CalendarPage(
               </>
             ) : account !== 'All' && isBacktest(account) ? (
               <>
-                <BacktestNote undated={0} where="calendar" />
+                <BacktestNote undated={forAccount(all, account).filter((t) => !isDated(t)).length} where="calendar" />
                 <BacktestCard trades={forAccount(all, account)} />
               </>
             ) : (
@@ -172,7 +174,8 @@ export default async function CalendarPage(
                   home={href(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)} />
               </div>
 
-              <Calendar grid={grid} cells={cells} today={today} scale={scale} written={written} />
+              <Calendar grid={grid} cells={cells} today={today} scale={scale} written={written}
+                dayQuery={backtest ? `&account=${encodeURIComponent(account)}` : ''} />
             </Panel>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -21,10 +21,12 @@ export default async function DayPage(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const asked = (await searchParams).day;
+  // From the Backtest calendar: that day's backtests, and only those.
+  const backtests = isBacktest((await searchParams).account as string | undefined);
   const day = typeof asked === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : localDay();
-  // Never a backtest: its date, when it has one, is the replayed chart's.
+  // Otherwise never a backtest: a day page is a day traded.
   const onDay = listTrades()
-    .filter((t) => !isBacktest(t.account) && t.date.slice(0, 10) === day)
+    .filter((t) => (backtests ? isBacktest(t.account) && !t.undated : !isBacktest(t.account)) && t.date.slice(0, 10) === day)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
@@ -40,12 +42,13 @@ export default async function DayPage(
           <div className="glass rounded-[calc(28px*var(--rk))] p-7 sm:p-9">
             <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.07em]"
               style={{ color: 'var(--text-faint)' }}>
-              Trades on this day
+              {backtests ? 'Backtests on this day' : 'Trades on this day'}
             </h2>
             <DayTrades trades={onDay} />
           </div>
 
-          <DailyReviewForm day={day} existing={getDailyReview(day)} tradesOnDay={onDay.length} />
+          {/* The daily review is about the day traded, not the day replayed. */}
+          {!backtests && <DailyReviewForm day={day} existing={getDailyReview(day)} tradesOnDay={onDay.length} />}
         </div>
       </div>
     </div>

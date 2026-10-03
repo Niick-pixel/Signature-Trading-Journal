@@ -475,7 +475,7 @@ export const REASON_HUE: Record<Reason, number> = {
   'Hesitation (late entry)': 62,
   Overleveraged: 320,
   'News reaction': 240,
-  'Backtest replay': 100, // chartreuse — its own corner, near no real reason
+  'Backtest replay': 218, // slate — practice, apart from every real reason
 };
 
 

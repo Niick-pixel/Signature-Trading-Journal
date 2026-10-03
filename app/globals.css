@@ -140,6 +140,8 @@
   --reason-9: 152 156 28;
   --reason-10: 156 28 113;
   --reason-11: 28 28 156;
+  /* Backtest replay: a cool slate — practice, kept visibly apart from the real reasons. */
+  --reason-12: 84 98 124;
 
   /*
     Chart series colours, for the one chart that puts two series on one axis.
@@ -196,6 +198,7 @@
   --reason-9: 214 218 98;
   --reason-10: 218 98 178;
   --reason-11: 98 98 218;
+  --reason-12: 156 172 200;
 
   --series-a: 71 128 190;
   --series-b: 191 138 46;
