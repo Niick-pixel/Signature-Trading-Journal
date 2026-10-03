@@ -5,7 +5,7 @@ import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { journalDays } from '@/db/journal';
 import { listDailyReviews } from '@/db/reviews';
-import { ACCOUNT_VALUES, MONEY_ACCOUNTS, isHypothetical, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MONEY_ACCOUNTS, isBacktest, isHypothetical, type Account } from '@/lib/domain';
 import { adherenceOf } from '@/lib/adherence';
 import { balanceFor } from '@/lib/balance';
 import { accountsInUse, forAccount } from '@/lib/stats';
@@ -20,6 +20,7 @@ import { KeyNav } from '@/components/ui/KeyNav';
 import { Calendar } from '@/components/money/Calendar';
 import { Mornings } from '@/components/money/Mornings';
 import { conditions } from '@/lib/conditions';
+import { BacktestCard, BacktestNote } from '@/components/money/BacktestCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,9 @@ export default async function CalendarPage(
     : asked && (ACCOUNT_VALUES as readonly string[]).includes(asked)
       ? (asked as Account)
       : fallback;
-  const scoped = forAccount(all, account);
+  // Backtests are never on the calendar: their date, when they have one, is the
+  // replayed chart's, and a calendar square is a day lived.
+  const scoped = account !== 'All' && isBacktest(account) ? [] : forAccount(all, account);
   const balance = balanceFor(all, events, account);
   const visibleEvents = account === 'All' ? events : events.filter((e) => e.account === account);
 
@@ -146,6 +149,11 @@ export default async function CalendarPage(
               <>
                 <HypotheticalNote />
                 <MissedCard trades={scoped} />
+              </>
+            ) : account !== 'All' && isBacktest(account) ? (
+              <>
+                <BacktestNote undated={0} where="calendar" />
+                <BacktestCard trades={forAccount(all, account)} />
               </>
             ) : (
               <BalanceCard balance={balance} account={account} events={visibleEvents} />

@@ -13,6 +13,8 @@ import type { Trade } from './types';
 export interface PastLesson {
   id: string;
   date: string;
+  /** From an undated backtest: `date` is only when it was logged. */
+  undated?: boolean;
   outcome: Outcome;
   r_multiple: number | null;
   lesson: string;
@@ -42,7 +44,7 @@ export function lessonsBySetup(
     if (!lesson) continue;
     const list = (out[t.setup_type] ??= []);
     if (list.length >= KEEP) continue;
-    list.push({ id: t.id, date: t.date, outcome: t.outcome, r_multiple: t.r_multiple, lesson });
+    list.push({ id: t.id, date: t.date, undated: t.undated, outcome: t.outcome, r_multiple: t.r_multiple, lesson });
   }
   return out;
 }

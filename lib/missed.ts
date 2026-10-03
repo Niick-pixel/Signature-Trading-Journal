@@ -1,4 +1,4 @@
-import { isHypothetical, isTaken, ACCOUNTS, SESSIONS, SKIP_REASONS } from './domain';
+import { isHypothetical, isReal, isTaken, SESSIONS, SKIP_REASONS } from './domain';
 import { GRADE_LETTERS } from './grade';
 import type { DailyReview, Trade } from './types';
 
@@ -86,7 +86,7 @@ export function missedPatterns(trades: Trade[], reviews: DailyReview[] = []): Mi
   const missed = trades.filter((t) => isHypothetical(t.account) && t.deleted_at == null);
   // What you did take, in the accounts you trade — never a backtest, whose
   // "setups seen" were chosen with the chart already scrolled.
-  const taken = trades.filter((t) => ACCOUNTS.includes(t.account) && !isHypothetical(t.account)
+  const taken = trades.filter((t) => isReal(t.account)
     && t.deleted_at == null && isTaken(t.outcome));
   const seen = missed.length + taken.length;
   const rate = seen ? missed.length / seen : null;

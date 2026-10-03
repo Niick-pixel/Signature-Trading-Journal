@@ -1,7 +1,7 @@
 import { adherenceOf } from './adherence';
 import { conditions } from './conditions';
 import {
-  CHECKLIST_ITEMS, CONTEXT_FLAG_LIST, MONEY_ACCOUNTS, SWEEP_TIER_SPEC, isHypothetical, isTaken, type Account,
+  CHECKLIST_ITEMS, CONTEXT_FLAG_LIST, MONEY_ACCOUNTS, SWEEP_TIER_SPEC, isBacktest, isHypothetical, isTaken, type Account,
 } from './domain';
 import { openFlagsFor } from './flags';
 import { repeatedLessons } from './lessons';
@@ -105,7 +105,10 @@ function groupRows(trades: Trade[], keyOf: (t: Trade) => string): unknown[][] {
 }
 
 export function monthlyReview(input: MonthlyInput): MonthlyReview {
-  const { month, trades, reviews, weekly, pages, cash, shots } = input;
+  const { month, reviews, weekly, pages, cash, shots } = input;
+  // The month lived. Backtests replay other months — or no month at all — and
+  // are read on their own Stats page.
+  const trades = input.trades.filter((t) => !isBacktest(t.account));
   const now = input.now ?? new Date();
   const title = `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
   const inMonth = (d: string) => d.slice(0, 7) === month;

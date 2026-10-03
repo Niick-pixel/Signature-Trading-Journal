@@ -21,6 +21,8 @@ import { FlagList } from './FlagList';
 import { History } from './History';
 import { Lightbox } from './Lightbox';
 import { ShotGallery } from './ShotGallery';
+import { tradeWhen } from '@/lib/when';
+import { accountLabel } from '@/lib/domain';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -228,7 +230,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                   <div className="min-w-0">
                     <h2 className="text-[17px] font-semibold tracking-tight">{trade.reason}</h2>
                     <p className="mt-1 text-[12px]" style={{ color: 'var(--text-dim)' }}>
-                      {new Date(trade.date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                      {tradeWhen(trade)}
                       {' · '}{trade.instrument} {trade.direction} · {trade.session}
                       {trade.macro_time && ' · macro'}
                     </p>
@@ -349,7 +351,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                   <Group>
                     <Row
                       label="Account"
-                      value={trade.account + (trade.account_label ? ` · ${trade.account_label}` : '')}
+                      value={accountLabel(trade.account) + (trade.account_label ? ` · ${trade.account_label}` : '')}
                     />
                     <Row
                       label="Stage"

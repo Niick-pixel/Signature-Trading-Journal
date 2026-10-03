@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { GRADE_COLOR } from '@/lib/grade';
 import { OUTCOME_COLOR } from '@/components/whiteboard/TradeNode';
 import type { Trade } from '@/lib/types';
+import { tradeTime } from '@/lib/when';
 
 const usd = (v: number) =>
   `${v < 0 ? '−' : '+'}$${Math.abs(v).toLocaleString(undefined, {
@@ -69,7 +70,7 @@ export function DayTrades({ trades }: { trades: Trade[] }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-medium">{t.reason}</span>
               <span className="block truncate text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                {new Date(t.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                {tradeTime(t)}
                 {' · '}{t.instrument} {t.direction}{' · '}{t.setup_type}
                 {t.mistake_tags.length > 0 && ` · ${t.mistake_tags.join(', ')}`}
               </span>

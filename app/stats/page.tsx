@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { listTrades } from '@/db/trades';
 import { ACCOUNT_COOKIE } from '@/lib/account-pref';
-import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isHypothetical, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isBacktest, isDated, isHypothetical, isReal, isSeparate, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
@@ -21,6 +21,8 @@ import { BreakdownTable } from '@/components/stats/ModelBreakdown';
 import { GATES_SINCE, TRIAL_RUBRIC, TRIAL_SAMPLE } from '@/lib/rubric';
 import { missedPatterns } from '@/lib/missed';
 import { listDailyReviews } from '@/db/reviews';
+import { tradeDay } from '@/lib/when';
+import { BacktestNote } from '@/components/money/BacktestCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,8 +60,8 @@ export default async function StatsPage(
     ? 'All'
     : (ACCOUNT_VALUES as readonly string[]).includes(requested ?? '')
       ? (requested as Account)
-      // The busiest REAL account: Missed is opened only by choosing it.
-      : (accounts.find((a) => !isHypothetical(a.account))?.account
+      // The busiest REAL account: Missed and Backtest open only by choosing them.
+      : (accounts.find((a) => isReal(a.account))?.account
         ?? accounts[0]?.account ?? 'Live');
 
   const scoped = forAccount(all, account);
@@ -88,7 +90,8 @@ export default async function StatsPage(
   // The trial counts the skipped setups logged in Missed as well — on any
   // account's page, not only on Missed's (where they are already the selection).
   const trialVerdict = deliveryOnlyVerdict(sameFilters(trades),
-    account !== 'All' && isHypothetical(account) ? [] : sameFilters(all.filter((t) => isHypothetical(t.account))));
+    // Not on Backtest's page: a replay's verdict is its own.
+    account !== 'All' && isSeparate(account) ? [] : sameFilters(all.filter((t) => isHypothetical(t.account))));
   const modelLink = `/stats?${new URLSearchParams({
     // Always carried, 'All' included: without it the page falls back to
                   // the remembered account and the filter silently changes accounts.
@@ -105,7 +108,7 @@ export default async function StatsPage(
   const taken = trades.filter((t) => t.outcome !== 'Not taken');
   const withR = taken.filter((t) => t.r_multiple != null);
   const runs = streaks(trades);
-  const tradingDays = new Set(taken.map((t) => t.date.slice(0, 10))).size;
+  const tradingDays = new Set(taken.filter(isDated).map((t) => t.date.slice(0, 10))).size;
   const tagged = (key: 'mistake_tags' | 'worked_tags') => taken.filter((t) => (t[key] ?? []).length > 0).length;
   const honesty = gradeHonesty(trades);
   const hes = hesitation(trades);
@@ -205,6 +208,12 @@ export default async function StatsPage(
               )}
             </div>
           </header>
+
+          {account !== 'All' && isBacktest(account) && (
+            <div className="mb-5">
+              <BacktestNote undated={scoped.filter((t) => !isDated(t)).length} where="stats" />
+            </div>
+          )}
 
           {account !== 'All' && isHypothetical(account) && (
             <div className="mb-5 space-y-5">
@@ -418,7 +427,7 @@ export default async function StatsPage(
                           {honesty.worst.map((w) => (
                             <div key={w.trade.id} className="flex items-baseline justify-between gap-3 text-[11px]">
                               <span className="truncate" style={{ color: 'var(--text-dim)' }}>
-                                {new Date(w.trade.date).toLocaleDateString()} · {w.trade.reason}
+                                {tradeDay(w.trade)} · {w.trade.reason}
                               </span>
                               <span className="shrink-0 tabular-nums" style={{ color: 'rgb(var(--outcome-loss))' }}>
                                 {w.from} → {w.to}

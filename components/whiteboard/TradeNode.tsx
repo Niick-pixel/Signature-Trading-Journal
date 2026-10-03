@@ -17,6 +17,7 @@ import { NODE_H, NODE_W } from '@/lib/layout';
 import type { Outcome } from '@/lib/domain';
 import type { Trade } from '@/lib/types';
 import { hasOpenFlags } from '@/lib/flags';
+import { tradeDay } from '@/lib/when';
 
 /** Border colour carries the outcome. Nothing else on the card does. */
 export const OUTCOME_COLOR: Record<Outcome, string> = {
@@ -123,7 +124,7 @@ function TradeNodeInner({ data }: NodeProps) {
       >
         <span className="truncate text-[9px] font-medium tracking-wide"
           style={{ color: 'rgba(255,255,255,0.72)' }}>
-          {new Date(trade.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+          {tradeDay(trade, { day: 'numeric', month: 'short' })}
         </span>
       </div>
 

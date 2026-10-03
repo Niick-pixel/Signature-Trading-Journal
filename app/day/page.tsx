@@ -4,6 +4,7 @@ import { TitleBar } from '@/components/shell/TitleBar';
 import { DailyReviewForm } from '@/components/review/DailyReviewForm';
 import { DayTrades } from '@/components/review/DayTrades';
 import { localDay } from '@/lib/day';
+import { isBacktest } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,9 @@ export default async function DayPage(
 ) {
   const asked = (await searchParams).day;
   const day = typeof asked === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : localDay();
+  // Never a backtest: its date, when it has one, is the replayed chart's.
   const onDay = listTrades()
-    .filter((t) => t.date.slice(0, 10) === day)
+    .filter((t) => !isBacktest(t.account) && t.date.slice(0, 10) === day)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return (

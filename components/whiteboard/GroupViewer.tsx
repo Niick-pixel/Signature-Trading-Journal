@@ -7,6 +7,7 @@ import { press, spring } from '@/lib/motion';
 import { Overlay } from '@/components/ui/Overlay';
 import { OUTCOME_COLOR } from './TradeNode';
 import type { Trade } from '@/lib/types';
+import { tradeDay } from '@/lib/when';
 
 const usd = (v: number) =>
   `${v < 0 ? '−' : '+'}$${Math.abs(v).toLocaleString(undefined, {
@@ -112,7 +113,7 @@ export function GroupViewer({
                         <span className="min-w-0">
                           <span className="block truncate text-[13px] font-medium">{t.reason}</span>
                           <span className="block truncate text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                            {new Date(t.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                            {tradeDay(t, { day: 'numeric', month: 'short' })}
                             {' · '}{t.instrument} {t.direction}{' · '}{t.setup_type}
                           </span>
                         </span>

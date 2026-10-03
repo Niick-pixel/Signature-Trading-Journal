@@ -7,6 +7,7 @@ import { announceAccount, writeAccountCookie } from '@/lib/account-pref';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
+import { accountLabel } from '@/lib/domain';
 
 interface AccountSwitcherProps {
   available: Array<{ account: Account; count: number }>;
@@ -42,7 +43,7 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
   };
 
   const options: Array<{ key: Account | 'All'; label: string; count: number | null }> = [
-    ...available.map((a) => ({ key: a.account, label: a.account, count: a.count })),
+    ...available.map((a) => ({ key: a.account, label: accountLabel(a.account), count: a.count })),
   ];
   if (available.length > 1) options.push({ key: 'All', label: 'All (mixed)', count: null });
 

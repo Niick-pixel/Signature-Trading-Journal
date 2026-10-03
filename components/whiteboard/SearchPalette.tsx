@@ -6,6 +6,7 @@ import { spring, springSoft, scrimExit } from '@/lib/motion';
 import { search, type Hit } from '@/lib/search';
 import { reasonAccent } from '@/lib/layout';
 import type { JournalPage, Trade } from '@/lib/types';
+import { tradeDay } from '@/lib/when';
 
 /**
  * Find a trade by what I wrote about it.
@@ -146,7 +147,7 @@ function Row({ hit, active, onPick }: { hit: Hit; active: boolean; onPick: () =>
               style={{ background: `rgb(${reasonAccent(hit.trade.reason)})` }} />
             <span className="truncate text-[12px] font-medium">{hit.trade.reason}</span>
             <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-faint)' }}>
-              {new Date(hit.trade.date).toLocaleDateString()} · {hit.trade.checklist_score}/100
+              {tradeDay(hit.trade)} · {hit.trade.checklist_score}/100
               {' · in '}{hit.field}
             </span>
           </>

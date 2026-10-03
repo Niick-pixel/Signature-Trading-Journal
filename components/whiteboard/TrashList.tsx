@@ -8,6 +8,7 @@ import { reasonAccent } from '@/lib/layout';
 import type { Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { DeleteTradeDialog } from './DeleteTradeDialog';
+import { tradeDay } from '@/lib/when';
 
 export function TrashList({ trades }: { trades: Trade[] }) {
   const router = useRouter();
@@ -73,7 +74,7 @@ export function TrashList({ trades }: { trades: Trade[] }) {
                 <span className="truncate text-[13px] font-medium">{trade.reason}</span>
               </div>
               <div className="mt-0.5 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                {new Date(trade.date).toLocaleDateString()} · {trade.instrument} {trade.direction}
+                {tradeDay(trade)} · {trade.instrument} {trade.direction}
                 {' · '}{trade.outcome}
                 {' · deleted '}
                 {trade.deleted_at ? new Date(trade.deleted_at).toLocaleDateString() : '—'}

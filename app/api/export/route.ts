@@ -12,7 +12,7 @@ import type { JournalPage, Trade } from '@/lib/types';
 
 /** Columns in a stable, readable order. Same order every export, so diffs work. */
 const CSV_COLUMNS: Array<keyof Trade> = [
-  'id', 'date', 'account', 'account_label', 'status', 'instrument', 'direction', 'session',
+  'id', 'date', 'undated', 'account', 'account_label', 'status', 'instrument', 'direction', 'session',
   'reason', 'setup_type', 'htf_bias', 'premium_discount', 'target_type',
   // The two gates, structured: major|minor|none and true/false (blank = never recorded).
   'sweep_tier', 'singular_gap',

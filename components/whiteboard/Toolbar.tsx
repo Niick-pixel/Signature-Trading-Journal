@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { OUTCOMES, SESSIONS, type Outcome, type Session } from '@/lib/domain';
-import { ACCOUNT_VALUES, isHypothetical, type Account } from '@/lib/domain';
+import { ACCOUNT_VALUES, accountLabel, isReal, type Account } from '@/lib/domain';
 import { GRADE_MAX } from '@/lib/grade';
 import { GROUP_LABELS, GROUP_MODES, type GroupMode } from '@/lib/layout';
 import { hasOpenFlags } from '@/lib/flags';
@@ -40,6 +40,8 @@ export function filtersActive(f: Filters): boolean {
 /** Filtering never removes a node — it re-runs the layout so positions animate. */
 export function applyFilters(filters: Filters) {
   return (t: Trade) => {
+    // A date range asks when trades happened, which an undated backtest cannot answer.
+    if ((filters.from || filters.to) && t.undated) return false;
     if (filters.from && t.date < filters.from) return false;
     if (filters.to && t.date > `${filters.to}T23:59`) return false;
     if (filters.outcomes.length && !filters.outcomes.includes(t.outcome)) return false;
@@ -48,10 +50,10 @@ export function applyFilters(filters: Filters) {
     // The starting list for a weekly review: every record that argues with
     // itself and has not been explained away.
     if (filters.onlyFlagged && !hasOpenFlags(t)) return false;
-    // 'All' is every account that traded. Missed trades are on the board only
-    // when Missed is chosen: in a reason cluster their hypothetical R would sit
-    // inside the real total and move it.
-    if (filters.account === 'All' ? isHypothetical(t.account) : t.account !== filters.account) return false;
+    // 'All' is every real account. Missed and Backtest trades are on the board
+    // only when chosen by name: in a reason cluster their R would sit inside
+    // the real total and move it.
+    if (filters.account === 'All' ? !isReal(t.account) : t.account !== filters.account) return false;
     return true;
   };
 }
@@ -195,7 +197,7 @@ export function Toolbar({
         {(['All', ...ACCOUNT_VALUES] as const).map((a) => (
           <Chip
             key={a}
-            label={a === 'Backtest (FX Replay)' ? 'Backtest' : a}
+            label={accountLabel(a)}
             active={filters.account === a}
             onClick={() => onChange({ ...filters, account: a })}
           />

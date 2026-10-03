@@ -40,7 +40,7 @@ export function PastLessons({ setup, lessons, inline }: {
       {lessons.map((l) => (
         <li key={l.id} data-lesson={l.id} className="text-[12px] leading-snug">
           <span className="mr-2 text-[10px] tabular-nums" style={{ color: 'var(--text-faint)' }}>
-            {shortDate(l.date)}
+            {l.undated ? 'Backtest' : shortDate(l.date)}
             <span className="ml-1.5 font-semibold" style={{ color: tone(l) }}>{result(l)}</span>
           </span>
           <span style={{ color: 'var(--text-dim)' }}>{l.lesson}</span>

@@ -3,6 +3,7 @@ import { getDailyReview, listDailyReviews, saveDailyReview } from '@/db/reviews'
 import { listTrades } from '@/db/trades';
 import { BIAS_DIRECTIONS, NEWS_LEVELS } from '@/lib/domain';
 import type { DailyReview } from '@/lib/types';
+import { isBacktest } from '@/lib/domain';
 
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
@@ -13,7 +14,8 @@ export async function GET(request: Request) {
     // The check-in asks with ?context=1: it also needs to know whether the
     // session has already started, so it does not interrupt one in progress.
     if (new URL(request.url).searchParams.get('context') === '1') {
-      const tradesToday = listTrades().filter((t) => t.date.slice(0, 10) === day).length;
+      // A backtest logged this morning is not a session under way.
+      const tradesToday = listTrades().filter((t) => !isBacktest(t.account) && t.date.slice(0, 10) === day).length;
       return NextResponse.json({ review: getDailyReview(day), tradesToday });
     }
     return NextResponse.json(getDailyReview(day));

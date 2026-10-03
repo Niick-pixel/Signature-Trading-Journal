@@ -4,6 +4,7 @@ import { NewTradeForm } from '@/components/capture/NewTradeForm';
 import { lessonsBySetup } from '@/lib/lessons';
 import { Whiteboard } from '@/components/whiteboard/Whiteboard';
 import { TitleBar } from '@/components/shell/TitleBar';
+import { isBacktest } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +64,11 @@ export default async function NewTradePage({
           */}
           <div className="mx-auto w-full max-w-[96rem] px-4 pb-20 pt-4 sm:px-6
             2xl:max-w-[132rem] 2xl:pb-10">
-            <NewTradeForm trade={trade ?? undefined} pastLessons={lessonsBySetup(trades, trade ?? undefined)} />
+            {/* Two sets, one per world: a backtest is shown what earlier
+                backtests taught, a real trade what real trades did. */}
+            <NewTradeForm trade={trade ?? undefined}
+              pastLessons={lessonsBySetup(trades.filter((t) => !isBacktest(t.account)), trade ?? undefined)}
+              backtestLessons={lessonsBySetup(trades.filter((t) => isBacktest(t.account)), trade ?? undefined)} />
           </div>
         </div>
       </div>

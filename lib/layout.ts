@@ -201,7 +201,8 @@ function groupsFor(trades: Trade[], mode: GroupMode): BoardGroup[] {
     } else if (mode === 'target') {
       put(t.target_type, t);
     } else {
-      put(t.date.slice(0, 7), t);
+      // An undated backtest has no month; it gets a group of its own, last.
+      put(t.undated ? 'Undated' : t.date.slice(0, 7), t);
     }
   }
 

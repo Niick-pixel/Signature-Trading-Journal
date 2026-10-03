@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ACCOUNT_VALUES } from '@/lib/domain';
+import { ACCOUNTS, accountLabel } from '@/lib/domain';
 import { ACCOUNT_EVENT, ACCOUNT_SHOWN_EVENT, lastShownAccount, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
 
-const OPTIONS = [...ACCOUNT_VALUES, 'All'] as const;
-const label = (a: string) => (a === 'Backtest (FX Replay)' ? 'Backtest' : a === 'All' ? 'All accounts' : a);
+const OPTIONS = [...ACCOUNTS, 'All'] as const;
+const label = (a: string) => (a === 'All' ? 'All accounts' : accountLabel(a));
 
 /**
  * One account for the whole app, in the title bar.

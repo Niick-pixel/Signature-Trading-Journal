@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { OUTCOME_COLOR } from '@/components/whiteboard/TradeNode';
 import { spring, springSoft } from '@/lib/motion';
 import type { Trade } from '@/lib/types';
+import { tradeDay } from '@/lib/when';
 
 /** Why a trade is leaving the journal. The answer is kept with it in the Trash. */
 export const DELETE_REASONS = [
@@ -108,7 +109,7 @@ export function DeleteTradeDialog({ trade, open, onClose, onDone, mode = 'trash'
           style={{ background: 'var(--glass-fill-strong)' }}>
           <span className="size-1.5 shrink-0 rounded-full" style={{ background: `rgb(${OUTCOME_COLOR[trade.outcome]})` }} />
           <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--text-dim)' }}>
-            {new Date(trade.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            {tradeDay(trade, { month: 'short', day: 'numeric', year: 'numeric' })}
             {' · '}{trade.instrument} {trade.direction} · {trade.setup_type} · grade {trade.grade_letter}
           </span>
           <span className="shrink-0 font-semibold tabular-nums" style={{ color: `rgb(${OUTCOME_COLOR[trade.outcome]})` }}>

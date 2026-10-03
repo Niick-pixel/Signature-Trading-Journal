@@ -1,5 +1,5 @@
 import {
-  ACCOUNT_VALUES, isHypothetical, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
+  ACCOUNT_VALUES, accountLabel, isDated, isHypothetical, isReal, isSeparate, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
   RETIRED_TARGET_TYPES, SKIP_REASONS, SWEEP_TIERS, SWEEP_TIER_SPEC, TAKE_IT_THRESHOLD, TARGET_TYPES,
   TARGET_TYPE_VALUES, isTaken,
   type Account, type ChecklistKey, type MistakeTag, type Reason, type SkipReason,
@@ -257,8 +257,10 @@ export function losingReasons(trades: Trade[]): Array<{ reason: Reason; losses: 
 }
 
 export function byMacroTime(trades: Trade[]): Group<'Inside macro' | 'Outside macro'>[] {
-  const inside = trades.filter((t) => t.macro_time);
-  const outside = trades.filter((t) => !t.macro_time);
+  // An undated backtest has no entry time, so it was neither inside nor outside.
+  const timed = trades.filter(isDated);
+  const inside = timed.filter((t) => t.macro_time);
+  const outside = timed.filter((t) => !t.macro_time);
   return [
     { key: 'Inside macro' as const, trades: inside, stats: aggregate(inside) },
     { key: 'Outside macro' as const, trades: outside, stats: aggregate(outside) },
@@ -497,10 +499,11 @@ export function checklistEdge(trades: Trade[]): ItemEdge[] {
  * This is applied before anything else in this file runs.
  */
 export function forAccount(trades: Trade[], account: Account | 'All'): Trade[] {
-  // 'All' means every account that traded — never the missed ones, whose
-  // trades did not happen. Choosing Missed by name is the only way in.
+  // 'All' means every real account — never Missed, whose trades did not
+  // happen, nor Backtest, whose fills were not real. Choosing either by name
+  // is the only way in (domain.ts SEPARATE_ACCOUNTS).
   return account === 'All'
-    ? trades.filter((t) => !isHypothetical(t.account))
+    ? trades.filter((t) => isReal(t.account))
     : trades.filter((t) => t.account === account);
 }
 
@@ -655,7 +658,9 @@ export interface Streaks {
 
 const dayOf = (iso: string) => iso.slice(0, 10);
 
-export function streaks(trades: Trade[]): Streaks {
+export function streaks(all: Trade[]): Streaks {
+  // Days: an undated backtest happened on no day we know.
+  const trades = all.filter(isDated);
   const days = [...new Set(trades.map((t) => dayOf(t.date)))].sort();
 
   const runOf = (list: string[]) => {
@@ -697,7 +702,8 @@ export interface HeatCell { day: number; hour: number; count: number; totalR: nu
 export function whenHeatmap(trades: Trade[]): HeatCell[] {
   const cells = new Map<string, HeatCell>();
   for (const t of trades) {
-    if (!isTaken(t.outcome)) continue;
+    // An undated backtest has no weekday or hour — only when it was logged.
+    if (!isTaken(t.outcome) || !isDated(t)) continue;
     const d = new Date(t.date);
     const day = d.getDay();
     const hour = d.getHours();
@@ -884,7 +890,7 @@ export function modelBreakdowns(trades: Trade[], everyAccount: Trade[]): ModelBr
       { key: 'unrecorded', label: 'Not recorded', muted: true },
     ]),
     account: breakdown(everyAccount, (t) => t.account, ACCOUNT_VALUES.map((a) => ({
-      key: a, label: isHypothetical(a) ? `${a} (hypothetical)` : a, muted: isHypothetical(a),
+      key: a, label: isHypothetical(a) ? `${a} (hypothetical)` : isSeparate(a) ? `${accountLabel(a)} (replay)` : a, muted: isSeparate(a),
     }))),
     entryGrade: breakdown(trades, (t) => t.grade_letter,
       GRADE_LETTERS.map((l) => ({ key: l, label: l, always: true }))),

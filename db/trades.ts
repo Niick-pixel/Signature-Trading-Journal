@@ -28,6 +28,8 @@ const BOOL_COLUMNS = [
   // tri-state and live in NULLABLE_BOOL_COLUMNS below.
   'chk_returned_to_fvg', 'chk_inversion_close',
   'graded_post_hoc',
+  // A backtest with no day (019): `date` is then only when it was logged.
+  'undated',
 ] as const;
 
 /** Derived by SQLite from the checklist. Read, never written. */
@@ -148,6 +150,7 @@ const WRITABLE = [
   'confidence_at_entry', 'would_be_r', 'playbook_id',
   'contracts', 'risk_dollars', 'risk_percent', 'pnl_dollars', 'stop_points', 'outcome', 'r_multiple',
   'explanation', 'lesson', 'screenshot_path', 'quick_log', 'worked_tags',
+  'undated',
 ] as const;
 
 /**

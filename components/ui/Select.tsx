@@ -14,6 +14,8 @@ interface SelectProps<T extends string> {
   accent?: string;
   /** Optional per-option colour, e.g. reason hues. */
   accentFor?: (option: T) => string | undefined;
+  /** What an option reads as, when it should differ from the stored value. */
+  labelFor?: (option: T) => string;
   disabled?: boolean;
   id?: string;
 }
@@ -24,8 +26,9 @@ interface SelectProps<T extends string> {
  * tinted per option.
  */
 export function Select<T extends string>({
-  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, disabled, id,
+  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, labelFor, disabled, id,
 }: SelectProps<T>) {
+  const text = (o: T) => (labelFor ? labelFor(o) : o);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState(false);
@@ -126,7 +129,7 @@ export function Select<T extends string>({
           text-left text-[13px] disabled:opacity-40"
         style={{ color: value ? 'var(--text)' : 'var(--text-faint)' }}
       >
-        <span className="truncate">{value ?? placeholder}</span>
+        <span className="truncate">{value != null ? text(value) : placeholder}</span>
         <motion.svg
           width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden
           animate={{ rotate: open ? 180 : 0 }} transition={springSnappy}
@@ -184,7 +187,7 @@ export function Select<T extends string>({
                         boxShadow: selected ? `0 0 8px rgb(${optionAccent} / 0.8)` : undefined,
                       }}
                     />
-                    <span className="truncate">{option}</span>
+                    <span className="truncate">{text(option)}</span>
                   </motion.li>
                 );
               })}

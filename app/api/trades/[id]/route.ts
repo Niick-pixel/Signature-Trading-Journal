@@ -37,6 +37,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
         // For the grade lock: a trade past Planned keeps its letter, and its
         // re-grade can only go down from there.
         status: existing.status, letter: existing.grade_letter, regrade: existing.regrade,
+        date: existing.date,
       } },
     );
     if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });

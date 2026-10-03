@@ -2,6 +2,7 @@ import { aggregate, type Aggregate } from './stats';
 import { adherenceOf } from './adherence';
 import { isTaken } from './domain';
 import type { DailyReview, Trade } from './types';
+import { isBacktest } from './domain';
 
 /**
  * The morning, against the trading.
@@ -118,6 +119,9 @@ function compare(rows: ConditionRow[], worse: string, better: string): string | 
 export function conditions(reviews: DailyReview[], trades: Trade[]): Conditions {
   const byDay = new Map<string, Trade[]>();
   for (const t of trades) {
+    // A morning is matched to the trades of its day; a backtest's date, when
+    // it has one, is the replayed chart's, never the morning's.
+    if (isBacktest(t.account)) continue;
     const day = t.date.slice(0, 10);
     const list = byDay.get(day) ?? [];
     list.push(t);

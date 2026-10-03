@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Collapse } from '@/components/ui/Collapse';
 import {
-  ACCOUNT_VALUES, SHOT_SLOTS, accountOptions, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TRADE_STATUSES, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -59,10 +59,12 @@ function toLocalInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function NewTradeForm({ trade, pastLessons = {} }: {
+export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: {
   trade?: Trade;
   /** The latest lessons per setup type — worked out on the server, see lib/lessons. */
   pastLessons?: Record<string, PastLesson[]>;
+  /** The same, from backtests — shown while logging one. */
+  backtestLessons?: Record<string, PastLesson[]>;
 }) {
   const editing = Boolean(trade);
   // Editing replaces the one stored chart; a new trade fills labelled slots.
@@ -136,6 +138,27 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
   const [skipReason, setSkipReason] = useState<SkipReason | null>(trade?.skip_reason ?? null);
 
   const [date, setDate] = useState(() => (trade ? toLocalInput(new Date(trade.date)) : toLocalInput(new Date())));
+  /*
+    A backtest needs no date: replayed from a chart months back, its day is not
+    worth looking up, so it starts undated and a date is one click away for
+    the times it matters. Ignored on every other account, which always has one.
+  */
+  const [undated, setUndated] = useState(trade ? trade.undated : true);
+  const backtest = isBacktest(account);
+  const noDate = backtest && undated;
+  const lessonsHere = backtest ? backtestLessons : pastLessons;
+  /*
+    Choosing the account also moves the reason between worlds. Backtest has its
+    own answer to "why did you take it", which gathers replayed trades into a
+    group of their own on the whiteboard — offered there and nowhere else, so
+    leaving Backtest clears it rather than carrying it onto a real trade.
+  */
+  const changeAccount = (next: Account) => {
+    setAccount(next);
+    if (isBacktest(next) && reason == null) setReason(BACKTEST_REASON);
+    if (!isBacktest(next) && reason === BACKTEST_REASON) setReason(null);
+  };
+  const reasonOptions = backtest || reason === BACKTEST_REASON ? REASONS : REASONS.filter((r) => r !== BACKTEST_REASON);
   const [instrument, setInstrument] = useState<Instrument>(trade?.instrument ?? 'NQ');
   const [direction, setDirection] = useState<Direction>(trade?.direction ?? 'Long');
   const [session, setSession] = useState<Session>(trade?.session ?? 'NY AM');
@@ -158,7 +181,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     starts affirmative now; the derived window is shown as a sentence you can
     act on instead.
   */
-  const derivedWindow = useMemo(() => macroWindowFor(date), [date]);
+  const derivedWindow = useMemo(() => (noDate ? null : macroWindowFor(date)), [date, noDate]);
   /*
     Read-only now. Macro time is a fact about the entry time, so it is shown
     as one, derived from the date field — not a pill that could be ticked
@@ -175,12 +198,13 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     chart is a second, not a paragraph.
   */
   const draftValues = useMemo(() => ({
-    date, instrument, direction, session, reason, setupType, htfBias,
+    date, undated, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
     context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
   }), [
+    undated,
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
     context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
@@ -203,7 +227,12 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     // trade ends up in the demo totals.
     try {
       const last = window.localStorage.getItem(LAST_ACCOUNT_KEY);
-      if (last && (ACCOUNT_VALUES as readonly string[]).includes(last)) setAccount(last as Account);
+      if (last && (ACCOUNT_VALUES as readonly string[]).includes(last)) {
+        setAccount(last as Account);
+        // Back to backtesting: the backtest reason comes with it, as it does
+        // when Backtest is picked by hand. A draft below can still replace it.
+        if (last === BACKTEST) setReason(BACKTEST_REASON);
+      }
     } catch { /* storage unavailable: keep the default */ }
     const draft = readDraft();
     if (!draft) return;
@@ -219,6 +248,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
     if (has('futuresConfirmed')) setFuturesConfirmed(v.futuresConfirmed);
     if (has('htfDelivery')) setHtfDelivery(v.htfDelivery);
     if (has('date')) setDate(v.date);
+    if (has('undated')) setUndated(v.undated);
     if (has('instrument')) setInstrument(v.instrument);
     if (has('direction')) setDirection(v.direction);
     if (has('session')) setSession(v.session);
@@ -340,7 +370,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
       }
     }
     body.append('trade', JSON.stringify({
-      date, instrument, direction, session,
+      // Undated: the timestamp is only when it was logged — kept from the
+      // first save on an edit, so a backtest keeps its place in the order.
+      date: noDate ? (editing && trade ? trade.date : new Date().toISOString()) : date,
+      undated: noDate,
+      instrument, direction, session,
       macro_time: macroTime, macro_time_auto: true,
       reason, setup_type: setupType, htf_bias: htfBias,
       ...context,
@@ -559,9 +593,11 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
               // which is often the right call. Missed is one you wanted and
               // did not take — and its outcome is the price of that.
               ? 'Missed: a setup you hesitated on or missed. Log it as if you had taken it — the outcome and R it would have had. It never joins a real total.'
-              : 'Backtest R and live R never sum into the same number.'}
+              : backtest
+                ? 'Backtest: a replayed trade. Kept apart from All, every real total and the calendar — and it needs no date.'
+                : 'Backtest R and live R never sum into the same number.'}
           >
-            <Select value={account} onChange={setAccount} options={accountOptions(account)} />
+            <Select value={account} onChange={changeAccount} options={accountOptions(account)} labelFor={accountName} />
           </Field>
           <Field quiet label="Account label" hint="Optional — which prop firm, which phase.">
             <Input placeholder="—" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
@@ -599,7 +635,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
                 Planned — the outcome is hidden until you settle it. The score you give it now is kept
                 as the entry grade, so hindsight cannot quietly rewrite it.
               </p>
-              <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline />
+              <PastLessons setup={setupType} lessons={lessonsHere[setupType] ?? []} inline />
             </Collapse>
           ) : (
             <Collapse key="outcome">
@@ -669,7 +705,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           <Select
             value={reason}
             onChange={setReason}
-            options={REASONS}
+            options={reasonOptions}
             placeholder="Name your motive…"
             accentFor={(r) => reasonAccent(r as Reason)}
           />
@@ -680,15 +716,35 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             sit with the trade rather than in a heap at the bottom. */}
         <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field quiet label="Date & time">
-            <Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Field quiet label="Date & time"
+            hint={backtest ? 'Optional on a backtest — the replayed day rarely matters, and an undated trade stays out of anything that asks when.' : undefined}>
+            {noDate ? (
+              <div data-undated className="flex h-[38px] items-center justify-between gap-2 rounded-[calc(12px*var(--rk))] border border-dashed px-3 text-[12.5px]"
+                style={{ borderColor: 'var(--glass-stroke)', color: 'var(--text-faint)' }}>
+                <span>Undated backtest</span>
+                <button type="button" data-add-date onClick={() => setUndated(false)}
+                  className="text-[11.5px] font-medium underline-offset-2 hover:underline" style={{ color: 'rgb(var(--accent))' }}>
+                  Add a date
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
+                {backtest && (
+                  <button type="button" data-remove-date onClick={() => setUndated(true)}
+                    className="absolute -top-[1.35rem] right-0 text-[10.5px] underline-offset-2 hover:underline" style={{ color: 'var(--text-faint)' }}>
+                    No date
+                  </button>
+                )}
+              </div>
+            )}
           </Field>
           <Field quiet label="Session" pending={pending('session')}>
             <Select value={session} onChange={(v) => { setSession(v); confirm('session'); }} options={SESSIONS} />
           </Field>
         </div>
 
-        <div data-macro={derivedWindow ? 'inside' : 'outside'} className="flex items-center gap-2 text-[11.5px]"
+        {!noDate && <div data-macro={derivedWindow ? 'inside' : 'outside'} className="flex items-center gap-2 text-[11.5px]"
           title="Derived from the date and time above — change the time to change this">
           <span className="rounded-full border px-2.5 py-1 font-medium"
             style={{
@@ -698,7 +754,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
             {derivedWindow ? `Inside the ${derivedWindow} macro` : 'Outside the macro windows'}
           </span>
           <span style={{ color: 'var(--text-faint)' }}>from the entry time</span>
-        </div>
+        </div>}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field quiet label="Instrument" pending={pending('instrument')}><Select value={instrument} onChange={(v) => { setInstrument(v); confirm('instrument'); }} options={INSTRUMENTS} /></Field>
@@ -722,7 +778,7 @@ export function NewTradeForm({ trade, pastLessons = {} }: {
           </Field>
         </div>
         {!planned && (
-          <PastLessons setup={setupType} lessons={pastLessons[setupType] ?? []} inline={false} />
+          <PastLessons setup={setupType} lessons={lessonsHere[setupType] ?? []} inline={false} />
         )}
 
         {/* What it paid. Numbers are facts about the trade, so they sit with

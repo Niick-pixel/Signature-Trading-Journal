@@ -9,7 +9,14 @@ import type { GradeLetter } from './grade';
 /** A trade as the app uses it: real booleans, derived grade attached. */
 export interface Trade {
   id: string;
+  /**
+   * When it happened — or, on an undated backtest, only when it was logged.
+   * Anything that reads it as a day (calendars, streaks, weekdays, "today")
+   * must skip `undated` trades; see lib/domain.ts isDated.
+   */
   date: string;
+  /** A backtest logged without a day (019). Only ever true on Backtest. */
+  undated: boolean;
   instrument: Instrument;
   direction: Direction;
   session: Session;

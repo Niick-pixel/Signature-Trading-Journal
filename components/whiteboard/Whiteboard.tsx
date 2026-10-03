@@ -25,7 +25,7 @@ import { StackNode } from './StackNode';
 import { ACCOUNT_VALUES } from '@/lib/domain';
 import { ACCOUNT_EVENT, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
 import { EdgeKey } from './EdgeKey';
-import { isHypothetical } from '@/lib/domain';
+import { accountLabel, isReal } from '@/lib/domain';
 import { LiveFlow } from './LiveFlow';
 import { dialogIsOpen } from '@/components/ui/Overlay';
 import { GroupViewer } from './GroupViewer';
@@ -219,7 +219,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   // Everything the board shows with no filter at all — the count a filtered
   // view is hiding trades from.
   const everything = useMemo(() => trades.filter(applyFilters(EMPTY_FILTERS)).length, [trades]);
-  const realTrades = useMemo(() => trades.filter((t) => !isHypothetical(t.account)), [trades]);
+  const realTrades = useMemo(() => trades.filter((t) => isReal(t.account)), [trades]);
 
   /*
     Which node the pointer is on.
@@ -1123,7 +1123,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
               style={{ background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)' }}>
               <span style={{ color: 'var(--text-dim)' }}>
                 Showing <b style={{ color: 'var(--text)' }}>{visible.length}</b> of {everything} trades
-                {filters.account !== 'All' && <> · <b style={{ color: 'rgb(var(--accent))' }}>{filters.account}</b> only</>}
+                {filters.account !== 'All' && <> · <b style={{ color: 'rgb(var(--accent))' }}>{accountLabel(filters.account)}</b> only</>}
               </span>
               <Button onClick={() => changeFilters(EMPTY_FILTERS)}>Show all</Button>
             </div>

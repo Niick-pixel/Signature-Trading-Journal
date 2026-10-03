@@ -1,4 +1,4 @@
-import { isHypothetical, isTaken } from './domain';
+import { isBacktest, isHypothetical, isTaken } from './domain';
 import { prepMarkdown, type SessionPrep } from './prep';
 import { toMarkdown } from './sanitise';
 import type { DailyReview, JournalPage, Trade } from './types';
@@ -50,7 +50,8 @@ export function journalExport(input: JournalExportInput): { filename: string; ma
   const inRange = (day: string) => day >= from && day <= to;
 
   const pages = input.pages.filter((p) => inRange(p.day));
-  const trades = input.trades.filter((t) => inRange(t.date.slice(0, 10)));
+  // Days lived: a backtest's date is a replayed chart's, or none at all.
+  const trades = input.trades.filter((t) => !isBacktest(t.account) && inRange(t.date.slice(0, 10)));
   const reviews = new Map(input.reviews.filter((r) => inRange(r.day)).map((r) => [r.day, r]));
   const preps = new Map(input.preps.filter((p) => inRange(p.day)).map((p) => [p.day, p]));
 

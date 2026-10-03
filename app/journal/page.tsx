@@ -5,6 +5,7 @@ import { JournalBook } from '@/components/journal/JournalBook';
 import { ReviewExport } from '@/components/money/ReviewExport';
 import { JOURNAL_RANGES } from '@/lib/journalExport';
 import type { DayTradeSummary } from '@/components/journal/DayStrip';
+import { isBacktest } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,8 @@ export default async function JournalRoute() {
   */
   const byDay: Record<string, DayTradeSummary[]> = {};
   for (const t of listTrades()) {
+    // The journal's days are days lived; a backtest's date is a replayed chart's.
+    if (isBacktest(t.account)) continue;
     const day = t.date.slice(0, 10);
     (byDay[day] ??= []).push({
       id: t.id,

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { spring } from '@/lib/motion';
 import { isTaken } from '@/lib/domain';
 import type { RiskLimits, Trade } from '@/lib/types';
+import { isReal } from '@/lib/domain';
 
 const AMBER = 'var(--amber)';
 
@@ -28,7 +29,8 @@ export function RiskBanner({ trades }: { trades: Trade[] }) {
   if (!limits) return null;
 
   const today = new Date().toISOString().slice(0, 10);
-  const todays = trades.filter((t) => t.date.slice(0, 10) === today && isTaken(t.outcome));
+  // Real trades only: a replayed loss logged today is not today's loss.
+  const todays = trades.filter((t) => isReal(t.account) && t.date.slice(0, 10) === today && isTaken(t.outcome));
   if (todays.length === 0) return null;
 
   const count = todays.length;

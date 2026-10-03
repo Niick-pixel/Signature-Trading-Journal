@@ -19,7 +19,12 @@ export const REASONS = [
   'Hesitation (late entry)',
   'Overleveraged',
   'News reaction',
+  // Backtest only (019): offered on that account and nowhere else, so replayed
+  // trades gather in their own whiteboard group instead of joining real ones.
+  'Backtest replay',
 ] as const;
+
+export const BACKTEST_REASON = 'Backtest replay' as const;
 
 /**
  * Setup vocabulary, iFVG-first.
@@ -344,10 +349,6 @@ export const WORKED_TAGS = [
 export type WorkedTag = (typeof WORKED_TAGS)[number];
 
 /**
- * Backtest R and live R must never sum into the same number. Replay fills are
- * not real fills, and a demo account has no fear in it.
- */
-/**
  * Every account label the schema will accept, including retired ones.
  *
  * Validation and display read this. 'Backtest (FX Replay)' is still here
@@ -359,12 +360,19 @@ export const ACCOUNT_VALUES = ['Backtest (FX Replay)', 'Demo', 'Live', 'Funded',
 export type Account = (typeof ACCOUNT_VALUES)[number];
 
 /**
- * What a new trade or deposit can be filed under.
+ * What a new trade can be filed under.
  *
- * Backtesting moved out of this journal, so it is no longer offered — but see
- * ACCOUNT_VALUES: not offered is not the same as not allowed.
+ * Backtesting moved out of this journal once and is back: replayed trades are
+ * worth journaling with the same checklist — as long as they stay in their own
+ * account. The stored value keeps its old name so the trades filed under it
+ * before are the same account; it reads as "Backtest" everywhere (accountLabel).
  */
-export const ACCOUNTS: readonly Account[] = ['Demo', 'Live', 'Funded', 'Missed'];
+export const BACKTEST: Account = 'Backtest (FX Replay)';
+export const ACCOUNTS: readonly Account[] = ['Demo', 'Live', 'Funded', BACKTEST, 'Missed'];
+
+/** How an account reads on screen. */
+export const accountLabel = (account: string): string => (account === BACKTEST ? 'Backtest' : account);
+export const isBacktest = (account: string | null | undefined): boolean => account === BACKTEST;
 
 /**
  * Accounts whose trades did not happen.
@@ -379,14 +387,33 @@ export const HYPOTHETICAL_ACCOUNTS: readonly Account[] = ['Missed'];
 export const isHypothetical = (account: string | null | undefined): boolean =>
   (HYPOTHETICAL_ACCOUNTS as readonly string[]).includes(account ?? '');
 
+/**
+ * Accounts kept apart from everything else: never in "All accounts", never in
+ * a real total, a risk limit, a streak, a calendar day or a balance — each is
+ * only ever seen on its own.
+ *
+ * Missed, because those trades did not happen. Backtest, because replay fills
+ * are not real fills and a replayed trade carries no fear: backtest R and live
+ * R must never sum into the same number. They differ in what else they mean —
+ * Missed is hypothetical (would-have R, why I hesitated), Backtest is not — so
+ * code that is about separation asks isSeparate, and code about hesitation
+ * asks isHypothetical.
+ */
+export const SEPARATE_ACCOUNTS: readonly Account[] = [BACKTEST, 'Missed'];
+export const isSeparate = (account: string | null | undefined): boolean =>
+  (SEPARATE_ACCOUNTS as readonly string[]).includes(account ?? '');
+/** In "All accounts" and every real total. */
+export const isReal = (account: string | null | undefined): boolean => !isSeparate(account);
+
+/** Whether `date` is the day the trade happened (it is not on an undated backtest). */
+export const isDated = (t: { undated?: boolean | null }): boolean => !t.undated;
+
 /** Where money can go in and out: real accounts only. */
-export const MONEY_ACCOUNTS: readonly Account[] = ACCOUNTS.filter((a) => !isHypothetical(a));
+export const MONEY_ACCOUNTS: readonly Account[] = ACCOUNTS.filter((a) => isReal(a));
 
 /**
- * The options a picker should show, given what is already selected.
- *
- * An edit of an old backtest trade has to be able to keep saying backtest, so
- * the current value is always included even when it is no longer on offer.
+ * The options a picker should show, given what is already selected: the
+ * current value is always included, even if it is ever no longer on offer.
  */
 export function accountOptions(current: Account | null): readonly Account[] {
   return current && !ACCOUNTS.includes(current) ? [current, ...ACCOUNTS] : ACCOUNTS;
@@ -448,6 +475,7 @@ export const REASON_HUE: Record<Reason, number> = {
   'Hesitation (late entry)': 62,
   Overleveraged: 320,
   'News reaction': 240,
+  'Backtest replay': 100, // chartreuse — its own corner, near no real reason
 };
 
 

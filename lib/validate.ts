@@ -1,5 +1,5 @@
 import {
-  ACCOUNT_VALUES, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
+  ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
   SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS,
   type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
@@ -29,6 +29,8 @@ export interface WritingFloor {
     explanation: string; lesson: string | null; quick_log?: boolean;
     /** The stored trade's stage, frozen letter and re-grade, for the grade-lock rules. */
     status?: TradeStatus; letter?: GradeLetter; regrade?: Regrade | null;
+    /** Its stored date, kept when an undated backtest is edited without one. */
+    date?: string;
   };
   restoring?: boolean;
 }
@@ -147,8 +149,17 @@ export function parseTradeInput(
   }).filter(([, v]) => v === null).map(([k]) => k);
   if (missing.length) return { ok: false, error: `Invalid or missing: ${missing.join(', ')}.` };
 
-  const date = typeof t.date === 'string' && !Number.isNaN(new Date(t.date).getTime())
-    ? t.date : null;
+  /*
+    A backtest can be undated: replayed from a chart months back, its day is
+    not worth typing and a made-up one would be worse than none. `date` then
+    holds when it was logged, and a missing one is filled with now rather
+    than refused — no trade is ever turned away for want of a date. Any other
+    account always has a real date, so `undated` is simply dropped there.
+  */
+  const account = oneOf('account', ACCOUNT_VALUES) ?? 'Live';
+  const undated = account === BACKTEST && t.undated === true;
+  const given = typeof t.date === 'string' && !Number.isNaN(new Date(t.date).getTime()) ? t.date : null;
+  const date = given ?? (undated ? (floor.previous?.date ?? new Date().toISOString()) : null);
   if (!date) return { ok: false, error: 'Invalid date.' };
 
   /*
@@ -226,7 +237,8 @@ export function parseTradeInput(
             (v): v is MistakeTag => typeof v === 'string' && (MISTAKE_TAGS as readonly string[]).includes(v),
           ))
         : [],
-      account: oneOf('account', ACCOUNT_VALUES) ?? 'Live',
+      account,
+      undated,
       account_label: typeof t.account_label === 'string' && t.account_label.trim()
         ? t.account_label.trim() : null,
       status,

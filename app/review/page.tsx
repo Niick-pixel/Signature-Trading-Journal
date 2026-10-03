@@ -7,6 +7,7 @@ import { Panel } from '@/components/stats/Bars';
 import { repeatedLessons } from '@/lib/lessons';
 import { TAKE_IT_THRESHOLD } from '@/lib/domain';
 import { hasOpenFlags } from '@/lib/flags';
+import { isBacktest } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,8 @@ export default async function ReviewPage(
   const endStr = end.toISOString().slice(0, 10);
 
   const all = listTrades();
-  const inWeek = all.filter((t) => t.date.slice(0, 10) >= week && t.date.slice(0, 10) < endStr);
+  // The week lived — backtests replay other weeks, and are reviewed on their own.
+  const inWeek = all.filter((t) => !isBacktest(t.account) && t.date.slice(0, 10) >= week && t.date.slice(0, 10) < endStr);
   const worthReviewing = inWeek.filter(
     (t) => t.checklist_score < TAKE_IT_THRESHOLD || hasOpenFlags(t),
   );
@@ -61,7 +63,7 @@ export default async function ReviewPage(
               title="Lessons you keep writing"
               note="Lessons from any date that share enough words to be the same lesson, written again. The words that matched are shown on each group, so you can judge the grouping yourself. Click any lesson to open its trade."
             >
-              <RepeatedLessons groups={repeatedLessons(all)} />
+              <RepeatedLessons groups={repeatedLessons(all.filter((t) => !isBacktest(t.account)))} />
             </Panel>
           </div>
         </div>

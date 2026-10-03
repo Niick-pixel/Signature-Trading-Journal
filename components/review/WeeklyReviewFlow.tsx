@@ -9,6 +9,7 @@ import type { Trade, WeeklyReview } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { ExplanationField } from '@/components/capture/ExplanationField';
+import { tradeDay } from '@/lib/when';
 
 /** The three questions. Same three every week, so the answers are comparable. */
 const QUESTIONS = [
@@ -45,7 +46,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
     const transcript = Object.entries(answers)
       .map(([id, list]) => {
         const t = trades.find((x) => x.id === id);
-        const head = t ? `${new Date(t.date).toLocaleDateString()} · ${t.reason}` : id;
+        const head = t ? `${tradeDay(t)} · ${t.reason}` : id;
         return `${head}\n${list.map((a, n) => (a.trim() ? `  ${QUESTIONS[n]}\n  ${a.trim()}` : '')).filter(Boolean).join('\n')}`;
       })
       .filter((s) => s.includes('\n  '))
@@ -117,7 +118,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
                 <span className="size-1.5 rounded-full" style={{ background: `rgb(${reasonAccent(trade.reason)})` }} />
                 <span className="text-[13px] font-medium">{trade.reason}</span>
                 <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                  {new Date(trade.date).toLocaleDateString()} · {trade.checklist_score}/100
+                  {tradeDay(trade)} · {trade.checklist_score}/100
                   {' · '}{trade.outcome}
                   {trade.r_multiple != null && ` · ${trade.r_multiple > 0 ? '+' : '−'}${Math.abs(trade.r_multiple).toFixed(1)}R`}
                 </span>

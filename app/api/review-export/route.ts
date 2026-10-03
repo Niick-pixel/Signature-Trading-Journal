@@ -9,6 +9,7 @@ import { SCREENSHOTS_DIR } from '@/lib/paths';
 import { makeZip } from '@/lib/zip';
 import { monthlyReview } from '@/lib/monthly';
 import { listPreps } from '@/db/prep';
+import { isBacktest } from '@/lib/domain';
 
 /**
  * One month, written for a review conversation with Claude.
@@ -25,7 +26,8 @@ export async function GET(request: Request) {
   }
   const format = q.get('format') === 'zip' ? 'zip' : 'md';
 
-  const trades = listTrades();
+  // The month lived: backtests replay other months and have their own stats page.
+  const trades = listTrades().filter((t) => !isBacktest(t.account));
   const inMonth = trades.filter((t) => t.date.slice(0, 7) === month);
 
   const review = monthlyReview({
