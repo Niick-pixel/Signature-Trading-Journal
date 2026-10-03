@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { spring, springSoft, scrimExit } from '@/lib/motion';
+import { spring, springSoft, scrimExit, exitQuick } from '@/lib/motion';
 import { search, type Hit } from '@/lib/search';
 import { reasonAccent } from '@/lib/layout';
 import type { JournalPage, Trade } from '@/lib/types';
@@ -80,7 +80,7 @@ export function SearchPalette({ trades, pages = [], open, onClose, onOpenTrade }
             <motion.div
               initial={{ opacity: 0, y: -14, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.99 }}
+              exit={{ opacity: 0, y: -10, scale: 0.99, transition: exitQuick }}
               transition={springSoft}
               className="glass pointer-events-auto w-full max-w-[40rem] overflow-hidden rounded-[calc(22px*var(--rk))]"
               style={{ background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)' }}
@@ -94,7 +94,7 @@ export function SearchPalette({ trades, pages = [], open, onClose, onOpenTrade }
                 style={{ color: 'var(--text)', borderBottom: '1px solid var(--glass-stroke)' }}
               />
 
-              <div className="max-h-[52vh] overflow-y-auto">
+              <div data-stagger className="max-h-[52vh] overflow-y-auto">
                 {q.trim().length < 2 ? (
                   <p className="px-5 py-4 text-[12px]" style={{ color: 'var(--text-faint)' }}>
                     Type at least two characters. Searches the explanation, the lesson, the reason,

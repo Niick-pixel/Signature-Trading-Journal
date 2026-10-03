@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { SHORTCUTS, shortcutAllowed } from '@/lib/keys';
 import { Overlay } from '@/components/ui/Overlay';
 import { openCheckIn } from './MorningCheckIn';
+import { navigate } from '@/lib/nav';
 
 const TABS = ['/', '/stats', '/calendar', '/journal'];
 
@@ -19,7 +19,6 @@ export const SHEET_OPEN = 'signature:shortcuts-open';
  * screen they act on; this only handles what means the same thing everywhere.
  */
 export function Shortcuts() {
-  const router = useRouter();
   const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
@@ -33,7 +32,7 @@ export function Shortcuts() {
       if (e.key === '?' && sheet) { e.preventDefault(); setSheet(false); return; }
       if (!shortcutAllowed(e)) return;
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      const go = (href: string) => { e.preventDefault(); router.push(href); };
+      const go = (href: string) => { e.preventDefault(); navigate(href); };
       switch (k) {
         case '?': e.preventDefault(); setSheet(true); return;
         case 'n': return go('/new');
@@ -50,7 +49,7 @@ export function Shortcuts() {
     // Escape on window still runs after these have stood down.
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [router, sheet]);
+  }, [sheet]);
 
   return (
     <Overlay open={sheet} onClose={() => setSheet(false)}

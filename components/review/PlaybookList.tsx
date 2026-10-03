@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { spring } from '@/lib/motion';
+import { springBouncy, spring, exitQuick } from '@/lib/motion';
 import { MIN_SAMPLE } from '@/lib/domain';
 import type { Aggregate } from '@/lib/stats';
 import type { Playbook } from '@/lib/types';
@@ -93,8 +93,8 @@ export function PlaybookList({ entries }: { entries: Entry[] }) {
 
       <AnimatePresence>
         {adding ? (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+          <motion.div key="form"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exitQuick }}
             transition={spring} className="glass space-y-5 rounded-[calc(18px*var(--rk))] p-5"
           >
             <Field label="Name"><Input autoFocus placeholder="London sweep into NY AM iFVG"
@@ -110,8 +110,27 @@ export function PlaybookList({ entries }: { entries: Entry[] }) {
               <Button onClick={() => setAdding(false)}>Cancel</Button>
             </div>
           </motion.div>
+        ) : entries.length === 0 ? (
+          // The empty page used to be a lone button in a sea of cream. It now
+          // says what a playbook is for and offers the one thing to do.
+          <motion.div key="empty" data-playbook-empty
+            initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, transition: exitQuick }}
+            transition={springBouncy}
+            className="glass flex flex-col items-center rounded-[calc(22px*var(--rk))] px-8 py-12 text-center">
+            <motion.span aria-hidden className="mb-4 grid size-12 place-items-center rounded-full text-[20px]"
+              style={{ background: 'rgb(var(--accent) / 0.12)', color: 'rgb(var(--accent))' }}
+              initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...springBouncy, delay: 0.08 }}>
+              ✎
+            </motion.span>
+            <h2 className="text-[15px] font-semibold">No setups named yet</h2>
+            <p className="mt-1.5 max-w-[26rem] text-[12.5px] leading-relaxed" style={{ color: 'var(--text-dim)' }}>
+              Give the trades you keep taking a name and a rule — then pick it when you log one, and this
+              page shows which of them actually pay.
+            </p>
+            <div className="mt-5"><Button variant="primary" onClick={() => setAdding(true)}>+ Name your first setup</Button></div>
+          </motion.div>
         ) : (
-          <Button onClick={() => setAdding(true)}>+ Name a setup</Button>
+          <Button key="add" onClick={() => setAdding(true)}>+ Name a setup</Button>
         )}
       </AnimatePresence>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring } from '@/lib/motion';
+import { press, spring, exitQuick } from '@/lib/motion';
 
 /**
  * "Restart to update", once a new version has downloaded. Nothing shows while
@@ -30,7 +30,7 @@ export function UpdateChip() {
           whileHover={{ y: -1 }}
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
+          exit={{ opacity: 0, y: -4, transition: exitQuick }}
           transition={spring}
           title="A new version has downloaded. Restart to use it — or it installs when you next close Signature."
           className="mr-2 flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-medium"

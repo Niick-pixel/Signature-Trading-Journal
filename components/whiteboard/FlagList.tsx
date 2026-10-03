@@ -56,7 +56,7 @@ export function FlagList({ trade, onChanged }: { trade: Trade; onChanged: () => 
         Flags
       </div>
 
-      <div className="space-y-2">
+      <div data-stagger className="space-y-2">
         {flags.map((flag) => {
           const dismissedReason = trade.dismissed_flags[flag.key];
           const isDismissed = flag.key in trade.dismissed_flags;

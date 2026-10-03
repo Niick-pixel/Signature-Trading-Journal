@@ -6,7 +6,7 @@ import {
   BELOW_STANDARD_PROMPT, NO_TRIGGER_PROMPT,
 } from '@/lib/grade';
 import type { GradeLetter } from '@/lib/grade';
-import { spring, springBouncy } from '@/lib/motion';
+import { spring, springBouncy, exitQuick } from '@/lib/motion';
 
 const AMBER = 'var(--amber)';
 
@@ -92,7 +92,7 @@ export function GradeBadge({
             key={prompt}
             initial={{ opacity: 0, x: -8, scale: 0.96 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -6, scale: 0.98 }}
+            exit={{ opacity: 0, x: -6, scale: 0.98, transition: exitQuick }}
             transition={spring}
             className="max-w-[19rem] text-[13px] font-medium leading-snug"
             style={{ color: `rgb(${AMBER})` }}

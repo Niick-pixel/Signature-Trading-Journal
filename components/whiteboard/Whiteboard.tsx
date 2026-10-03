@@ -11,7 +11,7 @@ import {
   computeLayout, reasonAccent, settle, tradeIdFromKey,
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
 } from '@/lib/layout';
-import { EASE_SOFT, spring, springBouncy } from '@/lib/motion';
+import { EASE_SOFT, spring, springBouncy, exitQuick } from '@/lib/motion';
 import type { JournalPage, BoardEdge, BoardNote, Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { usePreferences } from '@/components/shell/PreferencesProvider';
@@ -1115,7 +1115,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         {visible.length > 0 && visible.length < everything && (
           <motion.div
             data-filter-notice
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6, transition: exitQuick }}
             transition={spring}
             className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center"
           >
@@ -1137,7 +1137,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
+            exit={{ opacity: 0, scale: 0.98, transition: exitQuick }}
             transition={spring}
             className="pointer-events-none absolute inset-0 grid place-items-center"
           >

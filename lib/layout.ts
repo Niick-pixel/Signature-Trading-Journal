@@ -321,42 +321,44 @@ export interface Rect { x: number; y: number; width: number; height: number }
  * to undo that with one careless drag, with nothing but "Tidy up" (which
  * discards every other nudge too) to get out of it.
  *
- * So it snaps to a grid, and if it still lands on something it is pushed clear
- * along whichever axis it is least buried in — the smallest correction that
- * makes the drop legal, rather than a rearrangement you did not ask for.
+ * So it snaps to a grid, and if it lands on something it moves to the nearest
+ * spot that is clear of EVERY group — the smallest correction that makes the
+ * drop legal, rather than a rearrangement you did not ask for.
+ *
+ * (It used to push out of one neighbour at a time. Between two close groups
+ * that ping-ponged — out of one and into the next — and after its passes ran
+ * out it gave up still overlapping. The nearest clear spot always sits flush
+ * against some group's edge, so those edges are the only places worth trying.)
  */
 export function settle(moved: Rect, others: Rect[]): { x: number; y: number } {
-  let x = snapTo(moved.x);
-  let y = snapTo(moved.y);
+  const x0 = snapTo(moved.x);
+  const y0 = snapTo(moved.y);
+  const w = moved.width;
+  const h = moved.height;
+  const clearAt = (x: number, y: number) => others.every((o) => x >= o.x + o.width + SETTLE_GAP
+    || x + w <= o.x - SETTLE_GAP || y >= o.y + o.height + SETTLE_GAP || y + h <= o.y - SETTLE_GAP);
+  if (clearAt(x0, y0)) return { x: x0, y: y0 };
 
-  for (let pass = 0; pass < 24; pass++) {
-    let pushed = false;
-    for (const other of others) {
-      const left = other.x - SETTLE_GAP;
-      const top = other.y - SETTLE_GAP;
-      const right = other.x + other.width + SETTLE_GAP;
-      const bottom = other.y + other.height + SETTLE_GAP;
-
-      const clear = x >= right || x + moved.width <= left
-        || y >= bottom || y + moved.height <= top;
-      if (clear) continue;
-
-      const outLeft = (x + moved.width) - left;
-      const outRight = right - x;
-      const outUp = (y + moved.height) - top;
-      const outDown = bottom - y;
-      const least = Math.min(outLeft, outRight, outUp, outDown);
-
-      if (least === outLeft) x = clearDownTo(left - moved.width);
-      else if (least === outRight) x = clearUpTo(right);
-      else if (least === outUp) y = clearDownTo(top - moved.height);
-      else y = clearUpTo(bottom);
-      pushed = true;
-    }
-    if (!pushed) break;
+  // Flush against each group's sides, rounded the way that keeps it clear.
+  const xs = new Set([x0]);
+  const ys = new Set([y0]);
+  for (const o of others) {
+    xs.add(clearDownTo(o.x - SETTLE_GAP - w));
+    xs.add(clearUpTo(o.x + o.width + SETTLE_GAP));
+    ys.add(clearDownTo(o.y - SETTLE_GAP - h));
+    ys.add(clearUpTo(o.y + o.height + SETTLE_GAP));
   }
-
-  return { x, y };
+  let best: { x: number; y: number; d: number } | null = null;
+  for (const x of xs) {
+    for (const y of ys) {
+      const d = Math.hypot(x - x0, y - y0);
+      if ((best === null || d < best.d) && clearAt(x, y)) best = { x, y, d };
+    }
+  }
+  if (best) return { x: best.x, y: best.y };
+  // Nowhere flush is free (it cannot really happen): under everything.
+  const floor = Math.max(...others.map((o) => o.y + o.height));
+  return { x: x0, y: clearUpTo(floor + SETTLE_GAP) };
 }
 
 export function computeLayout(

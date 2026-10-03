@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { spring } from '@/lib/motion';
+import { spring, exitQuick } from '@/lib/motion';
 import { ACCOUNTS, REASONS, TRADE_STATUSES, type Account, type Reason, type TradeStatus } from '@/lib/domain';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -36,7 +36,7 @@ export function BulkBar({ count, onApply, onCancel }: BulkBarProps) {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 16 }}
+      exit={{ opacity: 0, y: 16, transition: exitQuick }}
       transition={spring}
       className="glass pointer-events-auto flex flex-wrap items-center gap-3 rounded-[calc(20px*var(--rk))] px-4 py-3"
     >

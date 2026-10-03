@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring } from '@/lib/motion';
+import { press, spring, exitQuick } from '@/lib/motion';
 
 /**
  * The primary action, bottom-right, above the board controls.
@@ -23,7 +23,7 @@ export function NewTradeButton() {
         <motion.div
           initial={{ opacity: 0, y: 10, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 6, scale: 0.97 }}
+          exit={{ opacity: 0, y: 6, scale: 0.97, transition: exitQuick }}
           transition={spring}
           whileTap={press}
           whileHover={{ y: -2 }}

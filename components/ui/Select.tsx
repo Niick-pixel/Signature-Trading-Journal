@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring, springSnappy, stagger } from '@/lib/motion';
+import { press, spring, springSnappy, stagger, exitQuick } from '@/lib/motion';
 
 interface SelectProps<T extends string> {
   value: T | null;
@@ -148,7 +148,7 @@ export function Select<T extends string>({
               role="listbox"
               initial={{ opacity: 0, scale: 0.94, y: rect.flip ? 6 : -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: rect.flip ? 4 : -4 }}
+              exit={{ opacity: 0, scale: 0.96, y: rect.flip ? 4 : -4, transition: exitQuick }}
               transition={spring}
               style={{
                 position: 'fixed',

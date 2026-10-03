@@ -51,9 +51,10 @@ export function DayTrades({ trades }: { trades: Trade[] }) {
         )}
       </div>
 
-      <div className="space-y-1.5">
+      <div data-stagger className="space-y-1.5">
         {trades.map((t) => (
           <Link
+            data-lift
             key={t.id}
             href={`/new?edit=${t.id}`}
             className="flex items-center gap-3 rounded-[calc(14px*var(--rk))] border px-3.5 py-2.5 transition-transform hover:scale-[1.01]"

@@ -72,9 +72,10 @@ export function DayStrip({ trades }: { trades: DayTradeSummary[] }) {
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div data-stagger className="flex flex-wrap gap-2">
         {trades.map((t) => (
           <Link
+            data-lift
             key={t.id}
             href={`/new?edit=${t.id}`}
             title={`${t.reason} · ${t.instrument} ${t.direction} · ${t.setup_type}${

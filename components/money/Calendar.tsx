@@ -87,10 +87,13 @@ export function Calendar({
 
           return (
             <Link key={day} href={`/day?day=${day}${dayQuery}`}
+              data-cell-in
               className="group aspect-[5/4] rounded-[calc(12px*var(--rk))] border p-2
                 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
                 hover:-translate-y-[2px] hover:scale-[1.02] hover:[box-shadow:var(--shadow-card)]"
               style={{
+                // A wave across the month, a few milliseconds a square.
+                animationDelay: `${Math.min(i, 41) * 7}ms`,
                 borderColor: isToday ? 'rgb(var(--accent) / 0.6)' : `rgb(${hue} / 0.35)`,
                 background: `rgb(${hue} / ${fill})`,
               }}

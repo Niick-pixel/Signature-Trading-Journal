@@ -7,6 +7,8 @@ import { NewTradeButton } from '@/components/shell/NewTradeButton';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { MorningCheckIn } from '@/components/shell/MorningCheckIn';
 import { Shortcuts } from '@/components/shell/Shortcuts';
+import { NavTransitions } from '@/components/shell/NavTransitions';
+import { Tooltips } from '@/components/shell/Tooltips';
 
 export const metadata: Metadata = {
   title: 'Signature',
@@ -36,6 +38,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NewTradeButton />
           <MorningCheckIn />
           <Shortcuts />
+          {/* Every move between screens, animated — see lib/nav.ts. */}
+          <NavTransitions />
+          {/* Every title="…" hint, drawn in the theme with a small spring. */}
+          <Tooltips />
         </PreferencesProvider>
       </body>
     </html>

@@ -44,7 +44,7 @@ export function History({ tradeId }: { tradeId: string }) {
               Never edited since it was written.
             </p>
           ) : (
-            <div className="space-y-1.5">
+            <div data-stagger className="space-y-1.5">
               {edits.map((e) => (
                 <div key={e.id} className="flex items-baseline justify-between gap-3 text-[11px]">
                   <span className="shrink-0" style={{ color: 'var(--text-faint)' }}>

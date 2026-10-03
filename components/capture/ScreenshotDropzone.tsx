@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring, springBouncy } from '@/lib/motion';
+import { press, spring, springBouncy, exitQuick } from '@/lib/motion';
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
 
@@ -107,7 +107,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
               key="preview"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={{ opacity: 0, scale: 0.95, transition: exitQuick }}
               transition={springBouncy}
               className="relative w-full"
             >
@@ -133,7 +133,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
               key="empty"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
+              exit={{ opacity: 0, scale: 0.96, transition: exitQuick }}
               transition={spring}
               className="px-6 text-center"
             >
@@ -172,7 +172,7 @@ export function ScreenshotDropzone({ file, onFile, existingUrl = null }: Screens
       <AnimatePresence>
         {error && (
           <motion.p
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exitQuick }}
             transition={spring}
             className="mt-2 text-[12px]" style={{ color: 'rgb(var(--outcome-loss))' }}
           >

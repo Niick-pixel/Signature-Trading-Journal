@@ -9,7 +9,7 @@ import {
 import { DeleteTradeDialog } from './DeleteTradeDialog';
 import { dialogIsOpen } from '@/components/ui/Overlay';
 import { GATES_SINCE, MODEL_GATE_MESSAGE, TRIAL_RUBRIC, gradeUnder, trialEventOf } from '@/lib/rubric';
-import { spring, springSoft, scrimExit } from '@/lib/motion';
+import { spring, springSoft, scrimExit, exitQuick } from '@/lib/motion';
 import { derivedAdherence } from '@/lib/adherence';
 import type { Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -478,7 +478,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                   <AnimatePresence mode="wait">
                     {settling ? (
                       <motion.div key="settle" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }} transition={spring} className="flex flex-1 flex-wrap items-center gap-3">
+                        exit={{ opacity: 0, transition: exitQuick }} transition={spring} className="flex flex-1 flex-wrap items-center gap-3">
                         <div className="w-44"><Select value={outcome} onChange={setOutcome} options={OUTCOMES} /></div>
                         <Input
                           type="number" step="0.1" placeholder="R multiple" value={rMultiple}
@@ -493,7 +493,7 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                       </motion.div>
                     ) : (
                       <motion.div key="actions" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }} transition={spring} className="flex flex-1 flex-wrap items-center gap-3">
+                        exit={{ opacity: 0, transition: exitQuick }} transition={spring} className="flex flex-1 flex-wrap items-center gap-3">
                         <span className="tabular-nums text-[13px] font-semibold"
                           style={{ color: `rgb(${OUTCOME_COLOR[trade.outcome]})` }}>
                           {trade.outcome}

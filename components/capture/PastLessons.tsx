@@ -36,7 +36,7 @@ export function PastLessons({ setup, lessons, inline }: {
   if (lessons.length === 0) return null;
 
   const list = (
-    <ol className="space-y-2.5">
+    <ol data-stagger className="space-y-2.5">
       {lessons.map((l) => (
         <li key={l.id} data-lesson={l.id} className="text-[12px] leading-snug">
           <span className="mr-2 text-[10px] tabular-nums" style={{ color: 'var(--text-faint)' }}>

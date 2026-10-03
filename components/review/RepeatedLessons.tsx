@@ -26,7 +26,7 @@ export function RepeatedLessons({ groups }: { groups: LessonGroup[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div data-stagger className="space-y-4">
       {groups.slice(0, SHOW).map((g) => (
         <div key={g.lessons[0].id} data-lesson-group className="rounded-[calc(16px*var(--rk))] border p-4"
           style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}>

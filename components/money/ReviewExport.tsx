@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring, springSoft } from '@/lib/motion';
+import { press, spring, springSoft, exitQuick } from '@/lib/motion';
 
 /**
  * "Review this month with Claude": the month on screen, as one document that
@@ -56,7 +56,7 @@ export function ReviewExport({ month, label, options, title, blurb }: {
           <motion.div
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98, transition: exitQuick }}
             transition={springSoft}
             style={{ transformOrigin: 'top right' }}
             // Positioned here, glass inside: .glass sets position: relative

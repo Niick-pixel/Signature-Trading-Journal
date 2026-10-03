@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Collapse } from '@/components/ui/Collapse';
-import { press, spring, springSoft } from '@/lib/motion';
+import { press, spring, springSoft, exitQuick } from '@/lib/motion';
 import { localDay } from '@/lib/day';
 import { BIAS_DIRECTIONS, NEWS_LEVELS, type BiasDirection, type NewsLevel } from '@/lib/domain';
 import type { DailyReview } from '@/lib/types';
@@ -238,7 +238,7 @@ function CheckInForm({ day, existing, onDone, onSaved, onChart }: {
           </div>
         </motion.div>
       ) : (
-        <motion.div key="form" exit={{ opacity: 0, scale: 0.98 }} transition={spring}>
+        <motion.div key="form" exit={{ opacity: 0, scale: 0.98, transition: exitQuick }} transition={spring}>
           <div className="mb-6">
             <h2 className="text-[20px] font-semibold tracking-tight">{greeting}</h2>
             <p className="mt-1 text-[12.5px]" style={{ color: 'var(--text-dim)' }}>

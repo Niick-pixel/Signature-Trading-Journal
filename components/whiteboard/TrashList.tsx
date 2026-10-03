@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { spring } from '@/lib/motion';
+import { spring, exitQuick } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import type { Trade } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -45,7 +45,7 @@ export function TrashList({ trades }: { trades: Trade[] }) {
             layout
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97 }}
+            exit={{ opacity: 0, scale: 0.97, transition: exitQuick }}
             transition={spring}
             className="glass flex flex-wrap items-center gap-4 rounded-[calc(18px*var(--rk))] p-4"
           >

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { press, spring, springBouncy } from '@/lib/motion';
+import { press, spring, springBouncy, exitQuick } from '@/lib/motion';
 import { SHOT_SLOTS, type ShotSlot } from '@/lib/domain';
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
@@ -102,7 +102,7 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
         <AnimatePresence mode="wait">
           {shown ? (
             <motion.div key={shownSlot} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }} transition={springBouncy} className="relative w-full">
+              exit={{ opacity: 0, scale: 0.96, transition: exitQuick }} transition={springBouncy} className="relative w-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={shown} alt={`${shownSlot} chart`} className="max-h-[220px] w-full rounded-[calc(16px*var(--rk))] object-contain" />
               <span className="absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
@@ -110,7 +110,7 @@ export function ShotSlots({ files, onChange }: { files: SlotFiles; onChange: (ne
             </motion.div>
           ) : (
             <motion.div key="empty" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }} transition={spring} className="px-6 text-center">
+              exit={{ opacity: 0, scale: 0.96, transition: exitQuick }} transition={spring} className="px-6 text-center">
               <div className="mx-auto mb-2 grid size-9 place-items-center rounded-[calc(14px*var(--rk))]"
                 style={{ background: 'var(--glass-fill-strong)', color: 'var(--text-dim)' }}>
                 <svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden>

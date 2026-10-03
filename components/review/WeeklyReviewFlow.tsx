@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { riseIn, spring, springSoft } from '@/lib/motion';
+import { riseIn, spring, springSoft, exitQuick } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import { flagsFor } from '@/lib/flags';
 import type { Trade, WeeklyReview } from '@/lib/types';
@@ -96,7 +96,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
         <AnimatePresence mode="wait">
           {done ? (
             <motion.div key="summary" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }} transition={springSoft}>
+              exit={{ opacity: 0, transition: exitQuick }} transition={springSoft}>
               <Field label="What is the one thing to change next week?" hint="One. A list of six is a list you will not follow.">
                 <ExplanationField value={summary} onChange={setSummary} required={false} minRows={4}
                   placeholder="No entries outside the killzone, at all, even the obvious ones." />
@@ -113,7 +113,7 @@ export function WeeklyReviewFlow({ week, trades, totalInWeek, existing }: {
             </motion.div>
           ) : (
             <motion.div key={trade.id} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -14 }} transition={springSoft}>
+              exit={{ opacity: 0, x: -14, transition: exitQuick }} transition={springSoft}>
               <div className="mb-4 flex items-center gap-2">
                 <span className="size-1.5 rounded-full" style={{ background: `rgb(${reasonAccent(trade.reason)})` }} />
                 <span className="text-[13px] font-medium">{trade.reason}</span>

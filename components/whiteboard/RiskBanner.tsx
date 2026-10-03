@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { spring } from '@/lib/motion';
+import { spring, exitQuick } from '@/lib/motion';
 import { isTaken } from '@/lib/domain';
 import type { RiskLimits, Trade } from '@/lib/types';
 import { isReal } from '@/lib/domain';
@@ -56,7 +56,7 @@ export function RiskBanner({ trades }: { trades: Trade[] }) {
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
+        exit={{ opacity: 0, y: -8, transition: exitQuick }}
         transition={spring}
         className="glass pointer-events-auto flex items-center gap-2.5 rounded-full px-4 py-1.5 text-[11px]"
         style={{

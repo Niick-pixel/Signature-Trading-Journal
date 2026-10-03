@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { springSoft } from '@/lib/motion';
+import { springSoft, exitQuick } from '@/lib/motion';
 
 export interface MenuItem {
   label: string;
@@ -27,8 +27,9 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState | null; onClose
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97 }}
+            exit={{ opacity: 0, scale: 0.97, transition: exitQuick }}
             transition={springSoft}
+            data-stagger
             className="glass fixed z-[61] min-w-[9.5rem] overflow-hidden rounded-[calc(14px*var(--rk))] py-1"
             style={{
               // Kept inside the window: a menu opened near the right edge used

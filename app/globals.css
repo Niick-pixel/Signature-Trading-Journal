@@ -432,8 +432,11 @@ body {
 :root[data-reduce-motion='true'] *::before,
 :root[data-reduce-motion='true'] *::after {
   animation-duration: 0.01ms !important;
+  /* A stagger's delay would still hold rows back, invisible, then pop them in. */
+  animation-delay: 0s !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
 }
 
 body {
@@ -734,3 +737,95 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 
 /* Held invisible while the board regroups, until each card's glide begins. */
 [data-regrouping] .react-flow__node-trade { opacity: 0; }
+
+/*
+  Micro-interactions, everywhere.
+
+  Most controls already spring through Framer (lib/motion.ts). This layer is
+  for everything that does not: plain buttons, links, list rows, inputs — so
+  nothing in the app responds to a press without moving. It stays out of
+  Framer's way: Framer writes `transform` inline while it animates, and inline
+  beats every rule here.
+
+  The curve is lib/nav.ts EASE_BOUNCE — a ~3% overshoot. Bouncy, barely.
+*/
+@layer base {
+:root {
+  --ease-bounce: cubic-bezier(0.34, 1.28, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Every button and link compresses a touch on press and springs back. */
+:where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):not(.react-flow__node *):not([data-no-press]) {
+  transition: transform 260ms var(--ease-bounce), background-color 180ms ease, border-color 180ms ease,
+    color 180ms ease, box-shadow 220ms ease, opacity 180ms ease;
+}
+:where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):not(.react-flow__node *):not([data-no-press]):active {
+  transform: scale(0.965);
+  transition-duration: 90ms;
+}
+
+/* Inputs settle their border and glow rather than switching. */
+:where(input, textarea, select) {
+  transition: border-color 200ms ease, box-shadow 240ms var(--ease-out-soft), background-color 200ms ease;
+}
+
+/* Keyboard focus rings grow in, with a little give. */
+:where(button, a[href], input, textarea, [role='button'], [role='option'], [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--accent) / 0.55);
+  outline-offset: 2px;
+  animation: focus-ring 320ms var(--ease-bounce);
+}
+@keyframes focus-ring { from { outline-offset: 6px; outline-color: rgb(var(--accent) / 0); } }
+
+/*
+  Lists that arrive: rows rise in one after another. Put data-stagger on the
+  list; its children animate, the first twelve each a beat later.
+*/
+[data-stagger] > * { animation: row-in 380ms var(--ease-bounce) both; }
+[data-stagger] > *:nth-child(2) { animation-delay: 25ms; }
+[data-stagger] > *:nth-child(3) { animation-delay: 50ms; }
+[data-stagger] > *:nth-child(4) { animation-delay: 75ms; }
+[data-stagger] > *:nth-child(5) { animation-delay: 100ms; }
+[data-stagger] > *:nth-child(6) { animation-delay: 125ms; }
+[data-stagger] > *:nth-child(7) { animation-delay: 150ms; }
+[data-stagger] > *:nth-child(8) { animation-delay: 170ms; }
+[data-stagger] > *:nth-child(9) { animation-delay: 190ms; }
+[data-stagger] > *:nth-child(10) { animation-delay: 210ms; }
+[data-stagger] > *:nth-child(11) { animation-delay: 225ms; }
+[data-stagger] > *:nth-child(n + 12) { animation-delay: 240ms; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px) scale(0.99); } }
+
+/* Calendar squares arrive as a wave (the delay is set per square). */
+[data-cell-in] { animation: row-in 420ms var(--ease-bounce) both; }
+
+/* A soft tint on hover for rows that should not move (lists of pages). */
+[data-tint]:hover { background-color: var(--glass-fill); }
+
+/* Hover lift for list rows and tiles that are links. */
+[data-lift] { transition: transform 280ms var(--ease-bounce), box-shadow 240ms ease, background-color 180ms ease; }
+[data-lift]:hover { transform: translateY(-2px); }
+[data-lift]:active { transform: translateY(0) scale(0.985); transition-duration: 90ms; }
+
+}
+
+/*
+  Moving between screens (lib/nav.ts).
+
+  Names are given only while a navigation runs (html[data-nav]), never at
+  rest: a named element is animated apart from the page, and the theme wipe —
+  the other view transition in the app — must sweep across the title bar and
+  the New trade card like everything else.
+*/
+html[data-nav] header.titlebar-drag { view-transition-name: titlebar; }
+html[data-nav] [data-sheet] { view-transition-name: sheet; }
+/* The title bar is the same on both sides: no crossfade, no flicker. */
+::view-transition-old(titlebar) { animation: none; opacity: 0; }
+::view-transition-new(titlebar) { animation: none; }
+/* The transition is the entrance — the page's own fade would play it twice. */
+html[data-nav] .signature-enter { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-stagger] > *, [data-cell-in], :focus-visible { animation: none !important; }
+  :where(button, [role='button'], a[href], summary):active { transform: none !important; }
+}

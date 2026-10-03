@@ -16,7 +16,7 @@ import {
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
 import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { macroWindowFor } from '@/lib/macro';
-import { press, spring, springSoft, riseIn } from '@/lib/motion';
+import { press, spring, springSoft, riseIn, exitQuick } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import { MIN_EXPLANATION, MIN_LESSON, type Trade } from '@/lib/types';
 
@@ -52,6 +52,7 @@ import { ShotSlots, type SlotFiles } from './ShotSlots';
 import { PastLessons } from './PastLessons';
 import { dialogIsOpen } from '@/components/ui/Overlay';
 import type { PastLesson } from '@/lib/lessons';
+import { navigate } from '@/lib/nav';
 
 /** `datetime-local` wants 'YYYY-MM-DDTHH:mm' in local time, not an ISO string. */
 function toLocalInput(date: Date): string {
@@ -137,6 +138,9 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
   const [rLeftOnTable, setRLeftOnTable] = useState(trade?.r_left_on_table?.toString() ?? '');
   const [skipReason, setSkipReason] = useState<SkipReason | null>(trade?.skip_reason ?? null);
 
+  // Arrived through an animated navigation: the transition plays the card's
+  // entrance (lib/nav.ts), so its own rise-in would play it twice.
+  const [openedByTransition] = useState(() => typeof document !== 'undefined' && Boolean(document.documentElement.dataset.nav));
   const [date, setDate] = useState(() => (trade ? toLocalInput(new Date(trade.date)) : toLocalInput(new Date())));
   /*
     A backtest never asks for the replayed chart's date: it starts on today,
@@ -295,7 +299,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
       const el = document.activeElement;
       const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
       // A dialog open over the form owns Escape; leaving would discard the entry.
-      if (e.key === 'Escape' && !typing && !dialogIsOpen()) window.location.href = '/';
+      if (e.key === 'Escape' && !typing && !dialogIsOpen()) navigate('/');
       if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S' || e.key === 'Enter')) {
         e.preventDefault();
         submitRef.current?.();
@@ -465,7 +469,8 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
       // resurrect this trade as a ghost on the next New trade.
       clearDraft();
       try { window.localStorage.setItem(LAST_ACCOUNT_KEY, account); } catch { /* fine */ }
-      window.location.href = '/';
+      // Back to the board — animated closed, not reloaded (lib/nav.ts).
+      navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the trade.');
       setSubmitting(false);
@@ -477,7 +482,11 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
   useEffect(() => { submitRef.current = () => { void submit(); }; });
 
   return (
-    <motion.div {...riseIn} transition={spring} className="glass mx-auto rounded-[calc(28px*var(--rk))] p-5 sm:p-6">
+    <motion.div {...riseIn} initial={openedByTransition ? false : riseIn.initial} transition={springSoft}
+      // Named while a navigation runs, so opening and closing animate the card
+      // itself (lib/nav.ts, globals.css).
+      data-sheet
+      className="glass mx-auto rounded-[calc(28px*var(--rk))] p-5 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-[20px] font-semibold">{editing ? 'Edit trade' : 'New trade'}</h1>
@@ -494,7 +503,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           type="button"
           aria-label="Close without saving"
           title="Close without saving (Esc)"
-          onClick={() => { window.location.href = '/'; }}
+          onClick={() => navigate('/')}
           whileTap={press}
           whileHover={{ scale: 1.06 }}
           transition={spring}
@@ -970,7 +979,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             <AnimatePresence initial={false}>
               {modelGate && (
                 <motion.div key="gate" data-gate-banner role="alert"
-                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4, transition: exitQuick }}
                   transition={springSoft}
                   className="rounded-[calc(12px*var(--rk))] border px-3 py-2 text-[12.5px] font-semibold leading-snug"
                   style={{
@@ -981,7 +990,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
                 </motion.div>
               )}
               {diagonalCap && (
-                <motion.p key="diag" data-diagonal-cap initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                <motion.p key="diag" data-diagonal-cap initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: exitQuick }}
                   className="text-[11.5px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
                   Trendline/diagonal target — max grade B.
                 </motion.p>
@@ -1013,7 +1022,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             <motion.span
               key={!chart && !editing ? 'file' : !reason ? 'reason'
                 : !explanationOk ? 'expl' : !lessonOk ? 'lesson' : 'ready'}
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4, transition: exitQuick }}
               transition={spring} className="block truncate"
             >
               {!chart && !editing ? 'A screenshot is required.'
@@ -1055,7 +1064,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
 
       <AnimatePresence>
         {error && (
-          <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+          <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exitQuick }}
             transition={spring}
             className="mt-4 whitespace-pre-wrap break-words rounded-[calc(14px*var(--rk))] p-3 text-[12px] leading-relaxed"
             style={{ color: 'rgb(var(--outcome-loss))', background: 'rgb(var(--outcome-loss) / 0.10)' }}>

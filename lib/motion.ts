@@ -7,51 +7,73 @@ import type { Transition } from 'framer-motion';
  */
 
 /*
-  Tuned soft. Every preset sits close to critical damping — damping ratio
-  ζ = damping / (2·√(stiffness·mass)) between about 0.75 and 1 — so things
-  arrive and settle rather than wobble. The old "bouncy" spring was ζ ≈ 0.4
-  and visibly rang on every grade change; nothing here overshoots by more than
-  a few percent. Softness comes from lower stiffness (a longer, gentler glide),
-  not from bounce.
+  Tuned bouncy — subtly.
+
+  Damping ratio ζ = damping / (2·√(stiffness·mass)) decides the character:
+  1 arrives and stops, lower overshoots and settles back. The app used to sit
+  at 0.75–1, which read as calm but inert. These sit at about 0.6–0.7 —
+  a 5–8% overshoot that reads as a little give, the way a good physical
+  switch feels — with the bounciest (0.55) kept for small things that should
+  feel alive: toggles, checks, the grade badge.
+
+  Two stay near-critical on purpose: springSize, because a height or width
+  that overshoots makes the content below it jump; and springLayout, because
+  the whiteboard is the one surface that must never be seen to wobble.
+
+  Overshoot for a given ζ is e^(−ζπ/√(1−ζ²)): ζ 0.55 ≈ 13%, 0.65 ≈ 7%, 0.7 ≈ 5%.
 */
 
-/** The baseline. When in doubt, use this. ζ ≈ 0.93 */
-export const spring: Transition = { type: 'spring', stiffness: 280, damping: 31, mass: 1 };
+/** The baseline. When in doubt, use this. ζ ≈ 0.68 */
+export const spring: Transition = { type: 'spring', stiffness: 340, damping: 25, mass: 1 };
 
-/** Quicker — presses, toggles and small state flips. ζ ≈ 0.95 */
-export const springSnappy: Transition = { type: 'spring', stiffness: 420, damping: 39, mass: 1 };
+/** Quicker — presses, toggles and small state flips. ζ ≈ 0.66 */
+export const springSnappy: Transition = { type: 'spring', stiffness: 520, damping: 30, mass: 1 };
 
-/** Entrances and the live grade badge: a gentle arrival with the faintest settle. ζ ≈ 0.76 */
-export const springBouncy: Transition = { type: 'spring', stiffness: 300, damping: 26, mass: 1 };
+/** Small things that should feel alive: checks, toggles, the grade badge. ζ ≈ 0.55 */
+export const springBouncy: Transition = { type: 'spring', stiffness: 420, damping: 22.5, mass: 1 };
 
-/** Heavier and slower — panels, dialogs, anything with size. ζ ≈ 1 */
-export const springSoft: Transition = { type: 'spring', stiffness: 190, damping: 27, mass: 1 };
+/** Heavier — panels, dialogs, anything with size on screen. ζ ≈ 0.7 */
+export const springSoft: Transition = { type: 'spring', stiffness: 240, damping: 21.5, mass: 1 };
 
-/** Whiteboard cards settling into a new layout. ζ ≈ 0.9 */
-export const springLayout: Transition = { type: 'spring', stiffness: 220, damping: 27, mass: 1 };
+/** Heights and widths: no overshoot, or the content under them jumps. ζ ≈ 0.95 */
+export const springSize: Transition = { type: 'spring', stiffness: 260, damping: 30.5, mass: 1 };
+
+/** Whiteboard cards settling into a new layout — calm on purpose. ζ ≈ 0.88 */
+export const springLayout: Transition = { type: 'spring', stiffness: 230, damping: 26.5, mass: 1 };
 
 /**
- * The one CSS/WAAPI curve, for the few animations that are not springs (the
- * board regrouping, the theme wipe, page entrances): an expo-out — quick to
- * start, very slow to land, so nothing arrives with a thud.
+ * The CSS/WAAPI curves, for the few animations that are not springs.
+ * EASE_SOFT is an expo-out (quick to start, slow to land); EASE_BOUNCE is the
+ * same family with a ~3% overshoot, for entrances that should land with give.
  */
 export const EASE_SOFT = 'cubic-bezier(0.16, 1, 0.3, 1)';
+export const EASE_BOUNCE = 'cubic-bezier(0.34, 1.28, 0.64, 1)';
 
-/** Buttons compress on press — barely. */
-export const press = { scale: 0.975 } as const;
+/** Buttons compress on press — a touch more than before, and spring back. */
+export const press = { scale: 0.96 } as const;
+
+/** Hover: a lift of a pixel or two. */
+export const lift = { y: -2 } as const;
 
 /** Standard entrance: rise and scale in, never a linear fade. */
 export const riseIn = {
-  initial: { opacity: 0, y: 6, scale: 0.985 },
+  initial: { opacity: 0, y: 8, scale: 0.98 },
   animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -3, scale: 0.99 },
+  exit: { opacity: 0, y: -4, scale: 0.985 },
 } as const;
 
-/** Dropdown options stagger in behind the menu's own spring. */
+/** Dropdown options and list rows stagger in behind their container's spring. */
 export const stagger = (index: number): Transition => ({
   ...springSnappy,
-  delay: index * 0.022,
+  delay: Math.min(index, 12) * 0.024,
 });
+
+/**
+ * How anything leaves. Arriving is a spring; leaving is quick and plain —
+ * a menu that closes on the same bouncy spring it opened on lingers on screen
+ * after it was dismissed, and a lingering menu reads as a slow one.
+ */
+export const exitQuick = { duration: 0.12, ease: [0.4, 0, 1, 1] } as const;
 
 /**
  * How a scrim leaves.

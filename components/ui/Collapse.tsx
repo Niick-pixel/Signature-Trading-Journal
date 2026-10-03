@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { springSoft } from '@/lib/motion';
+import { springSize } from '@/lib/motion';
 
 /**
  * Opens and closes by height, softly — and only clips while it is moving.
@@ -27,7 +27,7 @@ export function Collapse({ children, className = '', ...rest }: {
       initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
       animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
       exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-      transition={springSoft}
+      transition={springSize}
       className={className}
     >
       {children}

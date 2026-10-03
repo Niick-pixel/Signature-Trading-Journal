@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 import { Wordmark } from './Wordmark';
@@ -10,6 +10,7 @@ import { CheckInChip } from './MorningCheckIn';
 import { AccountPicker } from './AccountPicker';
 import { UpdateChip } from './UpdateChip';
 import { Suspense } from 'react';
+import { navigate } from '@/lib/nav';
 
 const TABS = [
   { href: '/', label: 'Whiteboard' },
@@ -25,14 +26,13 @@ const TABS = [
  */
 export function TitleBar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [platform, setPlatform] = useState<string | null>(null);
 
   useEffect(() => {
     setPlatform(window.signature?.platform ?? null);
     // Menu items (Cmd+N and friends) navigate through the preload bridge.
-    return window.signature?.onNavigate((route) => router.push(route));
-  }, [router]);
+    return window.signature?.onNavigate((route) => navigate(route));
+  }, []);
 
   const isMac = platform === 'darwin';
   const isWindows = platform === 'win32';

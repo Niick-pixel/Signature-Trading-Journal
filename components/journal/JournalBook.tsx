@@ -176,16 +176,18 @@ export function JournalBook({ initial, tradesByDay }: {
                 : 'No page says that.'}
             </p>
           ) : (
-            <div className="space-y-1">
+            <div data-stagger className="space-y-1">
               {filtered.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => setOpenId(p.id)}
+                  data-tint
                   className="block w-full rounded-[calc(13px*var(--rk))] border px-3 py-2.5 text-left"
                   style={{
                     borderColor: p.id === openId ? 'rgb(var(--accent) / 0.5)' : 'transparent',
-                    background: p.id === openId ? 'rgb(var(--accent) / 0.10)' : 'transparent',
+                    // Unset when not chosen, so the hover tint can show.
+                    background: p.id === openId ? 'rgb(var(--accent) / 0.10)' : undefined,
                   }}
                 >
                   <span className="flex items-baseline justify-between gap-2">
