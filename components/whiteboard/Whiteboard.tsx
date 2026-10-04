@@ -38,6 +38,7 @@ import { SearchPalette } from './SearchPalette';
 import { StreakBadge } from './StreakBadge';
 import { SavedViews } from './SavedViews';
 import { OUTCOME_COLOR, TradeNode } from './TradeNode';
+import { useConfirm } from '@/components/ui/Confirm';
 
 /** How far below the top of the canvas the board starts, clear of the floating toolbar. */
 const TOP_CLEARANCE = 150;
@@ -67,6 +68,7 @@ const nodeTypes = {
 function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[]; readOnly?: boolean }) {
   const flow = useReactFlow();
   const [trades, setTrades] = useState(initial);
+  const confirm = useConfirm();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   // The account comes from the title bar's choice, and a choice made in the
@@ -181,9 +183,10 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   }, []);
 
   const removeNote = useCallback(async (id: string) => {
+    if (!(await confirm({ title: 'Delete this note?', body: 'The note and what is written on it are deleted.', action: 'Delete note' }))) return;
     await fetch(`/api/board?kind=note&id=${id}`, { method: 'DELETE' });
     await loadBoard();
-  }, [loadBoard]);
+  }, [loadBoard, confirm]);
 
   const moveNote = useCallback((id: string, x: number, y: number) => {
     void fetch('/api/board', {
@@ -873,9 +876,14 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
 
   /** Every group back where the grid puts it. */
   const tidyUp = useCallback(async () => {
+    if (!(await confirm({
+      title: 'Tidy up the board?',
+      body: 'Every group goes back where the grid puts it. Groups you moved by hand lose their places.',
+      action: 'Tidy up', danger: false,
+    }))) return;
     setOffsets({});
     await fetch('/api/board/offsets', { method: 'DELETE' });
-  }, []);
+  }, [confirm]);
 
   /**
    * Pin anything the layout just placed for the first time.
@@ -909,9 +917,14 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   }, [layout, filters, readOnly]);
 
   const recluster = useCallback(async () => {
+    if (!(await confirm({
+      title: 'Rearrange every card?',
+      body: 'Every card is placed fresh by the layout. Where you put cards by hand is forgotten.',
+      action: 'Rearrange', danger: false,
+    }))) return;
     await fetch('/api/trades/positions', { method: 'DELETE' });
     await refresh();
-  }, [refresh]);
+  }, [refresh, confirm]);
 
   const open = openId ? trades.find((t) => t.id === openId) ?? null : null;
 
@@ -1079,6 +1092,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
               label: 'Delete link',
               danger: true,
               onClick: async () => {
+                if (!(await confirm({ title: 'Delete this link?', body: 'The line between the two cards goes; the trades stay.', action: 'Delete link' }))) return;
                 await fetch(`/api/board?kind=edge&id=${edgeId}`, { method: 'DELETE' });
                 await loadBoard();
               },

@@ -405,6 +405,21 @@ export const isSeparate = (account: string | null | undefined): boolean =>
 /** In "All accounts" and every real total. */
 export const isReal = (account: string | null | undefined): boolean => !isSeparate(account);
 
+/**
+ * A loss is a negative number, whatever was typed.
+ *
+ * P&L and R are stored signed, and the form used to take them as written — so
+ * a loss entered as "120" (the way most people type a loss) went in as +$120,
+ * and every total, balance and stat counted the loss as a win. A Loss with a
+ * positive figure is now negated on the way in. Wins are left alone: a win
+ * can honestly come out a few dollars negative after fees, and that is flagged
+ * rather than rewritten. Migration 020 holds the database to the same rule.
+ */
+export function signForOutcome(value: number | null, outcome: string): number | null {
+  if (value == null || !Number.isFinite(value)) return value;
+  return outcome === 'Loss' ? -Math.abs(value) : value;
+}
+
 /** Whether `date` is the day the trade happened (it is not on an undated backtest). */
 export const isDated = (t: { undated?: boolean | null }): boolean => !t.undated;
 

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { press, spring } from '@/lib/motion';
 import { usePreferences } from '@/components/shell/PreferencesProvider';
 import type { SavedView } from '@/lib/preferences';
+import { useConfirm } from '@/components/ui/Confirm';
 
 /**
  * Filter combinations worth coming back to.
@@ -16,6 +17,7 @@ export function SavedViews({ current, onApply }: {
   current: Record<string, unknown>;
   onApply: (filters: Record<string, unknown>) => void;
 }) {
+  const confirm = useConfirm();
   const { prefs, update } = usePreferences();
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
@@ -30,7 +32,11 @@ export function SavedViews({ current, onApply }: {
     setName(''); setNaming(false);
   };
 
-  const remove = (id: string) => update({ savedViews: views.filter((v) => v.id !== id) });
+  const remove = async (id: string) => {
+    const name = views.find((v) => v.id === id)?.name;
+    if (!(await confirm({ title: `Delete the view “${name ?? ''}”?`, body: 'Only the saved filter goes; no trade is touched.', action: 'Delete view' }))) return;
+    update({ savedViews: views.filter((v) => v.id !== id) });
+  };
 
   return (
     <div className="flex items-center gap-1.5">

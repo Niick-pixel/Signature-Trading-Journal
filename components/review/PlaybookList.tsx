@@ -10,10 +10,12 @@ import type { Playbook } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Field';
 import { ExplanationField } from '@/components/capture/ExplanationField';
+import { useConfirm } from '@/components/ui/Confirm';
 
 interface Entry { book: Playbook; stats: Aggregate }
 
 export function PlaybookList({ entries }: { entries: Entry[] }) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
@@ -33,6 +35,11 @@ export function PlaybookList({ entries }: { entries: Entry[] }) {
   }
 
   async function archive(id: string) {
+    if (!(await confirm({
+      title: 'Remove this setup?',
+      body: 'It leaves the playbook. Trades filed under it keep their record.',
+      action: 'Remove setup',
+    }))) return;
     await fetch(`/api/playbooks?id=${id}`, { method: 'DELETE' });
     router.refresh();
   }

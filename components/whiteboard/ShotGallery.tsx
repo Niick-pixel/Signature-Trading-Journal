@@ -6,6 +6,7 @@ import { press, spring } from '@/lib/motion';
 import { SHOT_SLOTS, type ShotSlot } from '@/lib/domain';
 import type { TradeShot } from '@/lib/types';
 import { Lightbox } from './Lightbox';
+import { useConfirm } from '@/components/ui/Confirm';
 
 const url = (path: string) => `/api/screenshots/${path}`;
 
@@ -18,6 +19,7 @@ const url = (path: string) => `/api/screenshots/${path}`;
  * the result are usually available at different times from the entry.
  */
 export function ShotGallery({ tradeId, editable = true }: { tradeId: string; editable?: boolean }) {
+  const confirm = useConfirm();
   const [shots, setShots] = useState<TradeShot[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,11 @@ export function ShotGallery({ tradeId, editable = true }: { tradeId: string; edi
   }
 
   async function remove(id: string) {
+    if (!(await confirm({
+      title: 'Remove this chart?',
+      body: 'The screenshot is deleted from the trade. The trade itself stays as it is.',
+      action: 'Remove chart',
+    }))) return;
     setBusy(true); setError(null);
     const res = await fetch(`/api/trades/${tradeId}/shots?shot=${id}`, { method: 'DELETE' });
     if (!res.ok) setError((await res.json()).error ?? 'Could not remove that image.');

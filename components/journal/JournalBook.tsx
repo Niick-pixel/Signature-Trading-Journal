@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Field';
 import { Overlay } from '@/components/ui/Overlay';
 import { RichText } from './RichText';
 import { DayStrip, type DayTradeSummary } from './DayStrip';
+import { useConfirm } from '@/components/ui/Confirm';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const longDate = (day: string) =>
@@ -32,6 +33,7 @@ export function JournalBook({ initial, tradesByDay }: {
   /** The day's trades, keyed by date, for the strip on each page. */
   tradesByDay: Record<string, DayTradeSummary[]>;
 }) {
+  const confirm = useConfirm();
   const [pages, setPages] = useState(initial);
   const [openId, setOpenId] = useState<string | null>(initial[0]?.id ?? null);
   const [picking, setPicking] = useState(false);
@@ -131,13 +133,19 @@ export function JournalBook({ initial, tradesByDay }: {
   }, []);
 
   const remove = useCallback(async (id: string) => {
+    const title = pages.find((p) => p.id === id)?.title?.trim();
+    if (!(await confirm({
+      title: `Delete ${title ? `“${title}”` : 'this page'}?`,
+      body: 'The page and everything written on it are deleted for good — there is no Trash for journal pages.',
+      action: 'Delete page',
+    }))) return;
     await fetch(`/api/journal/${id}`, { method: 'DELETE' });
     setPages((prev) => {
       const next = prev.filter((p) => p.id !== id);
       setOpenId((cur) => (cur === id ? next[0]?.id ?? null : cur));
       return next;
     });
-  }, []);
+  }, [pages, confirm]);
 
   /** Screenshots go through the app's own store, never as a data: URL. */
   const addImage = useCallback(async (file: File) => {
@@ -155,7 +163,13 @@ export function JournalBook({ initial, tradesByDay }: {
   return (
     <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
       {/* ------------------------------------------------------------ spine */}
-      <aside className="glass flex max-h-[calc(100dvh-8rem)] flex-col rounded-[calc(24px*var(--rk))] p-4">
+      {/*
+        Both columns are the window's height from the first page, not grown
+        page by page until they hit a ceiling: the list and the writing scroll
+        inside them instead. (Narrow windows stack the two and keep scrolling
+        the page.)
+      */}
+      <aside className="glass flex max-h-[calc(100dvh-8rem)] flex-col rounded-[calc(24px*var(--rk))] p-4 lg:max-h-none lg:h-[calc(100dvh-10.25rem)]">
         <Button variant="primary" onClick={() => setPicking(true)} className="w-full">
           New page
         </Button>
@@ -214,7 +228,7 @@ export function JournalBook({ initial, tradesByDay }: {
 
       {/* ------------------------------------------------------------- page */}
       {open === null ? (
-        <div className="glass grid place-items-center rounded-[calc(24px*var(--rk))] p-10 text-center">
+        <div className="glass grid place-items-center rounded-[calc(24px*var(--rk))] p-10 text-center lg:h-[calc(100dvh-10.25rem)]">
           <div>
             <p className="text-[15px] font-medium">Nothing open</p>
             <p className="mt-1.5 max-w-sm text-[13px]" style={{ color: 'var(--text-dim)' }}>
@@ -226,7 +240,7 @@ export function JournalBook({ initial, tradesByDay }: {
         </div>
       ) : (
         <motion.article {...riseIn} transition={spring} key={open.id}
-          className="glass rounded-[calc(24px*var(--rk))] p-7 sm:p-9">
+          className="glass flex flex-col rounded-[calc(24px*var(--rk))] p-7 sm:p-9 lg:h-[calc(100dvh-10.25rem)]">
           {/*
             Explicit keys on the direct children.
 
@@ -234,7 +248,7 @@ export function JournalBook({ initial, tradesByDay }: {
             keyed list rather than as static JSX and warns about every one of
             them. Naming them is cheaper than fighting about whose job it is.
           */}
-          <div key="head" className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div key="head" className="mb-5 flex shrink-0 flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <input
                 value={open.title}

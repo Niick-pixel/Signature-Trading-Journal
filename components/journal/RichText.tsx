@@ -105,8 +105,10 @@ export function RichText({
   }, [push]);
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+    // On a wide window the page has a fixed height (JournalBook): the toolbar
+    // stays put and only the writing scrolls.
+    <div className="flex min-h-0 flex-col lg:flex-1">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-1.5">
         <Group>
           <Tool onClick={() => run('bold')} title="Bold (Ctrl+B)" label="B" bold />
           <Tool onClick={() => run('italic')} title="Italic (Ctrl+I)" label="I" italic />
@@ -171,7 +173,8 @@ export function RichText({
         onBlur={push}
         onPaste={onPaste}
         data-placeholder={placeholder}
-        className="signature-page min-h-[24rem] rounded-[calc(18px*var(--rk))] px-1 outline-none"
+        className="signature-page min-h-[24rem] rounded-[calc(18px*var(--rk))] px-1 outline-none
+          lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
         style={{ color: 'var(--text)' }}
       />
     </div>

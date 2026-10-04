@@ -50,7 +50,8 @@ export function DayStrip({ trades }: { trades: DayTradeSummary[] }) {
 
   return (
     <div
-      className="mb-6 rounded-[calc(16px*var(--rk))] border px-4 py-3"
+      // Capped, so a busy day cannot squeeze the writing out of a fixed-height page.
+      className="mb-6 max-h-[9.5rem] shrink-0 overflow-y-auto rounded-[calc(16px*var(--rk))] border px-4 py-3"
       style={{ borderColor: 'var(--glass-stroke)', background: 'var(--glass-fill)' }}
     >
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">

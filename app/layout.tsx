@@ -9,6 +9,7 @@ import { MorningCheckIn } from '@/components/shell/MorningCheckIn';
 import { Shortcuts } from '@/components/shell/Shortcuts';
 import { NavTransitions } from '@/components/shell/NavTransitions';
 import { Tooltips } from '@/components/shell/Tooltips';
+import { ConfirmProvider } from '@/components/ui/Confirm';
 
 export const metadata: Metadata = {
   title: 'Signature',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <PreferencesProvider>
+          <ConfirmProvider>
           {children}
           {/* Theme above settings, bottom-left, on every screen. */}
           <BottomLeftControls>
@@ -42,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <NavTransitions />
           {/* Every title="…" hint, drawn in the theme with a small spring. */}
           <Tooltips />
+          </ConfirmProvider>
         </PreferencesProvider>
       </body>
     </html>

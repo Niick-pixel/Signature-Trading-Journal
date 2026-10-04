@@ -1,5 +1,6 @@
 import type { Trade } from '@/lib/types';
 import { isTaken } from '@/lib/domain';
+import { money } from '@/lib/stats';
 import { CountUp } from '@/components/ui/CountUp';
 
 const usd = (v: number) =>
@@ -18,8 +19,10 @@ const r = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFix
 export function MissedCard({ trades }: { trades: Trade[] }) {
   const taken = trades.filter((t) => isTaken(t.outcome));
   const totalR = taken.reduce((s, t) => s + (t.r_multiple ?? 0), 0);
-  const priced = taken.filter((t) => t.pnl_dollars != null);
-  const dollars = priced.reduce((s, t) => s + (t.pnl_dollars ?? 0), 0);
+  // As Stats counts it: typed P&L, or risk × R where only those were given.
+  const m = money(trades);
+  const dollars = m.net;
+  const priced = { length: m.priced };
   const wins = taken.filter((t) => t.outcome === 'Win').length;
   const losses = taken.filter((t) => t.outcome === 'Loss').length;
 

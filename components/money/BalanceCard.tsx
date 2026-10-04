@@ -14,6 +14,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Select } from '@/components/ui/Select';
 import { Overlay } from '@/components/ui/Overlay';
 import { CountUp } from '@/components/ui/CountUp';
+import { useConfirm } from '@/components/ui/Confirm';
 
 const usd = (v: number) =>
   `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString(undefined, {
@@ -42,6 +43,7 @@ interface BalanceCardProps {
  * because you stop checking the broker.
  */
 export function BalanceCard({ balance, account, events }: BalanceCardProps) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<KindLabel>('Deposit');
@@ -82,6 +84,11 @@ export function BalanceCard({ balance, account, events }: BalanceCardProps) {
   }
 
   async function remove(id: string) {
+    if (!(await confirm({
+      title: 'Delete this entry?',
+      body: 'It comes off the balance and out of the history. Nothing else changes.',
+      action: 'Delete entry',
+    }))) return;
     await fetch(`/api/cash/${id}`, { method: 'DELETE' });
     router.refresh();
   }

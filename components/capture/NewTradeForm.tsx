@@ -795,14 +795,14 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             the rest of the record rather than with the writing — and it keeps
             the writing column under the height the checklist sets. */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Field quiet label="R" hint="R multiple, signed — e.g. 2.4 or -1. Leave blank to settle later.">
+          <Field quiet label="R" hint="R multiple — e.g. 2.4, or 1 for a one-R loss (saved negative). Leave blank to settle later.">
             <Input type="number" step="0.1" inputMode="decimal" placeholder="—"
               value={rMultiple} onChange={(e) => setRMultiple(e.target.value)} />
           </Field>
           <Field quiet label="Contracts">
             <Input type="number" step="1" min="0" placeholder="—" value={contracts} onChange={(e) => setContracts(e.target.value)} />
           </Field>
-          <Field quiet label="P&L $" hint="What the account actually did. Signed — a loss is negative.">
+          <Field quiet label="P&L $" hint="What the account made or lost. A loss can be typed as a plain number — it is saved negative.">
             <Input type="number" step="0.01" inputMode="decimal" placeholder="—"
               value={pnlDollars} onChange={(e) => setPnlDollars(e.target.value)} />
           </Field>
@@ -810,6 +810,20 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             <Input type="number" step="0.25" min="0" placeholder="—" value={stopPoints} onChange={(e) => setStopPoints(e.target.value)} />
           </Field>
         </div>
+        {/* A loss typed positive is saved negative (domain.ts signForOutcome);
+            say so, so the number on the board is never a surprise. */}
+        <AnimatePresence initial={false}>
+          {outcome === 'Loss' && ((Number(pnlDollars) > 0) || (Number(rMultiple) > 0)) && (
+            <motion.p key="loss-sign" data-loss-sign
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exitQuick }} transition={spring}
+              className="-mt-2 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+              A loss — saved as {[
+                Number(rMultiple) > 0 ? `−${Number(rMultiple)}R` : null,
+                Number(pnlDollars) > 0 ? `−$${Number(pnlDollars).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null,
+              ].filter(Boolean).join(' and ')}.
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         {/*
           Excursion. How far it went against me before it worked, and how

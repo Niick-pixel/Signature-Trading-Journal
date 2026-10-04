@@ -90,15 +90,29 @@ function play(kind: Kind, to: string): Animation[] {
     out.push(root.animate(frames, { fill: 'both', pseudoElement: pseudo, ...o }));
   };
 
+  /*
+    The old screen never fades out. It stays fully drawn underneath while the
+    new one fades in over it, so at no moment is neither there. (Fading the
+    old one out as the new one came in — the first version — left a beat in
+    the middle where both were half-transparent and the bare background showed
+    through: a flicker on every tab switch.) Holding it takes an explicit
+    animation: left alone, the browser's default fades it out on its own.
+  */
+  const hold = (pseudo: string, duration: number) =>
+    anim(pseudo, [{ opacity: 1 }, { opacity: 1 }], { duration });
+
   if (kind === 'page') {
-    anim('::view-transition-old(root)', [{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: EASE_IN });
-    anim('::view-transition-new(root)', to === '/'
+    const board = to === '/';
+    const duration = board ? 240 : 380;
+    hold('::view-transition-old(root)', duration);
+    anim('::view-transition-new(root)', board
+      // The whiteboard only fades: it is the one screen never seen to move.
       ? [{ opacity: 0 }, { opacity: 1 }]
-      : [{ opacity: 0, transform: 'translateY(8px) scale(0.996)' }, { opacity: 1, transform: 'none' }],
-    { duration: to === '/' ? 260 : 440, delay: 40, easing: to === '/' ? EASE_OUT : EASE_BOUNCE });
+      : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+    { duration, easing: board ? EASE_OUT : EASE_BOUNCE });
   } else if (kind === 'open') {
-    anim('::view-transition-old(root)', [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: EASE_OUT });
-    anim('::view-transition-new(root)', [{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: EASE_OUT });
+    hold('::view-transition-old(root)', 260);
+    anim('::view-transition-new(root)', [{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: EASE_OUT });
     anim('::view-transition-new(sheet)', [
       { opacity: 0, transform: 'translateY(22px) scale(0.965)' },
       { opacity: 1, transform: 'none' },
@@ -108,8 +122,8 @@ function play(kind: Kind, to: string): Animation[] {
       { opacity: 1, transform: 'none' },
       { opacity: 0, transform: 'translateY(14px) scale(0.97)' },
     ], { duration: 200, easing: EASE_IN });
-    anim('::view-transition-old(root)', [{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: EASE_OUT });
-    anim('::view-transition-new(root)', [{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: EASE_OUT });
+    hold('::view-transition-old(root)', 280);
+    anim('::view-transition-new(root)', [{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: EASE_OUT });
   }
   return out;
 }

@@ -1,5 +1,6 @@
 import type { Trade } from '@/lib/types';
 import { isTaken } from '@/lib/domain';
+import { money } from '@/lib/stats';
 import { CountUp } from '@/components/ui/CountUp';
 
 const usd = (v: number) =>
@@ -35,8 +36,12 @@ export function BacktestCard({ trades }: { trades: Trade[] }) {
   const wins = taken.filter((t) => t.outcome === 'Win').length;
   const losses = taken.filter((t) => t.outcome === 'Loss').length;
   const decided = wins + losses;
-  const priced = taken.filter((t) => t.pnl_dollars != null);
-  const dollars = priced.reduce((s, t) => s + (t.pnl_dollars ?? 0), 0);
+  // The same figure Stats shows: typed P&L, or risk × R where only those were
+  // given. (Summing typed P&L alone made this card and the Stats page disagree
+  // about the same trades.)
+  const m = money(trades);
+  const dollars = m.net;
+  const priced = { length: m.priced };
 
   return (
     <div data-backtest-card className="glass rounded-[calc(24px*var(--rk))] p-6">

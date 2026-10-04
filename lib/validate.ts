@@ -1,5 +1,5 @@
 import {
-  ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
+  ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, signForOutcome, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
   SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS,
   type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
@@ -271,11 +271,12 @@ export function parseTradeInput(
       // the P&L, so it is dropped rather than stored.
       risk_dollars: positiveOrNull('risk_dollars'),
       risk_percent: positiveOrNull('risk_percent'),
-      // Signed, unlike risk: a loss is a negative number here.
-      pnl_dollars: numOrNull('pnl_dollars'),
+      // Signed, unlike risk: a loss is a negative number here — made so if it
+      // was typed positive (domain.ts signForOutcome).
+      pnl_dollars: signForOutcome(numOrNull('pnl_dollars'), outcome!),
       stop_points: numOrNull('stop_points'),
       outcome: outcome!,
-      r_multiple: numOrNull('r_multiple'),
+      r_multiple: signForOutcome(numOrNull('r_multiple'), outcome!),
       explanation,
       lesson: lesson || null,
       screenshot_path,
