@@ -79,6 +79,28 @@ export const TARGET_TYPES = [
  */
 export const RETIRED_TARGET_TYPES = ['Horizontal liquidity pool', 'Opposing FVG', 'Other'] as const;
 export const TARGET_TYPE_VALUES = [...TARGET_TYPES, ...RETIRED_TARGET_TYPES] as const;
+
+/**
+ * How a trade is managed. Fixed per backtest sample so the sample measures
+ * one plan, not a mood. A = all to the final target, BE after the first
+ * internal liquidity breaks. B = half at the first internal liquidity, BE,
+ * runner to the final target.
+ */
+export const MGMT_PLANS = ['A', 'B'] as const;
+export type MgmtPlan = (typeof MGMT_PLANS)[number];
+/**
+ * Where a plan-B partial came off. Its own list rather than the target types:
+ * a partial is usually the FIRST internal liquidity — an intraday swing or an
+ * HTF gap — which the target list does not offer.
+ */
+export const PARTIAL_LEVELS = [
+  'Intraday swing (ITH/ITL)', 'EQH/EQL', 'Session high/low', 'PDH/PDL',
+  'Data wick (ITH/ITL)', 'HTF FVG', 'Order block', 'Fixed R',
+] as const;
+export const MGMT_PLAN_LABEL: Record<MgmtPlan, string> = {
+  A: 'A · all to final target, BE',
+  B: 'B · half at first liquidity, BE, runner',
+};
 /** Renamed rather than retired: migration 015 moved every stored row across. */
 export const RENAMED_TARGET_TYPES: Record<string, (typeof TARGET_TYPES)[number]> = {
   'Data wick': 'Data wick (ITH/ITL)',

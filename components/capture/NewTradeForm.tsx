@@ -12,6 +12,7 @@ import {
   type Instrument, type MistakeTag, type Outcome, type PremiumDiscount, type Regrade,
   type SkipReason, type Reason, type Session, type SetupType, type TargetType,
   type SweepTier, type TradeStatus, type Tri,
+  MGMT_PLANS, MGMT_PLAN_LABEL, PARTIAL_LEVELS, type MgmtPlan,
 } from '@/lib/domain';
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
 import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
@@ -132,6 +133,13 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
   const [status, setStatus] = useState<TradeStatus>(trade?.status ?? 'Settled');
   const [pnlDollars, setPnlDollars] = useState(trade?.pnl_dollars?.toString() ?? '');
   const [reached1R, setReached1R] = useState<Tri>(trade?.reached_1r ?? null);
+  // Targets and management (021): which targets get hit, and under which plan.
+  const [targetHit, setTargetHit] = useState<Tri>(trade?.target_hit ?? null);
+  const [targetFresh, setTargetFresh] = useState<Tri>(trade?.target_fresh ?? null);
+  const [oppositeTaken, setOppositeTaken] = useState<Tri>(trade?.opposite_taken ?? null);
+  const [mgmtPlan, setMgmtPlan] = useState<MgmtPlan | null>(trade?.mgmt_plan ?? null);
+  const [partialAt, setPartialAt] = useState<string | null>(trade?.partial_at ?? null);
+  const [mfeR, setMfeR] = useState(trade?.mfe_r?.toString() ?? '');
   const [confidence, setConfidence] = useState<number | null>(trade?.confidence_at_entry ?? null);
   const [wouldBeR, setWouldBeR] = useState(trade?.would_be_r?.toString() ?? '');
   const [wouldHaveHitTp, setWouldHaveHitTp] = useState<boolean | null>(trade?.would_have_hit_tp ?? null);
@@ -208,6 +216,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
     context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
+    targetHit, targetFresh, oppositeTaken, mgmtPlan, partialAt, mfeR,
   }), [
     undated,
     date, instrument, direction, session, reason, setupType, htfBias,
@@ -215,6 +224,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
     context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
+    targetHit, targetFresh, oppositeTaken, mgmtPlan, partialAt, mfeR,
   ]);
 
   const [restored, setRestored] = useState(false);
@@ -274,6 +284,12 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
     if (has('stopPoints')) setStopPoints(v.stopPoints);
     if (has('rMultiple')) setRMultiple(v.rMultiple);
     if (has('reached1R')) setReached1R(v.reached1R);
+    if (has('targetHit')) setTargetHit(v.targetHit);
+    if (has('targetFresh')) setTargetFresh(v.targetFresh);
+    if (has('oppositeTaken')) setOppositeTaken(v.oppositeTaken);
+    if (has('mgmtPlan')) setMgmtPlan(v.mgmtPlan);
+    if (has('partialAt')) setPartialAt(v.partialAt);
+    if (has('mfeR')) setMfeR(v.mfeR);
     if (has('confidence')) setConfidence(v.confidence);
     if (has('wouldBeR')) setWouldBeR(v.wouldBeR);
     // Only claim to have restored something if something was actually written.
@@ -437,9 +453,14 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
       exit_time: trade?.exit_time ?? null,
       // Asked for and then removed: the two numbers were a chore to fill in and
       // nothing was read off them. Older records keep whatever they hold.
-      mae_r: trade?.mae_r ?? null, mfe_r: trade?.mfe_r ?? null,
+      mae_r: trade?.mae_r ?? null, mfe_r: num(mfeR),
       mae_points: null, mfe_points: null,
       reached_1r: reached1R,
+      target_hit: targetHit,
+      target_fresh: targetFresh,
+      opposite_taken: oppositeTaken,
+      mgmt_plan: mgmtPlan,
+      partial_at: mgmtPlan === 'B' ? partialAt : null,
       confidence_at_entry: confidence,
       would_be_r: num(wouldBeR),
       playbook_id: null,
@@ -720,6 +741,41 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             accentFor={(r) => reasonAccent(r as Reason)}
           />
         </Field>
+
+        {/*
+          (Here, under the outcome and the motive, because this column had the
+          room: added to the facts column it pushed the form off a 1080p screen.)
+          Targets and management. Which targets actually pull price is a
+          question only my own trades can answer — so the form asks whether
+          the target was hit, whether it was fresh, and whether the other
+          side had already gone, and Stats splits the hit rate by each.
+        */}
+        <div data-section="target-management" className="space-y-2.5">
+          <TriState inline value={targetHit} onChange={setTargetHit}
+            label="Target hit before the stop?"
+            hint="The named target, not the outcome. A partial and a BE can make a win that never got there." />
+          <TriState inline value={targetFresh} onChange={setTargetFresh}
+            label="Target untouched at entry?"
+            hint="A level already tapped today has less left in it." />
+          <TriState inline value={oppositeTaken} onChange={setOppositeTaken}
+            label="Other side already taken today?"
+            hint="If the opposite liquidity went first, this side is the obvious draw." />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field quiet label="Management plan" hint="Fixed for the whole sample, or the sample measures nothing.">
+              <Select value={mgmtPlan} onChange={setMgmtPlan} options={MGMT_PLANS}
+                labelFor={(o) => MGMT_PLAN_LABEL[o]} placeholder="Which plan?" />
+            </Field>
+            <Field quiet label="Max R reached" hint="How far it went your way before it turned. Check the chart.">
+              <Input type="number" step="0.1" min="0" inputMode="decimal" placeholder="—"
+                value={mfeR} onChange={(e) => setMfeR(e.target.value)} />
+            </Field>
+            {mgmtPlan === 'B' && (
+              <Field quiet label="Partial taken at" hint="The kind of level the first half came off at.">
+                <Select value={partialAt} onChange={setPartialAt} options={PARTIAL_LEVELS} placeholder="Which level?" />
+              </Field>
+            )}
+          </div>
+        </div>
         </div>
 
         {/* B — when it happened, and on what. Facts about the trade, so they

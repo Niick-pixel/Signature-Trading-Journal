@@ -1,7 +1,7 @@
 import {
   ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, signForOutcome, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
-  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS,
+  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS, MGMT_PLANS, PARTIAL_LEVELS,
   type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
 import { REGRADE_HINT, regradeAllowed, type GradeLetter } from './grade';
@@ -187,6 +187,16 @@ export function parseTradeInput(
   const htf_delivery = oneOf('htf_delivery', HTF_DELIVERIES);
   const sweep_futures_confirmed = tri('sweep_futures_confirmed');
 
+  /*
+    Targets and management (021). All optional. A partial level only means
+    something under plan B, so it is dropped under any other plan.
+  */
+  const target_hit = tri('target_hit');
+  const target_fresh = tri('target_fresh');
+  const opposite_taken = tri('opposite_taken');
+  const mgmt_plan = oneOf('mgmt_plan', MGMT_PLANS);
+  const partial_at = mgmt_plan === 'B' ? oneOf('partial_at', PARTIAL_LEVELS) : null;
+
   const status = oneOf('status', TRADE_STATUSES) ?? 'Settled';
   const regrade = oneOf('regrade', REGRADES);
   const previous = floor.previous;
@@ -227,6 +237,11 @@ export function parseTradeInput(
       sweep_level,
       sweep_futures_confirmed,
       htf_delivery,
+      target_hit,
+      target_fresh,
+      opposite_taken,
+      mgmt_plan,
+      partial_at,
       followed_rules: tri('followed_rules'),
       regrade,
       // Legacy single tag. Nothing writes it any more; it is preserved so the

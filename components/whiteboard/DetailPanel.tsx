@@ -361,6 +361,14 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                     <Row label="HTF bias" value={trade.htf_bias} />
                     <Row label="Premium / discount" value={trade.premium_discount} />
                     <Row label="Target" value={trade.target_type} />
+                    {/* Targets and management (021): only what was answered. */}
+                    {trade.target_hit != null && <Row label="Target hit" value={trade.target_hit ? 'Yes' : 'No'} />}
+                    {trade.target_fresh != null && <Row label="Target untouched" value={trade.target_fresh ? 'Yes' : 'No'} />}
+                    {trade.opposite_taken != null && <Row label="Other side taken" value={trade.opposite_taken ? 'Yes' : 'No'} />}
+                    {trade.mgmt_plan && (
+                      <Row label="Plan" value={`Plan ${trade.mgmt_plan}${trade.partial_at ? ` · partial at ${trade.partial_at}` : ''}`} />
+                    )}
+                    {trade.mfe_r != null && <Row label="Max R reached" value={`${trade.mfe_r}R`} />}
                     {/* Rubric 4 (trial): only on trades that answered it. */}
                     {TRIAL_RUBRIC != null && trialEventOf(trade) !== 'unrecorded' && (
                       <>

@@ -18,6 +18,7 @@ const CSV_COLUMNS: Array<keyof Trade> = [
   'sweep_tier', 'singular_gap',
   // Rubric 4 (trial): the liquidity event, named.
   'sweep_level', 'sweep_futures_confirmed', 'htf_delivery',
+  'target_hit', 'target_fresh', 'opposite_taken', 'mgmt_plan', 'partial_at',
   'checklist_score', 'grade_letter', 'trigger_fired', 'grade_at_entry', 'rubric_version', 'graded_post_hoc',
   'followed_rules', 'regrade', 'mistake_tags',
   'outcome', 'r_multiple', 'contracts', 'risk_dollars', 'risk_percent', 'stop_points',

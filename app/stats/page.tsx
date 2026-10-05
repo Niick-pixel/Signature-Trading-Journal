@@ -5,7 +5,7 @@ import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isBacktest, isDated, isHypothet
 import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
-  deliveryOnlyVerdict, equityCurves, excursion, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
+  deliveryOnlyVerdict, equityCurves, excursion, targetHits, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
   preGradedOnly, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
 } from '@/lib/stats';
 import { Histogram } from '@/components/stats/Histogram';
@@ -116,6 +116,7 @@ export default async function StatsPage(
   const bands = byGradeBand(trades);
   const conf = byConfidence(trades);
   const exc = excursion(trades);
+  const hits = targetHits(trades);
   const passed = passedSetups(trades);
   const tagRows: BarRow[] = rByMistakeTag(trades).map((t) => ({
     label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
@@ -589,6 +590,36 @@ export default async function StatsPage(
                         </p>
                       )}
                     </>
+                  )}
+                </Panel>
+                <Panel
+                  n={hits.answered}
+                  title="Which targets get hit"
+                  note="Hit rate of the named target before the stop, by target type and by whether it was fresh or the other side had already gone. Your data, not the textbook ranking."
+                >
+                  {hits.answered === 0 ? (
+                    <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
+                      Nothing recorded yet. &ldquo;Target hit before the stop?&rdquo; is an optional
+                      question on the trade form.
+                    </p>
+                  ) : (
+                    <div data-target-hits className="space-y-3">
+                      {[hits.byType, hits.fresh, hits.opposite].map((rows, i) => (
+                        <div key={i} className="space-y-1">
+                          {rows.filter((r) => r.answered > 0).map((r) => (
+                            <Line key={r.key} label={`${r.label} · ${r.answered}`}
+                              value={r.rate == null ? '—' : `${Math.round(r.rate * 100)}%`}
+                              tone={r.rate != null && r.rate >= 0.5 ? 'win' : 'loss'} />
+                          ))}
+                        </div>
+                      ))}
+                      {hits.mfe.n > 0 && (
+                        <p className="text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+                          Max R reached: avg {hits.mfe.avg!.toFixed(2)}R over {hits.mfe.n} trade{hits.mfe.n === 1 ? '' : 's'};
+                          {' '}{hits.mfe.reached2R} reached 2R or more.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </Panel>
                 <Panel

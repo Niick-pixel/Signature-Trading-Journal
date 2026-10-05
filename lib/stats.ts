@@ -739,6 +739,53 @@ export function excursion(trades: Trade[]): Excursion {
 }
 
 /**
+ * Which targets actually get hit — the hit rate, split by target type and by
+ * the two modifiers that are supposed to matter (fresh, other side taken).
+ * Counts only trades that answered "Target hit before the stop?"; an
+ * unanswered trade is unknown, never a miss.
+ */
+export interface HitRow { key: string; label: string; answered: number; hit: number; rate: number | null }
+export interface TargetHits {
+  answered: number;
+  byType: HitRow[];
+  fresh: HitRow[];
+  opposite: HitRow[];
+  /** Max R reached, over trades that recorded it. */
+  mfe: { n: number; avg: number | null; reached2R: number };
+}
+
+function hitRow(key: string, label: string, list: Trade[]): HitRow {
+  const answered = list.filter((t) => t.target_hit != null);
+  const hit = answered.filter((t) => t.target_hit === true).length;
+  return { key, label, answered: answered.length, hit, rate: answered.length ? hit / answered.length : null };
+}
+
+export function targetHits(trades: Trade[]): TargetHits {
+  const taken = trades.filter((t) => isTaken(t.outcome));
+  const answered = taken.filter((t) => t.target_hit != null);
+  const types = [...new Set(answered.map((t) => t.target_type ?? 'No target'))];
+  const byType = types
+    .map((ty) => hitRow(ty, ty, answered.filter((t) => (t.target_type ?? 'No target') === ty)))
+    .sort((a, b) => b.answered - a.answered);
+  const tri = (field: 'target_fresh' | 'opposite_taken', yes: string, no: string) => [
+    hitRow('yes', yes, answered.filter((t) => t[field] === true)),
+    hitRow('no', no, answered.filter((t) => t[field] === false)),
+  ];
+  const withMfe = taken.filter((t) => t.mfe_r != null);
+  return {
+    answered: answered.length,
+    byType,
+    fresh: tri('target_fresh', 'Untouched target', 'Already tapped'),
+    opposite: tri('opposite_taken', 'Other side taken first', 'Other side still there'),
+    mfe: {
+      n: withMfe.length,
+      avg: withMfe.length ? withMfe.reduce((s, t) => s + (t.mfe_r ?? 0), 0) / withMfe.length : null,
+      reached2R: withMfe.filter((t) => (t.mfe_r ?? 0) >= 2).length,
+    },
+  };
+}
+
+/**
  * The two sides of passing on a setup.
  *
  * Hesitation cost is R left behind on setups that met the standard. Discipline

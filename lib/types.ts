@@ -70,6 +70,16 @@ export interface Trade {
   sweep_futures_confirmed: boolean | null;
   /** Rubric 4 (trial). The HTF array price delivered from, picked — "5m FVG". Non-empty = delivered. */
   htf_delivery: string | null;
+  /** The named target was reached before the stop. Null = not recorded. */
+  target_hit: boolean | null;
+  /** The target was untouched when the trade was taken. */
+  target_fresh: boolean | null;
+  /** The opposite side's liquidity was already taken that day. */
+  opposite_taken: boolean | null;
+  /** Management plan: 'A' all to final, 'B' partial at first liquidity. */
+  mgmt_plan: 'A' | 'B' | null;
+  /** Plan B: the kind of level the partial came off at (a target type). */
+  partial_at: string | null;
   chk_displacement_fvg: ChecklistAnswer;
   chk_targets_clear: ChecklistAnswer;
   chk_clean_path: ChecklistAnswer;
