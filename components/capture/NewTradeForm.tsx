@@ -6,7 +6,7 @@ import { Collapse } from '@/components/ui/Collapse';
 import {
   ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
-  SKIP_REASONS, TRADE_STATUSES, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
+  SKIP_REASONS, TRADE_STATUSES, TARGET_WHY, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
   type Direction, type HtfBias,
   type Instrument, type MistakeTag, type Outcome, type PremiumDiscount, type Regrade,
@@ -17,7 +17,7 @@ import {
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
 import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { macroWindowFor } from '@/lib/macro';
-import { press, spring, springSoft, riseIn, exitQuick } from '@/lib/motion';
+import { press, spring, springSoft, riseIn, exitQuick, springSnappy } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import { MIN_EXPLANATION, MIN_LESSON, type Trade } from '@/lib/types';
 
@@ -828,19 +828,24 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           <Field quiet label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
           <Field quiet label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
           <Field quiet label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
-          <Field quiet label="Target type" pending={pending('targetType')}>
+          <Field quiet label="Target type" pending={pending('targetType')}
+            badge={
+              // Said where the choice is made, not only where the grade is — in
+              // the label row, so the form gets no taller.
+              <AnimatePresence initial={false}>
+                {targetType === WEAK_TARGET && (
+                  <motion.span key="weak-target" data-target-warning title={`${WEAK_TARGET_WARNING} Max grade B.`}
+                    initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 6, transition: exitQuick }}
+                    transition={springSnappy}
+                    className="shrink-0 whitespace-nowrap text-[11px] font-semibold" style={{ color: 'rgb(var(--amber))' }}>
+                    Weakest · max B
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            }
+            hint={(targetType && TARGET_WHY[targetType]) || 'Ranked strongest first: external liquidity, clean EQH/EQL, data wicks, HTF imbalance, intraday swings, LRLR. Hover an option for why.'}>
             <Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }}
-              options={targetTypeOptions(trade?.target_type ?? null)} />
-            {/* Said where the choice is made, not only where the grade is. */}
-            <AnimatePresence initial={false}>
-              {targetType === WEAK_TARGET && (
-                <Collapse key="weak-target" data-target-warning>
-                  <p className="pt-1.5 text-[11px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
-                    {WEAK_TARGET_WARNING} Max grade B.
-                  </p>
-                </Collapse>
-              )}
-            </AnimatePresence>
+              options={targetTypeOptions(trade?.target_type ?? null)} titleFor={(o) => TARGET_WHY[o]} />
           </Field>
         </div>
         {!planned && (
@@ -1062,7 +1067,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
               {diagonalCap && (
                 <motion.p key="diag" data-diagonal-cap initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: exitQuick }}
                   className="text-[11.5px] font-medium leading-snug" style={{ color: 'rgb(var(--amber))' }}>
-                  Trendline/diagonal target — max grade B.
+                  LRLR (trendline) target — max grade B.
                 </motion.p>
               )}
             </AnimatePresence>

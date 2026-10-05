@@ -16,6 +16,8 @@ interface SelectProps<T extends string> {
   accentFor?: (option: T) => string | undefined;
   /** What an option reads as, when it should differ from the stored value. */
   labelFor?: (option: T) => string;
+  /** A hover hint per option (drawn by the Tooltips layer). */
+  titleFor?: (option: T) => string | undefined;
   disabled?: boolean;
   id?: string;
 }
@@ -26,7 +28,7 @@ interface SelectProps<T extends string> {
  * tinted per option.
  */
 export function Select<T extends string>({
-  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, labelFor, disabled, id,
+  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, labelFor, titleFor, disabled, id,
 }: SelectProps<T>) {
   const text = (o: T) => (labelFor ? labelFor(o) : o);
   const [open, setOpen] = useState(false);
@@ -159,6 +161,7 @@ export function Select<T extends string>({
                 boxShadow: 'var(--shadow-panel)',
                 background: 'color-mix(in srgb, var(--bg-raised) 92%, transparent)',
               }}
+              data-tip-side
               className="glass z-[100] max-h-72 overflow-y-auto rounded-[calc(18px*var(--rk))] p-1.5"
             >
               {options.map((option, i) => {
@@ -169,6 +172,7 @@ export function Select<T extends string>({
                     key={option}
                     role="option"
                     aria-selected={selected}
+                    title={titleFor?.(option)}
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={stagger(i)}

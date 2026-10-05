@@ -93,6 +93,7 @@ test('the schema refuses a sweep tier or target outside the vocabulary', () => {
   upTo(db, files[files.length - 1]);
   assert.throws(() => insert(db, { target_type: 'EQH/EQL', sweep_tier: 'huge' }));
   assert.throws(() => insert(db, { target_type: 'Diagonal trendline' }));
+  assert.throws(() => insert(db, { target_type: 'Trendline/diagonal' }));
   assert.throws(() => insert(db, { target_type: 'EQH/EQL', singular_gap: 2 }));
 });
 
@@ -133,7 +134,7 @@ test('SQLite\'s generated grade agrees with lib/rubric.ts on every checklist', (
     for (const sweep of ['major', 'minor', 'none', null] as Array<SweepTier | null>)
       for (const gap of tri)
         for (const [ret, inv] of [[1, 1], [1, 0], [0, 1], [0, 0]])
-          for (const target of ['EQH/EQL', 'Trendline/diagonal']) {
+          for (const target of ['EQH/EQL', 'LRLR (trendline)']) {
             const row = { ...boxes, sweep_tier: sweep, singular_gap: gap, chk_returned_to_fvg: ret, chk_inversion_close: inv, target_type: target };
             const sql = stmt.get({ id: `t${n}`, ...base, ...row } as never) as Record<string, number | string>;
             const js = gradeUnder(CURRENT_RUBRIC, {
@@ -154,4 +155,28 @@ test('SQLite\'s generated grade agrees with lib/rubric.ts on every checklist', (
   db.exec('ROLLBACK');
   // 3^6 N/A-able boxes x 4 sweeps x 3 gap answers x 4 trigger pairs x 2 targets.
   assert.equal(n, 729 * 4 * 3 * 4 * 2);
+});
+
+test('022 renames the old target names and re-grades nothing', () => {
+  const db = fresh();
+  upTo(db, '021_target_and_management.sql');
+  const rows = [
+    { target_type: 'Data wick (ITH/ITL)' },
+    { target_type: 'Trendline/diagonal' },
+    { target_type: 'EQH/EQL' },
+    { target_type: 'Opposing FVG' },
+  ];
+  const ids = rows.map((r) => insert(db, { ...r, sweep_tier: 'major', singular_gap: 1 }));
+  const read = () => ids.map((id) => db.prepare(
+    'SELECT target_type, checklist_score, grade_letter, score_at_entry FROM trades WHERE id = ?',
+  ).get(id) as Record<string, unknown>);
+  const before = read();
+  db.exec('BEGIN'); db.exec(fs.readFileSync(path.join(DIR, '022_ranked_targets.sql'), 'utf8')); db.exec('COMMIT');
+  const after = read();
+  assert.deepEqual(after.map((r) => r.target_type), ['Data wick', 'LRLR (trendline)', 'EQH/EQL', 'Opposing FVG']);
+  // The trendline cap follows the new name: the grade is what it was.
+  assert.deepEqual(after.map((r) => [r.checklist_score, r.grade_letter, r.score_at_entry]),
+    before.map((r) => [r.checklist_score, r.grade_letter, r.score_at_entry]));
+  for (const t of ['PDH/PDL', 'Weekly high/low', 'Session high/low', 'HTF FVG (1H/4H)', 'ITH/ITL'])
+    insert(db, { target_type: t });
 });

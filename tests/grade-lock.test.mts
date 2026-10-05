@@ -64,7 +64,7 @@ test('a new trade is graded under the current rubric, gates and all', () => {
   assert.deepEqual([gated.checklist_score, gated.grade_letter], [80, 'C']);
   const stacked = createTrade(input({ singular_gap: false }));
   assert.deepEqual([stacked.checklist_score, stacked.grade_letter], [90, 'C']);
-  const diagonal = createTrade(input({ target_type: 'Trendline/diagonal' }));
+  const diagonal = createTrade(input({ target_type: 'LRLR (trendline)' }));
   assert.equal(diagonal.grade_letter, 'B');
   const minor = createTrade(input({ sweep_tier: 'minor' }));
   assert.deepEqual([minor.checklist_score, minor.grade_letter], [92, 'A']);
@@ -142,8 +142,14 @@ test('Other is retired: refused unless a trade already holds it, and renamed tar
   assert.equal(parseTradeInput(raw({ target_type: 'Bogus' })).ok, false);
   // Still valid for the trades filed under it.
   assert.equal(parseTradeInput(raw({ target_type: 'Other' })).ok, true);
-  assert.equal(input({ target_type: 'Diagonal trendline' }).target_type, 'Trendline/diagonal');
-  assert.equal(input({ target_type: 'Data wick' }).target_type, 'Data wick (ITH/ITL)');
+  // Every older spelling lands on today's name (migrations 015 and 022).
+  assert.equal(input({ target_type: 'Diagonal trendline' }).target_type, 'LRLR (trendline)');
+  assert.equal(input({ target_type: 'Trendline/diagonal' }).target_type, 'LRLR (trendline)');
+  assert.equal(input({ target_type: 'Data wick (ITH/ITL)' }).target_type, 'Data wick');
+  assert.equal(input({ target_type: 'Data wick' }).target_type, 'Data wick');
+  // The six classes' levels are all offered.
+  for (const t of ['PDH/PDL', 'Weekly high/low', 'Session high/low', 'EQH/EQL', 'HTF FVG (1H/4H)', 'ITH/ITL'])
+    assert.equal(input({ target_type: t }).target_type, t);
 });
 
 test('restoring an export from before rubric 2 reads the old answers like migration 015', () => {
@@ -177,7 +183,7 @@ test('the model breakdowns count, win-rate and total R by each gate', () => {
   assert.deepEqual(m.sweepTier.slice(0, 3).map((r) => r.key), ['major', 'minor', 'none']);
   assert.deepEqual(m.singularGap.slice(0, 2).map((r) => r.key), ['yes', 'no']);
   assert.deepEqual(m.entryGrade.map((r) => r.key), ['A+', 'A', 'B', 'C', 'F']);
-  assert.ok(row(m.targetType, 'Trendline/diagonal').stats.count >= 1);
+  assert.ok(row(m.targetType, 'LRLR (trendline)').stats.count >= 1);
   assert.ok(row(m.account, 'Live').stats.count === all.filter((t) => t.account === 'Live').length);
   const wins = all.filter((t) => t.grade_letter === 'C' && t.outcome === 'Win').length;
   const losses = all.filter((t) => t.grade_letter === 'C' && t.outcome === 'Loss').length;
@@ -190,7 +196,7 @@ test('a trade that failed a gate broke the rules, whatever its score', () => {
   assert.equal(adherenceOf(gated), 'broken');
   assert.equal(adherenceOf(createTrade(input({ sweep_tier: 'minor' }))), 'followed');
   // The diagonal cap is not a gate: a B trade is still the model.
-  assert.equal(adherenceOf(createTrade(input({ target_type: 'Trendline/diagonal' }))), 'followed');
+  assert.equal(adherenceOf(createTrade(input({ target_type: 'LRLR (trendline)' }))), 'followed');
   // A rubric 1 trade was never held to the gates.
   assert.equal(adherenceOf({ ...gated, rubric_version: 1 }), 'followed');
 });

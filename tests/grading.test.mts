@@ -84,7 +84,8 @@ test('a gate is a ceiling, not a floor: a failing score stays F', () => {
   assert.equal(g.letter, 'F');
 });
 
-test('a Trendline/diagonal target caps the grade at B', () => {
+test('an LRLR (trendline) target caps the grade at B, under any of its names', () => {
+  assert.equal(grade({ ...perfect, target_type: 'LRLR (trendline)' }).letter, 'B');
   assert.equal(grade({ ...perfect, target_type: 'Trendline/diagonal' }).letter, 'B');
   // Under B already, it changes nothing.
   assert.equal(grade({ ...perfect, target_type: 'Trendline/diagonal', chk_htf_bias: false, chk_killzone: false, chk_no_news: false }).letter, 'B');

@@ -40,7 +40,7 @@ export interface BarRow {
    */
   swatch?: string;
   accent?: string;
-  /** Draws a ring around the row — used for Diagonal trendline. */
+  /** Draws a ring around the row — used for the LRLR (trendline) target. */
   highlight?: boolean;
 }
 

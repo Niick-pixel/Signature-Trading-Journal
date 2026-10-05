@@ -22,7 +22,7 @@ import { springBouncy } from '@/lib/motion';
 const DELAY = 380;
 const GAP = 8;
 
-interface Tip { text: string; x: number; y: number; below: boolean }
+interface Tip { text: string; x: number; y: number; below: boolean; side: 'left' | 'right' | null }
 
 export function Tooltips() {
   const [tip, setTip] = useState<Tip | null>(null);
@@ -54,8 +54,16 @@ export function Tooltips() {
       timer.current = window.setTimeout(() => {
         if (owner.current?.el !== el || !el.isConnected) return;
         const r = el.getBoundingClientRect();
+        // A list (a dropdown's options) gets its hints at the side, so the
+        // hint for one option never covers the option above it.
+        const list = el.closest('[data-tip-side]')?.getBoundingClientRect();
+        if (list) {
+          const right = window.innerWidth - list.right > 300;
+          setTip({ text: title, x: right ? list.right + GAP : list.left - GAP, y: r.top + r.height / 2, below: false, side: right ? 'right' : 'left' });
+          return;
+        }
         const below = r.top < 64;
-        setTip({ text: title, x: r.left + r.width / 2, y: below ? r.bottom + GAP : r.top - GAP, below });
+        setTip({ text: title, x: r.left + r.width / 2, y: below ? r.bottom + GAP : r.top - GAP, below, side: null });
       }, DELAY);
     };
     const out = (e: PointerEvent) => {
@@ -89,17 +97,17 @@ export function Tooltips() {
           key={`${tip.x}:${tip.y}:${tip.text}`}
           role="tooltip"
           data-tooltip
-          initial={{ opacity: 0, scale: 0.92, y: tip.below ? -4 : 4 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.92, ...(tip.side ? { x: tip.side === 'right' ? -4 : 4 } : { y: tip.below ? -4 : 4 }) }}
+          animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.1 } }}
           transition={springBouncy}
           className="pointer-events-none fixed z-[200] max-w-[18rem] whitespace-pre-line rounded-[calc(10px*var(--rk))] border px-2.5 py-1.5 text-[11.5px] leading-snug"
           style={{
-            left: Math.min(Math.max(tip.x, 150), window.innerWidth - 150),
+            left: tip.side ? tip.x : Math.min(Math.max(tip.x, 150), window.innerWidth - 150),
             top: tip.y,
-            translateX: '-50%',
-            translateY: tip.below ? '0%' : '-100%',
-            transformOrigin: tip.below ? 'top center' : 'bottom center',
+            translateX: tip.side === 'right' ? '0%' : tip.side === 'left' ? '-100%' : '-50%',
+            translateY: tip.side ? '-50%' : tip.below ? '0%' : '-100%',
+            transformOrigin: tip.side === 'right' ? 'left center' : tip.side === 'left' ? 'right center' : tip.below ? 'top center' : 'bottom center',
             background: 'color-mix(in srgb, var(--bg-raised) 96%, transparent)',
             borderColor: 'var(--glass-stroke)',
             color: 'var(--text)',

@@ -55,29 +55,71 @@ export const SETUP_TYPES = [
 export const HTF_BIASES = ['With bias', 'Against bias', 'No bias defined'] as const;
 export const PREMIUM_DISCOUNTS = ['Discount', 'Equilibrium', 'Premium'] as const;
 /**
- * What the trade was aimed at, as named, explicit liquidity.
+ * What the trade was aimed at, as named, explicit liquidity — ordered from
+ * the strongest draw to the weakest, by the reasoning below.
  *
- * "Other" is gone: a target you cannot name is not a target, and it was the
- * option every unplanned trade hid behind. Trendline/diagonal is still here
- * because it is sometimes the honest answer — but it caps the grade at B (see
- * lib/rubric.ts), because a diagonal is drawn, not found, and moves every
- * candle.
+ * "Other" is gone: a target you cannot name is not a target. The ranking is a
+ * hypothesis, not a rule: Stats ("Which targets get hit") sets it against
+ * what my own trades did.
  */
 export const TARGET_TYPES = [
-  'EQH/EQL',
   'PDH/PDL',
+  'Weekly high/low',
   'Session high/low',
-  'Data wick (ITH/ITL)',
-  'Order block',
-  'CISD',
-  'Trendline/diagonal',
+  'EQH/EQL',
+  'Data wick',
+  'HTF FVG (1H/4H)',
+  'ITH/ITL',
+  'LRLR (trendline)',
 ] as const;
+
+/** The six classes the targets fall into, strongest first, with why. */
+export const TARGET_CLASSES = [
+  {
+    key: 'external', label: 'External liquidity', members: ['PDH/PDL', 'Weekly high/low', 'Session high/low'],
+    why: 'External liquidity that everyone watches. Lots of stops rest there, and they are the levels large players most need to fill size against. A session level left untouched is a strong draw for the next session.',
+  },
+  {
+    key: 'eqhl', label: 'Clean EQH/EQL', members: ['EQH/EQL'],
+    why: 'Two or more touches stack stops at one price, so they are obvious to everyone. The cleaner and more obvious, the stronger the pull.',
+  },
+  {
+    key: 'datawick', label: 'Data wick', members: ['Data wick'],
+    why: 'News candle highs and lows mark where liquidity was taken at the release. They often get revisited the same day.',
+  },
+  {
+    key: 'htf', label: 'HTF imbalance', members: ['HTF FVG (1H/4H)'],
+    why: 'Price tends to return to rebalance, but a gap is a zone, not a stop pool, so it pulls less hard than a high or low.',
+  },
+  {
+    key: 'swing', label: 'Intraday swing', members: ['ITH/ITL'],
+    why: 'Intraday swings. Real, but smaller pools.',
+  },
+  {
+    key: 'lrlr', label: 'LRLR', members: ['LRLR (trendline)'],
+    why: 'Good as the path price travels along, weakest as the final target.',
+  },
+] as const;
+
+/** Why a target type draws price — its class's reasoning, for the picker's hints. */
+export const TARGET_WHY: Record<string, string> = Object.fromEntries(
+  TARGET_CLASSES.flatMap((c) => c.members.map((m) => [m, c.why])),
+);
+TARGET_WHY['PDH/PDL'] = 'Previous day high/low. ' + TARGET_WHY['PDH/PDL'];
+TARGET_WHY['Weekly high/low'] = 'Previous week high/low. ' + TARGET_WHY['Weekly high/low'];
+TARGET_WHY['Session high/low'] = 'Asia or London high/low. ' + TARGET_WHY['Session high/low'];
+
+/** Which class a stored target type belongs to (retired ones: none). */
+export function targetClassOf(type: string | null | undefined) {
+  return TARGET_CLASSES.find((c) => (c.members as readonly string[]).includes(type ?? '')) ?? null;
+}
+
 /**
  * Target types no longer offered, still accepted. Trades were filed under
  * them, and a value dropped from validation makes those trades unsaveable on
  * their next edit — the same rule as ACCOUNT_VALUES.
  */
-export const RETIRED_TARGET_TYPES = ['Horizontal liquidity pool', 'Opposing FVG', 'Other'] as const;
+export const RETIRED_TARGET_TYPES = ['Order block', 'CISD', 'Horizontal liquidity pool', 'Opposing FVG', 'Other'] as const;
 export const TARGET_TYPE_VALUES = [...TARGET_TYPES, ...RETIRED_TARGET_TYPES] as const;
 
 /**
@@ -95,20 +137,29 @@ export type MgmtPlan = (typeof MGMT_PLANS)[number];
  */
 export const PARTIAL_LEVELS = [
   'Intraday swing (ITH/ITL)', 'EQH/EQL', 'Session high/low', 'PDH/PDL',
-  'Data wick (ITH/ITL)', 'HTF FVG', 'Order block', 'Fixed R',
+  'Data wick', 'Weekly high/low', 'HTF FVG', 'Order block', 'Fixed R',
 ] as const;
 export const MGMT_PLAN_LABEL: Record<MgmtPlan, string> = {
   A: 'A · all to final target, BE',
   B: 'B · half at first liquidity, BE, runner',
 };
-/** Renamed rather than retired: migration 015 moved every stored row across. */
+/**
+ * Renamed rather than retired: migrations 015 and 022 moved every stored row
+ * across, and a value written under an old name (an old backup) is read as
+ * the new one. 022 split "Data wick (ITH/ITL)" — a data wick and an intraday
+ * swing are different pools — keeping data wicks under the old name.
+ */
 export const RENAMED_TARGET_TYPES: Record<string, (typeof TARGET_TYPES)[number]> = {
-  'Data wick': 'Data wick (ITH/ITL)',
-  'Diagonal trendline': 'Trendline/diagonal',
+  'Data wick (ITH/ITL)': 'Data wick',
+  'Diagonal trendline': 'LRLR (trendline)',
+  'Trendline/diagonal': 'LRLR (trendline)',
 };
-/** The weakest target class. Caps the grade at B under rubric 2. */
-export const WEAK_TARGET = 'Trendline/diagonal';
-export const WEAK_TARGET_WARNING = 'Diagonals are subjective and move every candle. Weakest target class.';
+/** The weakest target class. Caps the grade at B under rubric 2 and later. */
+export const WEAK_TARGET = 'LRLR (trendline)';
+/** The weak target, under every name it has had — frozen rubrics read old rows. */
+export const isWeakTarget = (t: string | null | undefined): boolean =>
+  t === WEAK_TARGET || t === 'Trendline/diagonal' || t === 'Diagonal trendline';
+export const WEAK_TARGET_WARNING = 'The path, not the destination.';
 
 /** The picker's options: the offered list, plus a retired value an old trade still holds. */
 export function targetTypeOptions(current: TargetType | null): readonly TargetType[] {

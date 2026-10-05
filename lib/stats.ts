@@ -1,7 +1,7 @@
 import {
   ACCOUNT_VALUES, accountLabel, isDated, isHypothetical, isReal, isSeparate, CHECKLIST_ITEMS, CONFIDENCE_LEVELS, GRADE_BANDS, MIN_SAMPLE, REASONS,
   RETIRED_TARGET_TYPES, SKIP_REASONS, SWEEP_TIERS, SWEEP_TIER_SPEC, TAKE_IT_THRESHOLD, TARGET_TYPES,
-  TARGET_TYPE_VALUES, isTaken,
+  TARGET_CLASSES, TARGET_TYPE_VALUES, isTaken, targetClassOf,
   type Account, type ChecklistKey, type MistakeTag, type Reason, type SkipReason,
   type TargetType,
 } from './domain';
@@ -747,6 +747,17 @@ export function excursion(trades: Trade[]): Excursion {
 export interface HitRow { key: string; label: string; answered: number; hit: number; rate: number | null }
 export interface TargetHits {
   answered: number;
+  /**
+   * The six target classes, in their expected order — strongest draw first.
+   * Trades on a retired type (or none) are one row at the end.
+   */
+  byClass: Array<HitRow & { rank: number | null }>;
+  /**
+   * Where my data disagrees with that order: a lower-ranked class out-hitting
+   * a higher one, both with at least MIN_SAMPLE answers. Null when it agrees
+   * or the samples are too small to say.
+   */
+  upset: { higher: string; lower: string } | null;
   byType: HitRow[];
   fresh: HitRow[];
   opposite: HitRow[];
@@ -767,6 +778,19 @@ export function targetHits(trades: Trade[]): TargetHits {
   const byType = types
     .map((ty) => hitRow(ty, ty, answered.filter((t) => (t.target_type ?? 'No target') === ty)))
     .sort((a, b) => b.answered - a.answered);
+  const byClass: TargetHits['byClass'] = TARGET_CLASSES.map((c, i) => ({
+    ...hitRow(c.key, c.label, answered.filter((t) => targetClassOf(t.target_type)?.key === c.key)),
+    rank: i + 1,
+  }));
+  const unclassed = answered.filter((t) => !targetClassOf(t.target_type));
+  if (unclassed.length) byClass.push({ ...hitRow('other', 'Retired type or none', unclassed), rank: null });
+  let upset: TargetHits['upset'] = null;
+  const sized = byClass.filter((r) => r.rank != null && r.answered >= MIN_SAMPLE && r.rate != null);
+  for (let i = 0; i < sized.length && !upset; i++) {
+    for (let j = i + 1; j < sized.length; j++) {
+      if (sized[j].rate! > sized[i].rate!) { upset = { higher: sized[i].label, lower: sized[j].label }; break; }
+    }
+  }
   const tri = (field: 'target_fresh' | 'opposite_taken', yes: string, no: string) => [
     hitRow('yes', yes, answered.filter((t) => t[field] === true)),
     hitRow('no', no, answered.filter((t) => t[field] === false)),
@@ -774,6 +798,8 @@ export function targetHits(trades: Trade[]): TargetHits {
   const withMfe = taken.filter((t) => t.mfe_r != null);
   return {
     answered: answered.length,
+    byClass,
+    upset,
     byType,
     fresh: tri('target_fresh', 'Untouched target', 'Already tapped'),
     opposite: tri('opposite_taken', 'Other side taken first', 'Other side still there'),
@@ -848,7 +874,7 @@ export function rByWorkedTag(trades: Trade[]): Array<{ tag: string; count: numbe
  * Does the model hold? The gates and the rubric, checked against results.
  *
  * Rubric 2 says a sweep of nothing nameable, or more than one gap, is not the
- * model — and that a diagonal is the weakest target there is. Those are claims
+ * model — and that a trendline (LRLR) is the weakest target there is. Those are claims
  * about what makes money, so they get tested like one: count, win rate and net
  * R for each side of each rule. If the NONE sweeps and the stacked gaps earn
  * as much as the rest, the gates are wrong and should go.

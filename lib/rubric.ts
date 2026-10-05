@@ -1,4 +1,4 @@
-import {
+import { isWeakTarget,
   TRIGGER_KEYS, type ChecklistAnswer, type ChecklistKey, type LegacyChecklistKey, type SweepTier,
 } from './domain';
 import { GRADE_LETTERS, type GradeLetter } from './grade';
@@ -49,7 +49,7 @@ export interface GradeCap {
 }
 
 export const MODEL_GATE_MESSAGE = 'Gate failed — this is not the model. Max grade C.';
-export const DIAGONAL_CAP_MESSAGE = 'Trendline/diagonal target — max grade B.';
+export const DIAGONAL_CAP_MESSAGE = 'LRLR (trendline) target — max grade B.';
 export const LIQUIDITY_GATE_MESSAGE = 'Gate failed — no named liquidity event, or not a single gap. Max grade C.';
 export const DELIVERY_CAP_MESSAGE = 'Delivery only, no sweep — max grade B.';
 export const APLUS_CAP_MESSAGE = 'A+ needs a named sweep AND a delivery from an HTF FVG/OB — max grade A.';
@@ -158,7 +158,7 @@ export const RUBRICS: Record<number, Rubric> = {
       },
       {
         id: 'diagonal', max: 'B', message: DIAGONAL_CAP_MESSAGE,
-        applies: (a) => a.target_type === 'Trendline/diagonal',
+        applies: (a) => isWeakTarget(a.target_type),
       },
     ],
   },
@@ -182,7 +182,7 @@ export const RUBRICS: Record<number, Rubric> = {
       },
       {
         id: 'diagonal', max: 'B', message: DIAGONAL_CAP_MESSAGE,
-        applies: (a) => a.target_type === 'Trendline/diagonal',
+        applies: (a) => isWeakTarget(a.target_type),
       },
     ],
   },
@@ -213,7 +213,7 @@ export const RUBRICS: Record<number, Rubric> = {
       },
       {
         id: 'diagonal', max: 'B', message: DIAGONAL_CAP_MESSAGE,
-        applies: (a) => a.target_type === 'Trendline/diagonal',
+        applies: (a) => isWeakTarget(a.target_type),
       },
     ],
   },

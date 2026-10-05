@@ -69,3 +69,35 @@ test('Stats: hit rate by target type and modifier, unanswered left out', () => {
   assert.deepEqual(h.fresh.map((r) => [r.answered, r.hit]), [[2, 2], [1, 0]]);
   assert.deepEqual([h.mfe.n, h.mfe.avg, h.mfe.reached2R], [2, 2, 1]);
 });
+
+test('Stats: hit rate by target class, in the expected order, with a disagreement only on real samples', () => {
+  const list = [
+    make({ target_type: 'Session high/low', target_hit: true }),
+    make({ target_type: 'Weekly high/low', target_hit: false }),
+    make({ target_type: 'Data wick', target_hit: true }),
+    make({ target_type: 'LRLR (trendline)', target_hit: false }),
+  ];
+  const h = targetHits(list);
+  // All six, strongest draw first, each numbered.
+  assert.deepEqual(h.byClass.map((r) => r.key), ['external', 'eqhl', 'datawick', 'htf', 'swing', 'lrlr']);
+  assert.deepEqual(h.byClass.map((r) => r.rank), [1, 2, 3, 4, 5, 6]);
+  // Session and weekly levels count as one class.
+  const ext = h.byClass[0];
+  assert.deepEqual([ext.answered, ext.hit, ext.rate], [2, 1, 0.5]);
+  // Data wick out-hits external here, but on 1 and 2 answers that says nothing.
+  assert.equal(h.upset, null);
+
+  // With 20 answers each, an inversion of the ranking is called out.
+  const many = [
+    ...Array.from({ length: 20 }, (_, i) => ({ ...list[0], target_type: 'PDH/PDL', target_hit: i < 8 })),
+    ...Array.from({ length: 20 }, (_, i) => ({ ...list[0], target_type: 'ITH/ITL', target_hit: i < 14 })),
+  ];
+  assert.deepEqual(targetHits(many).upset, { higher: 'External liquidity', lower: 'Intraday swing' });
+});
+
+test('a retired target type still counts, in a row of its own at the end', () => {
+  const t = { ...make({ target_hit: true }), target_type: 'Order block' as never };
+  const h = targetHits([t]);
+  const last = h.byClass[h.byClass.length - 1];
+  assert.deepEqual([last.key, last.rank, last.answered], ['other', null, 1]);
+});

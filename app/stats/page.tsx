@@ -516,7 +516,7 @@ export default async function StatsPage(
                   <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
                     <BreakdownTable title="Sweep tier" rows={model.sweepTier} note="gate: NONE caps at C" />
                     <BreakdownTable title="Singular gap" rows={model.singularGap} note="gate: stacked caps at C" />
-                    <BreakdownTable title="Target type" rows={model.targetType} note="diagonal caps at B" />
+                    <BreakdownTable title="Target type" rows={model.targetType} note="ranked strongest first · LRLR caps at B" />
                     <BreakdownTable title="Grade at entry" rows={model.entryGrade} note="the frozen letter" />
                     <BreakdownTable title="Account" rows={model.account} note="every account, same filters" />
                     {TRIAL_RUBRIC != null && (
@@ -595,7 +595,7 @@ export default async function StatsPage(
                 <Panel
                   n={hits.answered}
                   title="Which targets get hit"
-                  note="Hit rate of the named target before the stop, by target type and by whether it was fresh or the other side had already gone. Your data, not the textbook ranking."
+                  note="Hit rate of the named target before the stop, by target class (ranked strongest draw first), by level, and by whether it was fresh or the other side had already gone. Your data, not the textbook ranking."
                 >
                   {hits.answered === 0 ? (
                     <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
@@ -604,6 +604,18 @@ export default async function StatsPage(
                     </p>
                   ) : (
                     <div data-target-hits className="space-y-3">
+                      <div data-target-classes className="space-y-1">
+                        {hits.byClass.filter((r) => r.answered > 0).map((r) => (
+                          <Line key={r.key} label={`${r.rank != null ? `${r.rank}. ` : ''}${r.label} · ${r.answered}`}
+                            value={r.rate == null ? '—' : `${Math.round(r.rate * 100)}%`}
+                            tone={r.rate != null && r.rate >= 0.5 ? 'win' : 'loss'} />
+                        ))}
+                        <p className="pt-0.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>
+                          {hits.upset
+                            ? `Your trades disagree with the ranking: ${hits.upset.lower} is out-hitting ${hits.upset.higher}.`
+                            : `Numbered by expected pull, strongest first. A class needs ${MIN_SAMPLE} answers before its rate says much.`}
+                        </p>
+                      </div>
                       {[hits.byType, hits.fresh, hits.opposite].map((rows, i) => (
                         <div key={i} className="space-y-1">
                           {rows.filter((r) => r.answered > 0).map((r) => (
