@@ -139,9 +139,14 @@ export const PARTIAL_LEVELS = [
   'Intraday swing (ITH/ITL)', 'EQH/EQL', 'Session high/low', 'PDH/PDL',
   'Data wick', 'Weekly high/low', 'HTF FVG', 'Order block', 'Fixed R',
 ] as const;
+/** Short enough for a half-width field; the whole plan is in MGMT_PLAN_WHY. */
 export const MGMT_PLAN_LABEL: Record<MgmtPlan, string> = {
-  A: 'A · all to final target, BE',
-  B: 'B · half at first liquidity, BE, runner',
+  A: 'A · all to target',
+  B: 'B · half off + runner',
+};
+export const MGMT_PLAN_WHY: Record<MgmtPlan, string> = {
+  A: 'Plan A: the whole position rides to the final target. Stop to breakeven once the first internal liquidity breaks.',
+  B: 'Plan B: half off at the first internal liquidity, stop to breakeven, the runner rides to the final target.',
 };
 /**
  * Renamed rather than retired: migrations 015 and 022 moved every stored row

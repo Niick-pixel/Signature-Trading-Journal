@@ -35,6 +35,10 @@ export function Select<T extends string>({
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const shownRef = useRef<HTMLSpanElement>(null);
+  // A choice too long for the field is cut with an ellipsis; then hovering
+  // the field shows all of it.
+  const [clipped, setClipped] = useState(false);
   const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
 
@@ -60,6 +64,16 @@ export function Select<T extends string>({
   }, [options.length]);
 
   useLayoutEffect(() => { if (open) measure(); }, [open, measure]);
+
+  useLayoutEffect(() => {
+    const el = shownRef.current;
+    if (!el) return;
+    const check = () => setClipped(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [value]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,7 +145,10 @@ export function Select<T extends string>({
           text-left text-[13px] disabled:opacity-40"
         style={{ color: value ? 'var(--text)' : 'var(--text-faint)' }}
       >
-        <span className="truncate">{value != null ? text(value) : placeholder}</span>
+        <span ref={shownRef} className="truncate"
+          title={clipped && value != null ? [text(value), titleFor?.(value)].filter(Boolean).join('\n\n') : undefined}>
+          {value != null ? text(value) : placeholder}
+        </span>
         <motion.svg
           width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden
           animate={{ rotate: open ? 180 : 0 }} transition={springSnappy}
@@ -191,7 +208,7 @@ export function Select<T extends string>({
                         boxShadow: selected ? `0 0 8px rgb(${optionAccent} / 0.8)` : undefined,
                       }}
                     />
-                    <span className="truncate">{text(option)}</span>
+                    <span className="min-w-0 leading-snug">{text(option)}</span>
                   </motion.li>
                 );
               })}

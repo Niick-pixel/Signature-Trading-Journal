@@ -66,7 +66,7 @@ export function TrialLiquidity({
       className="mt-4 rounded-[calc(14px*var(--rk))] border border-dashed px-3 pb-3 pt-2.5"
       style={{ borderColor: `rgb(${accent} / 0.35)`, background: 'var(--glass-fill)' }}>
       <div className="mb-2 flex items-baseline justify-between gap-3"
-        title="Logged for the trial only. The grade above is still the one this trade is taken on.">
+        title={"Why there was someone on the other side of your entry. Two kinds: a SWEEP took the stops resting past a level; a DELIVERY tagged a higher-timeframe FVG/OB where limit orders rest. Rubric 4 asks for at least one, and gives A+ only to both.\n\nLogged for the trial only. The grade above is still the one this trade is taken on."}>
         <span className="text-[10.5px] font-medium uppercase tracking-[0.07em]" style={{ color: 'var(--text-faint)' }}>
           Liquidity event · rubric {TRIAL_RUBRIC} trial <span aria-hidden className="normal-case opacity-60">ⓘ</span>
         </span>
@@ -86,7 +86,7 @@ export function TrialLiquidity({
               onChange={(v) => onSweepLevel(v === NOT_NAMED ? '' : v)} />
           </div>
         )}
-        <div data-field="htf_delivery" title="Only if the bodies respected it. Delivery alone caps at B; A+ needs it with a sweep.">
+        <div data-field="htf_delivery" title={"The higher-timeframe FVG or order block price tapped into and reacted from just before your entry — e.g. it dipped into a 15m FVG, then your 1m iFVG fired. Resting limit orders there are the fuel, the way stops are for a sweep.\n\nCount it only if candle bodies respected the zone. Pick none if there wasn't one. Delivery alone caps at B; A+ needs it together with a sweep."}>
           <span className="mb-1 block text-[11.5px] font-medium">HTF delivery</span>
           <Select accent={accent} value={htfDelivery || null} placeholder="Pick, or none…"
             options={[NO_DELIVERY, ...HTF_DELIVERIES]}

@@ -12,7 +12,7 @@ import {
   type Instrument, type MistakeTag, type Outcome, type PremiumDiscount, type Regrade,
   type SkipReason, type Reason, type Session, type SetupType, type TargetType,
   type SweepTier, type TradeStatus, type Tri,
-  MGMT_PLANS, MGMT_PLAN_LABEL, PARTIAL_LEVELS, type MgmtPlan,
+  MGMT_PLANS, MGMT_PLAN_LABEL, MGMT_PLAN_WHY, PARTIAL_LEVELS, type MgmtPlan,
 } from '@/lib/domain';
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
 import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
@@ -761,9 +761,10 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
             label="Other side already taken today?"
             hint="If the opposite liquidity went first, this side is the obvious draw." />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field quiet label="Management plan" hint="Fixed for the whole sample, or the sample measures nothing.">
+            <Field quiet label="Management plan"
+              hint={`${mgmtPlan ? MGMT_PLAN_WHY[mgmtPlan] + '\n\n' : ''}Fixed for the whole sample, or the sample measures nothing.`}>
               <Select value={mgmtPlan} onChange={setMgmtPlan} options={MGMT_PLANS}
-                labelFor={(o) => MGMT_PLAN_LABEL[o]} placeholder="Which plan?" />
+                labelFor={(o) => MGMT_PLAN_LABEL[o]} titleFor={(o) => MGMT_PLAN_WHY[o]} placeholder="Which plan?" />
             </Field>
             <Field quiet label="Max R reached" hint="How far it went your way before it turned. Check the chart.">
               <Input type="number" step="0.1" min="0" inputMode="decimal" placeholder="—"
