@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { listTrades } from '@/db/trades';
-import { ACCOUNT_COOKIE } from '@/lib/account-pref';
+import { accountCookie } from '@/lib/account-pref';
 import { ACCOUNT_VALUES, MIN_SAMPLE, REASON_HUE, isBacktest, isDated, isHypothetical, isReal, isSeparate, type Account } from '@/lib/domain';
 import { reasonAccent } from '@/lib/layout';
 import {
@@ -54,7 +54,7 @@ export default async function StatsPage(
   // One account at a time. Defaults to whichever one actually has trades in
   // it, never to a mixed total — backtest R and live R must never sum.
   const asked = (await searchParams).account
-    ?? (await cookies()).get(ACCOUNT_COOKIE)?.value;
+    ?? (await cookies()).get(accountCookie('stats'))?.value;
   const requested = typeof asked === 'string' ? asked : undefined;
   const account: Account | 'All' = requested === 'All'
     ? 'All'

@@ -8,7 +8,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as
-    { mode?: unknown; key?: unknown; dx?: unknown; dy?: unknown } | null;
+    { mode?: unknown; key?: unknown; dx?: unknown; dy?: unknown; account?: unknown } | null;
   const mode = typeof body?.mode === 'string' && (GROUP_MODES as readonly string[]).includes(body.mode)
     ? (body.mode as GroupMode) : null;
   if (!mode || typeof body?.key !== 'string') {
@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
     return NextResponse.json({ error: 'Expected numeric offsets.' }, { status: 400 });
   }
-  writeOffset(mode, body.key, dx, dy);
+  // Per account when the board shows one; see offsetSlot.
+  const account = typeof body.account === 'string' && body.account.length <= 64 ? body.account : 'All';
+  writeOffset(mode, body.key, dx, dy, account);
   return NextResponse.json({ ok: true });
 }
 

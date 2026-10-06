@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { ACCOUNT_COOKIE } from '@/lib/account-pref';
+import { accountCookie } from '@/lib/account-pref';
 import { listTrades } from '@/db/trades';
 import { listCashEvents } from '@/db/cash';
 import { journalDays } from '@/db/journal';
@@ -43,7 +43,7 @@ export default async function CalendarPage(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const params = await searchParams;
-  const remembered = (await cookies()).get(ACCOUNT_COOKIE)?.value ?? null;
+  const remembered = (await cookies()).get(accountCookie('calendar'))?.value ?? null;
   const asked = typeof params.account === 'string' ? params.account : remembered;
 
   const all = listTrades();

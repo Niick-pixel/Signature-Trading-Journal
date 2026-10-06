@@ -1,6 +1,6 @@
 import 'server-only';
 import { getDb } from './index';
-import type { GroupMode } from '../lib/layout';
+import { offsetSlot, type GroupMode } from '../lib/layout';
 
 const KEY = 'cluster_offsets';
 
@@ -19,7 +19,6 @@ const KEY = 'cluster_offsets';
  */
 export type ClusterOffsets = Record<string, { dx: number; dy: number }>;
 
-const slot = (mode: GroupMode, key: string) => `${mode}::${key}`;
 
 export function readOffsets(): ClusterOffsets {
   const row = getDb().prepare('SELECT value FROM app_settings WHERE key = ?').get(KEY) as
@@ -34,10 +33,10 @@ export function readOffsets(): ClusterOffsets {
   }
 }
 
-export function writeOffset(mode: GroupMode, key: string, dx: number, dy: number): void {
+export function writeOffset(mode: GroupMode, key: string, dx: number, dy: number, account = 'All'): void {
   const all = readOffsets();
-  if (dx === 0 && dy === 0) delete all[slot(mode, key)];
-  else all[slot(mode, key)] = { dx, dy };
+  if (dx === 0 && dy === 0) delete all[offsetSlot(mode, key, account)];
+  else all[offsetSlot(mode, key, account)] = { dx, dy };
   getDb()
     .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run(KEY, JSON.stringify(all));

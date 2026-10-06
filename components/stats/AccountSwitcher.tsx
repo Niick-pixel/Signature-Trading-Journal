@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { shortcutAllowed } from '@/lib/keys';
-import { announceAccount, writeAccountCookie } from '@/lib/account-pref';
+import { announceAccount, scopeOf, writeAccountCookie } from '@/lib/account-pref';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { press, spring } from '@/lib/motion';
 import type { Account } from '@/lib/domain';
@@ -38,7 +38,8 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
     const next = new URLSearchParams(params.toString());
     // Explicit, 'All' included, so the remembered choice follows this one.
     next.set('account', account);
-    writeAccountCookie(account);
+    const scope = scopeOf(here);
+    if (scope) writeAccountCookie(account, scope);
     router.push(`${here}${next.toString() ? `?${next}` : ''}`);
   };
 

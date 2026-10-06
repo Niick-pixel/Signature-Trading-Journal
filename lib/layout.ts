@@ -56,6 +56,31 @@ export const GROUP_MODES = [
 ] as const;
 export type GroupMode = (typeof GROUP_MODES)[number];
 
+/**
+ * Where a dragged group's nudge is stored: per grouping, and per account
+ * when the board shows just one.
+ *
+ * The same group can sit in two different grids — the Backtest replay group
+ * is the last of five on All and the only one on Backtest — and an offset
+ * made in one, applied to the other, threw the group off the screen. Each
+ * view now keeps its own arrangement. All keeps the old key, so arrangements
+ * made before this survive.
+ */
+/**
+ * How far past the edge of the board a nudge can carry a group.
+ *
+ * A stored nudge outlives the grid it was made in: the grid repacks when a
+ * filter hides groups or a trade arrives, and a nudge that was sensible there
+ * can throw the group thousands of pixels away — counted in the title, but
+ * nowhere you would think to look. Far enough to arrange the board however
+ * you like; never far enough to lose a group.
+ */
+export const MAX_STRAY = 600;
+
+export function offsetSlot(mode: GroupMode, key: string, account: string = 'All'): string {
+  return account === 'All' ? `${mode}::${key}` : `${mode}@${account}::${key}`;
+}
+
 export const GROUP_LABELS: Record<GroupMode, string> = {
   reason: 'Reason',
   mistake: 'Mistake',
@@ -101,6 +126,8 @@ export interface PositionedCluster {
   width: number;
   height: number;
   trades: Trade[];
+  /** The nudge actually applied — a stored one, clamped (see MAX_STRAY). */
+  nudge: { dx: number; dy: number };
 }
 
 /**
@@ -367,6 +394,8 @@ export function computeLayout(
   mode: GroupMode = 'reason',
   /** Per-group nudges, keyed `${mode}::${key}`. See db/boardlayout.ts. */
   offsets: Record<string, { dx: number; dy: number }> = {},
+  /** The account the board is showing; see offsetSlot. */
+  account: string = 'All',
 ): BoardLayout {
   // The timeline is a running total of R: real trades only, unless the
   // board is showing nothing but backtests.
@@ -405,9 +434,13 @@ export function computeLayout(
       now entirely the layout's job: same gaps everywhere, nothing to nudge out
       of alignment, nothing to tidy up after.
     */
-    const nudge = offsets[`${mode}::${group.key}`] ?? { dx: 0, dy: 0 };
-    const originX = cursorX + nudge.dx;
-    const originY = cursorY + nudge.dy;
+    const stored = offsets[offsetSlot(mode, group.key, account)] ?? { dx: 0, dy: 0 };
+    const stray = MAX_STRAY * scale;
+    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+    const originX = clamp(cursorX + stored.dx, -stray, nominalWidth + stray - grid.width);
+    // The title sits 200 above the first row; a group may go up there too.
+    const originY = clamp(cursorY + stored.dy, -stray - 200 * scale, packed.height + stray - grid.height);
+    const nudge = { dx: originX - cursorX, dy: originY - cursorY };
 
     const ordered = [...group.trades].sort((a, b) => b.date.localeCompare(a.date));
     const shown = ordered.length > VISIBLE_PER_CLUSTER
@@ -459,7 +492,7 @@ export function computeLayout(
 
     clusters.push({
       key: group.key, accent: group.accent, reason: group.reason,
-      stats: group.stats, x, y, width, height, trades: group.trades,
+      stats: group.stats, x, y, width, height, trades: group.trades, nudge,
     });
 
   });

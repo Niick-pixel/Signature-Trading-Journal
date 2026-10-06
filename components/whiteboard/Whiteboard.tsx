@@ -8,7 +8,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import {
-  computeLayout, reasonAccent, settle, tradeIdFromKey,
+  computeLayout, offsetSlot, reasonAccent, settle, tradeIdFromKey,
   GROUP_LABELS, GROUP_MODES, NODE_H, NODE_W, type GroupMode,
 } from '@/lib/layout';
 import { EASE_SOFT, spring, springBouncy, exitQuick } from '@/lib/motion';
@@ -23,7 +23,7 @@ import { DeleteTradeDialog } from './DeleteTradeDialog';
 import { DetailPanel } from './DetailPanel';
 import { StackNode } from './StackNode';
 import { ACCOUNT_VALUES } from '@/lib/domain';
-import { ACCOUNT_EVENT, readAccountCookie, writeAccountCookie } from '@/lib/account-pref';
+import { ACCOUNT_EVENT, readAccountCookie, writeAccountCookie, type AccountChange } from '@/lib/account-pref';
 import { EdgeKey } from './EdgeKey';
 import { accountLabel, isReal } from '@/lib/domain';
 import { LiveFlow } from './LiveFlow';
@@ -71,23 +71,23 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const confirm = useConfirm();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
-  // The account comes from the title bar's choice, and a choice made in the
-  // toolbar here becomes the title bar's. See lib/account-pref.
+  // The board's own account: the title bar sets it while you are on the board,
+  // and Stats or the Calendar never do. See lib/account-pref.
   useEffect(() => {
     const valid = (a: string | null): a is Filters['account'] =>
       a === 'All' || (ACCOUNT_VALUES as readonly string[]).includes(a ?? '');
-    const initial = readAccountCookie();
+    const initial = readAccountCookie('board');
     if (valid(initial)) setFilters((f) => (f.account === initial ? f : { ...f, account: initial }));
     const on = (e: Event) => {
-      const a = (e as CustomEvent<string>).detail;
-      if (valid(a)) setFilters((f) => (f.account === a ? f : { ...f, account: a }));
+      const { account: a, scope } = (e as CustomEvent<AccountChange>).detail;
+      if (scope === 'board' && valid(a)) setFilters((f) => (f.account === a ? f : { ...f, account: a }));
     };
     window.addEventListener(ACCOUNT_EVENT, on);
     return () => window.removeEventListener(ACCOUNT_EVENT, on);
   }, []);
   /*
-    Filter changes made by hand. The account is written back as the app-wide
-    choice here, and only here — an effect watching filters.account would
+    Filter changes made by hand. The account is written back as the board's
+    remembered choice here, and only here — an effect watching filters.account would
     also fire on mount with the default 'All' (twice, under Strict Mode) and
     overwrite the remembered account before it had been applied.
   */
@@ -96,7 +96,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const changeFilters = useCallback((next: Filters) => {
     const changedAccount = next.account !== filtersRef.current.account;
     setFilters(next);
-    if (!readOnly && changedAccount) writeAccountCookie(next.account);
+    if (!readOnly && changedAccount) writeAccountCookie(next.account, 'board');
   }, [readOnly]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -271,8 +271,8 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
 
 
   const layout = useMemo(
-    () => computeLayout(visible, scale, groupMode, offsets),
-    [visible, scale, groupMode, offsets],
+    () => computeLayout(visible, scale, groupMode, offsets, filters.account),
+    [visible, scale, groupMode, offsets, filters.account],
   );
 
   // The second half of the regroup glide — see changeGroupMode.
@@ -850,7 +850,10 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         const key = change.id.slice(8);
         const cluster = layout.clusters.find((c) => c.key === key);
         if (!cluster) continue;
-        const nudge = offsets[`${groupMode}::${key}`] ?? { dx: 0, dy: 0 };
+        const slot = offsetSlot(groupMode, key, filters.account);
+        // The nudge as applied, not as stored: a stored one may have been
+        // clamped back toward the board, and a drag starts from where it is.
+        const nudge = cluster.nudge;
 
         // Snapped, and pushed clear of anything it was dropped on top of.
         const rest = settle(
@@ -864,15 +867,15 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
 
         // One render: the new offset lands as the held position is let go, so the
         // group never flashes back to where it started.
-        setOffsets((prev) => ({ ...prev, [`${groupMode}::${key}`]: { dx, dy } }));
+        setOffsets((prev) => ({ ...prev, [slot]: { dx, dy } }));
         void fetch('/api/board/offsets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: groupMode, key, dx, dy }),
+          body: JSON.stringify({ mode: groupMode, key, dx, dy, account: filters.account }),
         });
       }
     }
-  }, [groupMode, moveNote, layout, offsets]);
+  }, [groupMode, moveNote, layout, filters.account]);
 
   /** Every group back where the grid puts it. */
   const tidyUp = useCallback(async () => {
