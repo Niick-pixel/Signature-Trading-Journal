@@ -991,7 +991,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
 
         <Field quiet
           label="What went wrong"
-          hint="Pick every one that applies. A bad trade usually has three."
+          hint="Anything that went against the trade — your execution or the market. Notes only: a tag never marks the trade as a rule break; the checklist decides that."
           group
         >
           <TagPicker small value={mistakeTags} onChange={setMistakeTags} />

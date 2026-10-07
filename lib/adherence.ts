@@ -14,7 +14,8 @@ import { GATES_SINCE, gradeUnder } from './rubric';
 export type AdherenceInput = {
   trigger_fired: boolean;
   checklist_score: number;
-  mistake_tags: readonly string[];
+  /** Carried, never counted: tags are notes on what went against a trade, not a verdict on it. */
+  mistake_tags?: readonly string[];
   /** Rubric 2's gates need these; a trade graded under rubric 1 was never held to them. */
   rubric_version?: number;
   sweep_tier?: SweepTier | null;
@@ -37,12 +38,14 @@ export function failedModelGate(t: AdherenceInput): boolean {
  *
  * Self-reporting is the weakest data in the journal: it is answered at the
  * moment I am least able to be objective, about the thing I am least willing
- * to be objective about. The checklist and the mistake tags already contain
- * the answer, so take it from them.
+ * to be objective about. The checklist already contains the answer, so take
+ * it from there.
  *
- * All three have to hold. A trade can score 100 and still be a rule break if
- * the trigger never fired, and it can have fired with a 95 and still be a rule
- * break if I moved the stop afterwards.
+ * The "What went wrong" tags are deliberately NOT part of it. They are used
+ * to note anything that went against a trade — the market not following the
+ * plan, a news spike, a wick — much of it outside my control. Counting any
+ * tag as a broken rule marked winners that followed the plan to the letter
+ * as rule breaks.
  */
 export type Adherence = 'followed' | 'broken' | 'unscored';
 
@@ -56,16 +59,15 @@ export type Adherence = 'followed' | 'broken' | 'unscored';
  * the other way: silence read as a verdict.
  *
  * Once the checklist HAS been answered, every condition has to hold. A trade
- * can score 100 and still be a break if the trigger never fired; it can fire
- * at 95 and still be a break if I moved the stop afterwards; and under rubric
- * 2 it can score 85 and still be a break if it failed a gate — not the model.
+ * can score 100 and still be a break if the trigger never fired; and under
+ * rubric 2 it can score 85 and still be a break if it failed a gate — not the
+ * model. The tags never decide it (see above).
  */
 export function adherenceOf(t: AdherenceInput): Adherence {
   if (!isScored(t)) return 'unscored';
   return t.trigger_fired
     && t.checklist_score >= TAKE_IT_THRESHOLD
     && !failedModelGate(t)
-    && t.mistake_tags.length === 0
     ? 'followed'
     : 'broken';
 }

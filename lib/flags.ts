@@ -15,6 +15,8 @@ import type { Trade } from './types';
  */
 export const FLAG_KEYS = [
   'claimed_rules_no_trigger',
+  // Retired: no flag is raised under it any more (tags are notes, not rule
+  // breaks). Kept so dismissals already stored against it still validate.
   'claimed_rules_with_mistakes',
   'no_target_named',
   'direction_against_pd',
@@ -43,13 +45,9 @@ const RULES: Array<{ key: FlagKey; label: string; test: (t: Trade) => string | n
       ? 'Without both Phase 3 answers the plan says this entry does not exist, so it cannot also be a trade that followed every rule.'
       : null,
   },
-  {
-    key: 'claimed_rules_with_mistakes',
-    label: 'Said rules followed, but tagged a mistake',
-    test: (t) => (t.followed_rules === true && t.mistake_tags.length > 0)
-      ? `Tagged: ${t.mistake_tags.join(', ')}.`
-      : null,
-  },
+  // No flag for "said rules followed, but tagged something went wrong": the
+  // tags note what went against a trade, often the market, and following
+  // every rule while the market does not cooperate is no contradiction.
   {
     key: 'no_target_named',
     label: 'Taken with no target named',

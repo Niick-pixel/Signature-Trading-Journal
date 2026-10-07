@@ -16,6 +16,7 @@ const { createTrade, updateTrade, settleTrade, bulkUpdate, getTrade, tradeHistor
 const { parseTradeInput } = await import('../lib/validate');
 const { modelBreakdowns } = await import('../lib/stats');
 const { adherenceOf } = await import('../lib/adherence');
+const { flagsFor } = await import('../lib/flags');
 const exportRoute = await import('../app/api/export/route');
 
 /** Enough of a ZIP reader to pull one file out of the export. */
@@ -199,6 +200,17 @@ test('a trade that failed a gate broke the rules, whatever its score', () => {
   assert.equal(adherenceOf(createTrade(input({ target_type: 'LRLR (trendline)' }))), 'followed');
   // A rubric 1 trade was never held to the gates.
   assert.equal(adherenceOf({ ...gated, rubric_version: 1 }), 'followed');
+});
+
+test('"What went wrong" tags are notes, never a rule break', () => {
+  // A winner that followed the plan, tagged with what the market did to it.
+  const tagged = createTrade(input({ mistake_tags: ['Entered late', 'Cut winner early'], followed_rules: true }));
+  assert.deepEqual(tagged.mistake_tags, ['Entered late', 'Cut winner early']);
+  assert.equal(adherenceOf(tagged), 'followed');
+  // And no contradiction flag for saying the rules were followed.
+  assert.ok(!flagsFor(tagged).some((f) => f.key === 'claimed_rules_with_mistakes'));
+  // The checklist still decides: a failed gate is a break, tags or not.
+  assert.equal(adherenceOf(createTrade(input({ sweep_tier: 'none', mistake_tags: [] }))), 'broken');
 });
 
 test('a delete keeps its reason; a restore clears it; the history keeps both', () => {

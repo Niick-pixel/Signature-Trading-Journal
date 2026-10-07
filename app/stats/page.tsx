@@ -251,7 +251,7 @@ export default async function StatsPage(
               <Panel
                 n={d.followed.count + d.broken.count}
                 title="Adherence"
-                note="Share of the SCORED trades where the checklist says the rules were followed — trigger fired, 70% or more of the boxes that APPLIED, both gates passed (rubric 2 trades), no mistake tagged. Derived, never self-reported. A box marked N/A takes its points out of the denominator instead of counting as a miss, and a trade whose checklist was left blank counts as neither followed nor broken."
+                note="Share of the SCORED trades where the checklist says the rules were followed — trigger fired, 70% or more of the boxes that APPLIED, both gates passed (rubric 2 trades). Derived, never self-reported; the What went wrong tags are notes and never count against it. A box marked N/A takes its points out of the denominator instead of counting as a miss, and a trade whose checklist was left blank counts as neither followed nor broken."
               >
                 <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
                   <div>
