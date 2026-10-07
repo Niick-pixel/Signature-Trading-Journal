@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { GRADE_COLOR } from '@/lib/grade';
 import { adherenceOf } from '@/lib/adherence';
@@ -15,20 +16,31 @@ const usd = (v: number) =>
   })}`;
 
 /**
- * Every trade in one group, at a size you can actually read.
+ * The trades a group's "+N" tile stands for, at a size you can actually read.
  *
- * The board shows the newest few and a count; this is where the count goes
- * when you click it. Bigger cards than the board's, because the point of
+ * The board shows the newest five and a count; this is where the count goes
+ * when you click it — the ones NOT on the board, newest first, with the whole
+ * group a click away. Bigger cards than the board's, because the point of
  * opening it is to look at the charts rather than to find the pile again.
  */
 export function GroupViewer({
-  label, trades, onOpenTrade, onClose,
+  label, trades: group, hiddenIds, onOpenTrade, onClose,
 }: {
   label: string | null;
   trades: Trade[];
+  /** The trades behind the "+N" tile; the window opens on these. */
+  hiddenIds?: string[];
   onOpenTrade: (id: string) => void;
   onClose: () => void;
 }) {
+  const [everything, setEverything] = useState(false);
+  useEffect(() => { if (label === null) setEverything(false); }, [label]);
+  const hidden = useMemo(() => new Set(hiddenIds ?? []), [hiddenIds]);
+  const trades = useMemo(() => {
+    const list = everything || hidden.size === 0 ? group : group.filter((t) => hidden.has(t.id));
+    return [...list].sort((a, b) => b.date.localeCompare(a.date));
+  }, [group, hidden, everything]);
+  const partial = hidden.size > 0 && !everything;
   const net = trades.reduce((sum, t) => sum + (t.pnl_dollars ?? 0), 0);
   const priced = trades.filter((t) => t.pnl_dollars != null).length;
   const totalR = trades.reduce((sum, t) => sum + (t.r_multiple ?? 0), 0);
@@ -47,7 +59,17 @@ export function GroupViewer({
                 <h2 className="text-[19px] font-semibold tracking-tight">{label}</h2>
                 <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-[12px]"
                   style={{ color: 'var(--text-dim)' }}>
-                  <span>{trades.length} trade{trades.length === 1 ? '' : 's'}</span>
+                  <span data-viewer-count>
+                    {partial
+                      ? `${trades.length} not on the board · of ${group.length}`
+                      : `${trades.length} trade${trades.length === 1 ? '' : 's'}`}
+                  </span>
+                  {hidden.size > 0 && (
+                    <button type="button" data-viewer-toggle onClick={() => setEverything((v) => !v)}
+                      className="underline decoration-dotted underline-offset-2" style={{ color: 'rgb(var(--accent))' }}>
+                      {everything ? `Only the ${hidden.size} hidden` : `Show all ${group.length}`}
+                    </button>
+                  )}
                   {priced > 0 && (
                     <span className="tabular-nums"
                       style={{ color: net >= 0 ? 'rgb(var(--outcome-win))' : 'rgb(var(--outcome-loss))' }}>

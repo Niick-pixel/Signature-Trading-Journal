@@ -81,3 +81,30 @@ test('a stale nudge can never carry a group out of reach', () => {
   const near = at(computeLayout(all, 1, 'reason', { [offsetSlot('reason', BACKTEST_REASON)]: { dx: 140, dy: -60 } }, 'All'));
   assert.deepEqual([near.x - at(base).x, near.y - at(base).y], [140, -60]);
 });
+
+test('a group is two rows of three, newest first, and "+N" takes the sixth slot', () => {
+  const days = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09'];
+  const many = days.map((d) => make({ reason: 'Idea / hypothesis', date: `${d}T09:41` }));
+  const l = computeLayout(many, 1, 'reason', {}, 'All');
+  const g = l.clusters.find((c) => c.key === 'Idea / hypothesis')!;
+  const cards = l.nodes.filter((n) => n.key.startsWith('Idea / hypothesis::'));
+  // Five newest on the board, in order, three across.
+  assert.deepEqual(cards.map((n) => n.trade.date.slice(0, 10)), days.slice(4).reverse());
+  const xs = [...new Set(cards.map((n) => n.x))];
+  const ys = [...new Set(cards.map((n) => n.y))];
+  assert.equal(xs.length, 3, 'three columns');
+  assert.equal(ys.length, 2, 'two rows');
+  assert.deepEqual([cards[0].x, cards[0].y], [Math.min(...xs), Math.min(...ys)], 'newest top left');
+  // The stack: bottom right, counting the four oldest.
+  const st = l.stacks.find((s) => s.key === g.key)!;
+  assert.deepEqual([st.x, st.y], [Math.max(...xs), Math.max(...ys)]);
+  assert.equal(st.hidden.length, 4);
+
+  // Exactly six: all six shown, 3x2, no stack.
+  const six = computeLayout(many.slice(0, 6), 1, 'reason', {}, 'All');
+  const sixCards = six.nodes;
+  assert.equal(sixCards.length, 6);
+  assert.equal(new Set(sixCards.map((n) => n.x)).size, 3);
+  assert.equal(new Set(sixCards.map((n) => n.y)).size, 2);
+  assert.equal(six.stacks.length, 0);
+});

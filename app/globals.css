@@ -379,28 +379,18 @@
 }
 
 /*
-  Arriving on a page.
+  Arriving on a page: the view transition in lib/nav.ts is the whole entrance.
 
-  Each tab's content rises a few pixels and fades in, its first sections a
-  beat apart, so switching tabs reads as moving to a place rather than as the
-  screen being replaced. CSS only, on plain wrappers — never on an element
-  Framer is animating, where two animations would fight over the transform.
-  The title bar is outside the wrapper and stays perfectly still.
+  Pages used to fade themselves in as well (.signature-enter, opacity 0 → 1).
+  That fade was switched off while a transition ran — and the moment the
+  transition finished, switching it back on started it again from zero: the
+  page vanished for a frame and faded back in, after it had already arrived.
+  That was the flicker on every tab switch. One entrance, not two.
 */
-@keyframes signature-fade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-/* One short fade for every tab, the whole page at once: nothing slides,
-   nothing staggers, so switching tabs feels like arriving, not rearranging. */
-.signature-enter { animation: signature-fade 180ms ease-out both; }
 
 /* Anchors (Stats → #model) glide instead of jumping. */
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-@media (prefers-reduced-motion: reduce) {
-  .signature-enter { animation: none; }
-}
 
 /* Headings take the theme's face. */
 h1, h2, h3 { font-family: var(--font-display); }
@@ -822,8 +812,6 @@ html[data-nav] [data-sheet] { view-transition-name: sheet; }
 /* The title bar is the same on both sides: no crossfade, no flicker. */
 ::view-transition-old(titlebar) { animation: none; opacity: 0; }
 ::view-transition-new(titlebar) { animation: none; }
-/* The transition is the entrance — the page's own fade would play it twice. */
-html[data-nav] .signature-enter { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   [data-stagger] > *, [data-cell-in], :focus-visible { animation: none !important; }

@@ -1207,6 +1207,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
         <GroupViewer
           label={viewing}
           trades={viewing === null ? [] : (layout.clusters.find((c) => c.key === viewing)?.trades ?? [])}
+          hiddenIds={viewing === null ? [] : (layout.stacks.find((st) => st.key === viewing)?.hidden ?? [])}
           onOpenTrade={(id) => { setViewing(null); setOpenId(id); }}
           onClose={() => setViewing(null)}
         />

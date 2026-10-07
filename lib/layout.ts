@@ -164,18 +164,18 @@ export interface BoardLayout {
   nominalWidth: number;
 }
 
-function clusterGrid(count: number, scale: number, maxCols?: number) {
-  /*
-    A group's cards can be arranged square-ish or laid out wide, and which is
-    better is not a property of the group — it is a property of the screen.
-    Height is almost always what limits how big the board can be drawn, and a
-    group two rows deep costs every row on the board that height. Letting the
-    arrangement be chosen per board, by bestPack, is worth more than any single
-    rule here could be.
-  */
-  const cols = maxCols
-    ? Math.max(1, Math.min(count, maxCols))
-    : Math.max(1, Math.ceil(Math.sqrt(count)));
+/**
+ * Three across, always: six cards make two rows of three.
+ *
+ * The shape used to be chosen per board — a group could come out as one row
+ * of six to save height — so the same group looked different from one visit
+ * to the next. A fixed 3x2 reads the same every time: newest top left, the
+ * stack (when there is one) bottom right.
+ */
+export const GROUP_COLS = 3;
+
+function clusterGrid(count: number, scale: number) {
+  const cols = Math.max(1, Math.min(count, GROUP_COLS));
   const rows = Math.ceil(count / cols);
   const w = NODE_W * scale;
   const h = NODE_H * scale;
@@ -290,34 +290,10 @@ function pack(sizes: Array<{ width: number; height: number }>, wrapWidth: number
   return { at, width, height: y + rowHeight };
 }
 
-/**
- * The shortest board that fits BOARD_ROOM across.
- *
- * A group's cards can be arranged square-ish or laid out wide, and which is
- * better depends on its neighbours: a group two rows deep costs its whole row
- * that height. So every shape the groups can take is tried, packed to the
- * fixed width, and the shortest result wins, the narrower breaking a tie. It
- * is deterministic — the same trades always give the same board.
- */
+/** Every group at its fixed shape, packed to the board's width. */
 function bestPack(counts: number[], scale: number) {
-  const squares = counts.map((n) => clusterGrid(n, scale));
-  let best = { ...pack(squares, BOARD_ROOM), grids: squares };
-  if (counts.length === 0) return best;
-
-  const shapes: Array<number | undefined> = [undefined];
-  for (let c = 1; c <= VISIBLE_PER_CLUSTER; c++) shapes.push(c);
-
-  for (const maxCols of shapes) {
-    const grids = maxCols === undefined ? squares : counts.map((n) => clusterGrid(n, scale, maxCols));
-    const laid = pack(grids, BOARD_ROOM);
-    const fits = laid.width <= BOARD_ROOM;
-    const bestFits = best.width <= BOARD_ROOM;
-    const better = fits !== bestFits
-      ? fits
-      : laid.height < best.height || (laid.height === best.height && laid.width < best.width);
-    if (better) best = { ...laid, grids };
-  }
-  return best;
+  const grids = counts.map((n) => clusterGrid(n, scale));
+  return { ...pack(grids, BOARD_ROOM), grids };
 }
 
 /** Groups come to rest on this grid, so a hand-made arrangement still lines up. */
