@@ -28,6 +28,7 @@ export function Choice<T extends string>({
         const accent = accentFor?.(option) ?? 'var(--accent)';
         return (
           <motion.button
+      initial={false}
             key={option}
             type="button"
             role="radio"

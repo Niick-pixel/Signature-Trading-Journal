@@ -16,6 +16,7 @@ interface TogglePillProps {
 export function TogglePill({ checked, onChange, label, hint, accent = 'var(--grade-aplus)' }: TogglePillProps) {
   return (
     <motion.button
+      initial={false}
       type="button"
       role="switch"
       aria-checked={checked}
@@ -45,6 +46,7 @@ export function TogglePill({ checked, onChange, label, hint, accent = 'var(--gra
           transition={springBouncy}
         />
         <motion.svg
+      initial={false}
           width="11" height="9" viewBox="0 0 11 9" fill="none" aria-hidden className="relative"
           animate={{ scale: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
           transition={springBouncy}

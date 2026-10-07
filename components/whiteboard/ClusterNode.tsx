@@ -67,7 +67,7 @@ function ClusterNodeInner({ data }: NodeProps) {
         // mark the region; the glow only has to lift it.
         boxShadow: `0 0 28px -10px rgb(${accent} / var(--cluster-glow)), inset 0 1px 0 rgb(${accent} / 0.22)`,
       }}
-      className="pointer-events-none rounded-[calc(30px*var(--rk))] border backdrop-blur-[2px]"
+      className="pointer-events-none rounded-[calc(30px*var(--rk))] border"
     >
       {/*
         Two rows, not one. Sharing a row meant the stats squeezed the reason

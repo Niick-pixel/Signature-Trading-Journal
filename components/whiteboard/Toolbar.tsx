@@ -85,6 +85,10 @@ function Chip({
 }: { label: string; active: boolean; accent?: string; onClick: () => void }) {
   return (
     <motion.button
+      // Start at its colours, not animate into them on every mount (and let
+      // Framer alone move them: the global CSS colour transition chased it).
+      initial={false}
+      data-no-press
       type="button"
       onClick={onClick}
       whileTap={press}
@@ -207,6 +211,10 @@ export function Toolbar({
 
       {/* The weekly-review starting list. */}
       <motion.button
+      // Start at its colours, not animate into them on every mount (and let
+      // Framer alone move them: the global CSS colour transition chased it).
+      initial={false}
+      data-no-press
         type="button"
         onClick={() => onChange({ ...filters, onlyFlagged: !filters.onlyFlagged })}
         whileTap={press}
@@ -224,6 +232,10 @@ export function Toolbar({
 
       {/* Bulk edit needs a mode, because a click already means "open this". */}
       <motion.button
+      // Start at its colours, not animate into them on every mount (and let
+      // Framer alone move them: the global CSS colour transition chased it).
+      initial={false}
+      data-no-press
         type="button"
         onClick={onToggleSelectMode}
         whileTap={press}

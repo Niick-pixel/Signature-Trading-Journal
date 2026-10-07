@@ -33,6 +33,7 @@ export function Segmented<T extends string>({
         const accent = accentFor?.(option) ?? 'var(--accent)';
         return (
           <motion.button
+      initial={false}
             key={option}
             type="button"
             title={titleFor?.(option)}

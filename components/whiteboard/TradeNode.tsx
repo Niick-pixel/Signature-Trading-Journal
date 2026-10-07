@@ -54,6 +54,7 @@ function TradeNodeInner({ data }: NodeProps) {
     and the note says the picture is the missing part, not the record.
   */
   const [shotBroken, setShotBroken] = useState(false);
+  const [armed, setArmed] = useState(false);
 
   return (
     <>
@@ -78,8 +79,16 @@ function TradeNodeInner({ data }: NodeProps) {
     ))}
 
     <motion.div
-      layout
-      layoutId={`trade-${trade.id}`}
+      /*
+        Armed on first hover, not from the start. The shared layoutId is what
+        lets the detail panel spring out of the card you click — but on every
+        card it made Framer track and measure all of them, on mount and on
+        every change, which was much of the stutter switching to this tab.
+        The pointer is always over a card before it clicks it, so arming it
+        then keeps the effect and costs the other cards nothing.
+      */
+      layoutId={armed || selected ? `trade-${trade.id}` : undefined}
+      onPointerEnter={armed ? undefined : () => setArmed(true)}
       transition={springLayout}
       whileHover={{ y: -2, scale: 1.012 }}
       whileTap={{ scale: 0.985 }}
@@ -246,4 +255,17 @@ function TradeNodeInner({ data }: NodeProps) {
   most of the 55ms of script per pointer move. What a node draws depends on its
   data alone; its position is applied by React Flow to the wrapper around it.
 */
-export const TradeNode = memo(TradeNodeInner, (a, b) => a.data === b.data);
+/*
+  And compared field by field. The board rebuilds every node's data object
+  whenever anything changes (a note arriving, a hover elsewhere), so comparing
+  the object itself re-rendered all the cards each time — several full board
+  redraws in the first second after switching to the tab, right during its
+  fade-in. A card redraws only when its own trade or settings do.
+*/
+const sameCard = (x: unknown, y: unknown) => {
+  const a = x as TradeNodeData & { selectMode?: boolean };
+  const b = y as TradeNodeData & { selectMode?: boolean };
+  return a.trade === b.trade && a.selected === b.selected && a.onOpen === b.onOpen
+    && a.scale === b.scale && a.dimPassed === b.dimPassed && a.selectMode === b.selectMode;
+};
+export const TradeNode = memo(TradeNodeInner, (a, b) => a.data === b.data || sameCard(a.data, b.data));

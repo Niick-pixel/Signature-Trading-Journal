@@ -1,19 +1,28 @@
+import { TARGET_TYPES } from './domain';
+
 /**
  * The chart prep: the second half of the morning check-in, done on the chart
  * before the New York session.
  *
- * The check-in's four questions take thirty seconds. This walks the chart
- * top-down in ten short steps — higher timeframe, prior levels, equal highs
- * and lows, gaps, zones, the order-book heatmap, the draw on liquidity, the
- * plan, the timing, the commitment. Each is a few marks to tick as they go on
- * the chart and a few answers to tap. Nothing is typed: the levels belong on
- * the chart, where they are useful, not retyped here where they are not.
- * (The overnight session highs and lows are left out on purpose — a
- * TradingView script already draws them.)
+ * Six short steps, each one something the model actually uses — and nothing
+ * else (plus the order-book heatmap, kept on purpose):
  *
- * Like the check-in it is a prompt, never a gate. Any step can be skipped and
- * nothing in the app waits on it. Times are New York time, the clock the
- * sessions are defined on.
+ *   1. Bias            the HTF direction, and premium or discount
+ *   2. Liquidity       the nameable levels a sweep can take
+ *   3. HTF gaps        the 1H / 4H FVGs: targets, and deliveries
+ *   4. Heatmap         the resting size in the book
+ *   5. Draw and plan   which way, to which target class, which side
+ *   6. Session         the killzone, the news, the rules for today
+ *
+ * Order blocks, breakers, support and resistance, NWOG/NDOG and volume
+ * imbalances used to have steps of their own. None of them is in the model,
+ * so they are gone. (The Asia and London highs and lows are not drawn here
+ * on purpose — a TradingView script already draws them.)
+ *
+ * Each step is at most two marks to tick as they go on the chart and a few
+ * answers to tap. Nothing is typed. Like the check-in it is a prompt, never a
+ * gate: any step can be skipped and nothing in the app waits on it. Times are
+ * New York time, the clock the sessions are defined on.
  */
 
 /** One tap-to-answer question on a step. */
@@ -37,90 +46,58 @@ export interface PrepStep {
   heatmap?: boolean;
 }
 
-const TREND = ['Uptrend', 'Downtrend', 'Range'];
+/** The nameable levels a sweep can take — the same names the trade form uses. */
+const SWEEPABLE = ['PDH', 'PDL', 'PWH', 'PWL', 'Asia high', 'Asia low', 'London high', 'London low', 'EQH', 'EQL'];
 
 export const PREP_STEPS: PrepStep[] = [
   {
-    id: 'htf', title: 'Higher timeframe', frames: 'Daily · 4H',
-    marks: [
-      'Daily and 4H swing high and low marked',
-      'The 50% of that range drawn',
-      'Nearest unfilled daily / 4H FVG boxed, above and below',
-    ],
+    id: 'bias', title: 'Bias', frames: 'Daily · 4H',
+    marks: ['Daily / 4H swing range marked, its 50% drawn'],
     fields: [
-      { id: 'daily', label: 'Daily', kind: 'one', options: TREND },
-      { id: 'h4', label: '4H', kind: 'one', options: TREND },
+      { id: 'bias', label: 'HTF bias', kind: 'one', options: ['Bullish', 'Bearish', 'No clear bias'] },
       { id: 'zone', label: 'Price is in', kind: 'one', options: ['Premium', 'Equilibrium', 'Discount'] },
     ],
   },
   {
-    id: 'prior', title: 'Previous day and week', frames: 'Daily · Weekly',
-    marks: ['PDH and PDL lined', 'PWH and PWL lined'],
-    fields: [{ id: 'taken', label: 'Already taken', kind: 'many', options: ['PDH', 'PDL', 'PWH', 'PWL'] }],
-  },
-  {
-    id: 'eqhl', title: 'Equal highs and lows', frames: '1H · 15m',
-    marks: ['Relative equal highs marked', 'Relative equal lows marked', 'The ones closest to price circled'],
-    fields: [{ id: 'nearest', label: 'Clean resting liquidity', kind: 'one', options: ['EQH above', 'EQL below', 'Both sides', 'None clean'] }],
-  },
-  {
-    id: 'gaps', title: 'Important gaps', frames: '4H · 1H · 15m',
-    marks: ['Unfilled 1H and 4H FVGs boxed', 'NWOG / NDOG marked', 'Volume imbalances noted'],
+    id: 'liquidity', title: 'Liquidity to sweep', frames: 'Daily · 1H · 15m',
+    marks: ['PDH / PDL and PWH / PWL lined', 'Clean EQH / EQL marked'],
     fields: [
-      { id: 'types', label: 'On the chart today', kind: 'many', options: ['1H FVG', '4H FVG', 'NWOG', 'NDOG', 'Volume imbalance'] },
-      { id: 'nearest', label: 'Nearest unfilled gap', kind: 'one', options: ['Above price', 'Below price', 'Both', 'None close'] },
+      { id: 'taken', label: 'Already taken', kind: 'many', options: SWEEPABLE },
+      { id: 'wait', label: 'Sweep to wait for', kind: 'many', options: SWEEPABLE },
     ],
   },
   {
-    id: 'zones', title: 'Resistance and support', frames: '4H · 1H',
-    marks: ['Order blocks and breakers boxed', 'Zones that rejected price twice marked', 'Each labelled resistance or support'],
-    fields: [{ id: 'where', label: 'Price is', kind: 'one', options: ['At resistance', 'At support', 'Between zones'] }],
+    id: 'gaps', title: 'HTF gaps', frames: '4H · 1H',
+    marks: ['Unfilled 1H and 4H FVGs boxed'],
+    fields: [
+      { id: 'nearest', label: 'Nearest unfilled HTF FVG', kind: 'one', options: ['Above price', 'Below price', 'Both sides', 'None close'] },
+    ],
   },
   {
     id: 'heatmap', title: 'Liquidity from the heatmap', frames: 'Order book', heatmap: true,
-    marks: ['Heatmap open', 'Bands that held for hours moved to the chart', 'Flickering bands ignored — spoofing, not liquidity'],
+    marks: ['Bands that held for hours moved to the chart', 'Flickering bands ignored — spoofing, not liquidity'],
     fields: [
       { id: 'side', label: 'Heaviest liquidity sits', kind: 'one', options: ['Above price', 'Below price', 'Both sides', 'Thin book'] },
       { id: 'walls', label: 'The walls are', kind: 'one', options: ['Holding', 'Being pulled', 'Mixed'] },
     ],
   },
   {
-    id: 'draw', title: 'Draw on liquidity',
-    marks: ['Target level marked on the chart', 'Invalidation level marked'],
+    id: 'draw', title: 'Draw and plan',
+    marks: ['Target and invalidation marked', 'Alerts set on the sweep levels'],
     fields: [
       { id: 'direction', label: 'Price draws', kind: 'one', options: ['Up', 'Down', 'Unclear'] },
-      {
-        id: 'target', label: 'First target', kind: 'pick',
-        options: ['PDH', 'PDL', 'PWH', 'PWL', 'Asia high', 'Asia low', 'London high', 'London low', 'EQH', 'EQL', 'FVG', 'Heatmap wall', 'Order block'],
-      },
-      { id: 'confidence', label: 'How clear', kind: 'one', options: ['Clear', 'Probable', 'Coin flip'] },
-    ],
-  },
-  {
-    id: 'plan', title: 'The plan',
-    marks: ['Alerts set on the sweep levels', 'Anything outside this plan is not a trade'],
-    fields: [
+      // The same six classes the trade form ranks, strongest first.
+      { id: 'target', label: 'Target', kind: 'pick', options: [...TARGET_TYPES] },
       { id: 'side', label: 'Today I take', kind: 'one', options: ['Longs only', 'Shorts only', 'Both ways', 'No trade today'] },
-      { id: 'sweeps', label: 'Sweep to wait for', kind: 'many', options: ['Asia high / low', 'London high / low', 'PDH / PDL', 'EQH / EQL', 'Heatmap wall', 'Opening range'] },
     ],
   },
   {
-    id: 'timing', title: 'News and timing',
-    marks: ['Red-folder release times lined', 'New York AM killzone shaded'],
+    id: 'session', title: 'Session and rules', frames: 'NY AM',
+    marks: ['Killzone shaded, red-folder times lined', 'Only the model: a named sweep, one clean FVG, an inversion close'],
     fields: [
-      { id: 'first', label: 'First entry', kind: 'pick', options: ['From the open (9:30)', 'After 9:45', 'After 10:00', '15 min after the news'] },
-      { id: 'done', label: 'Done by', kind: 'pick', options: ['11:00', '11:30', '12:00', 'The close'] },
+      { id: 'news', label: 'News', kind: 'one', options: ['None today', 'Before the open', 'Inside the killzone'] },
+      { id: 'stop', label: 'Stop after', kind: 'one', options: ['1 loss', '2 losses', 'Daily limit'] },
     ],
-  },
-  {
-    id: 'commit', title: 'Commit',
-    marks: [
-      'Only the model: a nameable sweep, one clean gap, an inversion close',
-      'Stop after two losses',
-      'Daily loss limit set in the platform',
-      'Step away until an alert rings',
-    ],
-    fields: [],
   },
 ];
 

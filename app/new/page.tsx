@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getTrade, listTrades } from '@/db/trades';
+import { boardStart } from '@/db/boardlayout';
 import { NewTradeForm } from '@/components/capture/NewTradeForm';
 import { lessonsBySetup } from '@/lib/lessons';
 import { Whiteboard } from '@/components/whiteboard/Whiteboard';
@@ -34,7 +35,7 @@ export default async function NewTradePage({
           style={{ filter: 'blur(18px) saturate(0.85)', opacity: 0.5, transform: 'scale(1.04)' }}
         >
           <div className="h-dvh pt-11">
-            <Whiteboard trades={trades} readOnly />
+            <Whiteboard trades={trades} readOnly start={boardStart()} />
           </div>
         </div>
       )}

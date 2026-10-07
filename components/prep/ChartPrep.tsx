@@ -31,7 +31,7 @@ function openLine(mins: number): string {
 }
 
 /**
- * The chart half of the check-in: ten short steps, one at a time, in the same
+ * The chart half of the check-in: six short steps, one at a time, in the same
  * window. Each is a few marks to tick as they go on the chart and a few
  * answers to tap — nothing to type. Saved as it goes; any step can be
  * skipped; the dots at the top jump anywhere.
@@ -196,7 +196,7 @@ function StepView({ step, index, data, change, review }: {
       </div>
       <h3 className="mt-1 text-[19px] font-semibold tracking-tight">{step.title}</h3>
 
-      {step.id === 'timing' && (
+      {step.id === 'session' && (
         <p className="mt-2 text-[12px]" style={{ color: 'var(--text-dim)' }}>
           {review?.news
             ? <>News today: <strong>{review.news === 'None' ? 'nothing major' : review.news.toLowerCase()}</strong>{review.news_note ? ` — ${review.news_note}` : ''}</>

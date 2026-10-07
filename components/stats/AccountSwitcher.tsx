@@ -75,6 +75,7 @@ export function AccountSwitcher({ available, current }: AccountSwitcherProps) {
         const mixed = opt.key === 'All';
         return (
           <motion.button
+      initial={false}
             key={opt.key}
             type="button"
             onClick={() => go(opt.key)}

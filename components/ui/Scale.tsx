@@ -13,6 +13,7 @@ export function Scale({ value, onChange, label, hint }: {
       <div className="flex gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <motion.button
+      initial={false}
             key={n}
             type="button"
             aria-pressed={value === n}

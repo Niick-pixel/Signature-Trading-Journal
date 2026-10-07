@@ -553,6 +553,16 @@ h1, h2, h3 { letter-spacing: -0.022em; }
   where they were placed. Only position is handed back; everything else the
   glass sets still wins, as the rest of the app expects.
 */
+/*
+  Stats cards: clear, not frosted. Forty blurred panels stacked down one
+  page read as fog (and every one of them is re-blurred on each frame of a
+  scroll or a tab switch). Same colours, near-solid, no blur.
+*/
+.glass[data-card] {
+  backdrop-filter: none;
+  background: color-mix(in srgb, var(--bg-raised) 90%, var(--glass-fill));
+}
+
 .glass.absolute { position: absolute; }
 .glass.fixed { position: fixed; }
 
@@ -753,6 +763,17 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 :where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):not(.react-flow__node *):not([data-no-press]):active {
   transform: scale(0.965);
   transition-duration: 90ms;
+}
+
+/*
+  Where Framer already moves a control's colours (its inline style carries
+  them), the CSS colour transition above stands down and keeps only the press.
+  Both at once meant every Framer frame restarted a CSS transition: forty
+  toolbar chips doing that through the tab fade was the switch's stutter.
+*/
+:where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):not(.react-flow__node *):not([data-no-press])[style*='border-color'],
+:where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):not(.react-flow__node *):not([data-no-press])[style*='background'] {
+  transition-property: transform, box-shadow, opacity;
 }
 
 /* Inputs settle their border and glow rather than switching. */

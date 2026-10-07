@@ -65,7 +65,14 @@ const nodeTypes = {
   trade: TradeNode, cluster: ClusterNode, title: BoardTitle, note: NoteNode, stack: StackNode,
 };
 
-function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[]; readOnly?: boolean }) {
+/** What the server can hand the board with the page, so it is drawn once rather than three times. */
+export interface BoardStart {
+  notes: BoardNote[];
+  edges: BoardEdge[];
+  offsets: Record<string, { dx: number; dy: number }>;
+}
+
+function WhiteboardInner({ trades: initial, readOnly = false, start }: { trades: Trade[]; readOnly?: boolean; start?: BoardStart }) {
   const flow = useReactFlow();
   const [trades, setTrades] = useState(initial);
   const confirm = useConfirm();
@@ -109,7 +116,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
    * controlled node whose position comes only from the server snaps back on
    * every render, which is the bug the sticky notes had.
    */
-  const [offsets, setOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
+  const [offsets, setOffsets] = useState<Record<string, { dx: number; dy: number }>>(start?.offsets ?? {});
 
   // An explicit mode rather than React Flow's own selection: on this board a
   // click already means "open this trade", and overloading it with
@@ -121,12 +128,15 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [board, setBoard] = useState<{ notes: BoardNote[]; edges: BoardEdge[] }>({ notes: [], edges: [] });
+  const [board, setBoard] = useState<{ notes: BoardNote[]; edges: BoardEdge[] }>(
+    start ? { notes: start.notes, edges: start.edges } : { notes: [], edges: [] },
+  );
   const loadBoard = useCallback(async () => {
     const res = await fetch('/api/board');
     if (res.ok) setBoard(await res.json());
   }, []);
-  useEffect(() => { loadBoard(); }, [loadBoard]);
+  // Handed over with the page when it can be; fetched only when it was not.
+  useEffect(() => { if (!start) loadBoard(); }, [loadBoard, start]);
 
   /*
     Journal pages, for the search palette only.
@@ -137,24 +147,29 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
     have written rather than only the trades.
   */
   const [pages, setPages] = useState<JournalPage[]>([]);
+  // Loaded the first time the search opens, not on every visit to the board:
+  // it was one more redraw in the middle of the tab's fade-in.
+  const [wantPages, setWantPages] = useState(false);
+  useEffect(() => { if (searching) setWantPages(true); }, [searching]);
   useEffect(() => {
-    if (readOnly) return;
+    if (readOnly || !wantPages) return;
     let live = true;
     void fetch('/api/journal')
       .then((r) => r.json())
       .then((ps) => { if (live) setPages(ps ?? []); })
       .catch(() => { /* search still works over the trades */ });
     return () => { live = false; };
-  }, [readOnly]);
+  }, [readOnly, wantPages]);
 
   useEffect(() => {
+    if (start) return;
     let live = true;
     void fetch('/api/board/offsets')
       .then((r) => r.json())
       .then((o) => { if (live) setOffsets(o ?? {}); })
       .catch(() => { /* an unreachable nudge is not worth a broken board */ });
     return () => { live = false; };
-  }, []);
+  }, [start]);
 
   /*
     Board shortcuts. Typing is always sacred — a key that means "new trade"
@@ -637,7 +652,29 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
       zIndex: 5,
     }));
 
-    return [...titleNode, ...clusterNodes, ...tradeNodes, ...stackNodes, ...noteNodes];
+    /*
+      Every node is given its size up front.
+
+      React Flow draws a node only once it knows how big it is, and it learns
+      that from a ResizeObserver. Returning from the edit window, that report
+      sometimes never came (reproduced in the desktop app): every card was on
+      the page with visibility: hidden, and the board looked emptied of every
+      trade. The layout already knows each size exactly, so it is stated here;
+      live measurement still refines it, but nothing waits on it any more.
+    */
+    const cardW = NODE_W * scale;
+    const cardH = NODE_H * scale;
+    const sized = (n: Node, w: number, h: number): Node => ({ ...n, initialWidth: w, initialHeight: h });
+    return [
+      ...titleNode.map((n) => sized(n, 300, 130)),
+      ...clusterNodes.map((n) => {
+        const c = (n.data as { cluster: { width: number; height: number } }).cluster;
+        return sized(n, c.width, c.height);
+      }),
+      ...tradeNodes.map((n) => sized(n, cardW, cardH)),
+      ...stackNodes.map((n) => sized(n, cardW, cardH)),
+      ...noteNodes.map((n) => sized(n, 240, 140)),
+    ];
   }, [
     layout, openId, onOpen, scale, prefs.dimPassed, selectMode, selectedIds, groupMode,
     visible.length, board.notes, saveNote, removeNote, locked,
@@ -1217,7 +1254,7 @@ function WhiteboardInner({ trades: initial, readOnly = false }: { trades: Trade[
   );
 }
 
-export function Whiteboard({ trades, readOnly }: { trades: Trade[]; readOnly?: boolean }) {
+export function Whiteboard({ trades, readOnly, start }: { trades: Trade[]; readOnly?: boolean; start?: BoardStart }) {
   // ReactFlowProvider has to sit above anything calling its hooks.
   return (
     <ReactFlowProvider>
@@ -1228,10 +1265,10 @@ export function Whiteboard({ trades, readOnly }: { trades: Trade[]; readOnly?: b
           you are trying to write in.
         */
         <MotionConfig reducedMotion="always" transition={{ duration: 0 }}>
-          <WhiteboardInner trades={trades} readOnly />
+          <WhiteboardInner trades={trades} readOnly start={start} />
         </MotionConfig>
       ) : (
-        <WhiteboardInner trades={trades} readOnly={false} />
+        <WhiteboardInner trades={trades} readOnly={false} start={start} />
       )}
     </ReactFlowProvider>
   );

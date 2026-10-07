@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { spring, springSoft } from '@/lib/motion';
+import { spring } from '@/lib/motion';
 import { CountUp } from '@/components/ui/CountUp';
 import { MIN_SAMPLE } from '@/lib/domain';
 
@@ -15,10 +15,13 @@ import { MIN_SAMPLE } from '@/lib/domain';
 function Sample({ n }: { n: number }) {
   const thin = n < MIN_SAMPLE;
   return (
-    <span data-sample={n} className="shrink-0 text-right text-[10.5px] tabular-nums leading-tight"
-      style={{ color: thin ? 'rgb(var(--amber))' : 'var(--text-faint)' }}>
-      n = {n}
-      {thin && <span data-thin className="block">Not enough data.</span>}
+    <span data-sample={n}
+      title={thin ? `Fewer than ${MIN_SAMPLE} trades: read it as a hint, not a verdict.` : undefined}
+      className={`shrink-0 whitespace-nowrap tabular-nums leading-tight ${thin ? 'rounded-full border px-2 py-0.5 text-[10px] font-medium' : 'text-right text-[10.5px]'}`}
+      style={thin
+        ? { color: 'rgb(var(--amber))', borderColor: 'rgb(var(--amber) / 0.35)', background: 'rgb(var(--amber) / 0.08)' }
+        : { color: 'var(--text-faint)' }}>
+      n = {n}{thin && <span data-thin> · small sample</span>}
     </span>
   );
 }
@@ -148,14 +151,7 @@ export function Stat({
     : tone === 'loss' ? 'rgb(var(--outcome-loss))'
     : 'var(--text)';
   return (
-    <motion.div
-      initial={false}
-      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1 }}
-      transition={springSoft}
-      className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5"
-      data-card
-      style={n != null && n < MIN_SAMPLE ? { filter: 'grayscale(0.85)' } : undefined}
-    >
+    <div className="glass rounded-[calc(18px*var(--rk))] px-4 py-3.5" data-card>
       <div className="flex items-start justify-between gap-2">
         <div className="text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
           {label}
@@ -168,7 +164,7 @@ export function Stat({
       {sub && (
         <div className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{sub}</div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -193,24 +189,19 @@ export function Panel({ title, note, n, children }: {
   n?: number;
 }) {
   return (
-    <motion.section
-      // Rises in as it scrolls into view, once — the panels further down
-      // used to finish animating before anyone could see them.
-      // Still on arrival — the page itself fades in once (.signature-enter).
-      // A card on too few trades is simply dimmed.
-      initial={false}
-      animate={{ opacity: n != null && n < MIN_SAMPLE ? 0.62 : 1 }}
-      transition={springSoft}
-      className="glass rounded-[calc(24px*var(--rk))] p-6"
-      data-card
-      style={n != null && n < MIN_SAMPLE ? { filter: 'grayscale(0.85)' } : undefined}
-    >
+    /*
+      Always drawn at full strength. A card on too few trades used to be
+      dimmed to 62% and turned grey — and with a young journal that was every
+      card, so the whole page looked fogged. The sample badge in the corner
+      says "small sample" instead; the numbers stay readable.
+    */
+    <section className="glass rounded-[calc(24px*var(--rk))] p-6" data-card>
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
         {n != null && <Sample n={n} />}
       </div>
       {note && <p className="mb-4 mt-1 text-[11px] leading-snug" style={{ color: 'var(--text-faint)' }}>{note}</p>}
       <div className={note ? '' : 'mt-4'}>{children}</div>
-    </motion.section>
+    </section>
   );
 }

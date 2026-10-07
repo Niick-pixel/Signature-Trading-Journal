@@ -45,7 +45,8 @@ export function TriState({ value, onChange, label, hint, inline = false }: TriSt
             const on = value === opt.value;
             const accent = opt.accent;
             return (
-              <motion.button key={opt.label} type="button" aria-pressed={on} onClick={() => onChange(opt.value)}
+              <motion.button
+      initial={false} key={opt.label} type="button" aria-pressed={on} onClick={() => onChange(opt.value)}
                 whileTap={press} transition={spring}
                 animate={{
                   borderColor: on ? (accent ? `rgb(${accent} / 0.6)` : 'var(--glass-stroke)') : 'var(--glass-stroke)',
@@ -78,6 +79,7 @@ export function TriState({ value, onChange, label, hint, inline = false }: TriSt
           const accent = opt.accent;
           return (
             <motion.button
+      initial={false}
               key={opt.label}
               type="button"
               aria-pressed={on}

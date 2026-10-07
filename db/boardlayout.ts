@@ -1,6 +1,7 @@
 import 'server-only';
 import { getDb } from './index';
 import { offsetSlot, type GroupMode } from '../lib/layout';
+import type { BoardEdge, BoardNote } from '../lib/types';
 
 const KEY = 'cluster_offsets';
 
@@ -44,4 +45,18 @@ export function writeOffset(mode: GroupMode, key: string, dx: number, dy: number
 
 export function clearOffsets(): void {
   getDb().prepare('DELETE FROM app_settings WHERE key = ?').run(KEY);
+}
+
+/**
+ * Everything the board needs besides the trades, read on the server so the
+ * page arrives complete — the board is drawn once, not redrawn as each piece
+ * comes in over the network.
+ */
+export function boardStart(): { notes: BoardNote[]; edges: BoardEdge[]; offsets: ClusterOffsets } {
+  const db = getDb();
+  return {
+    notes: db.prepare('SELECT * FROM board_notes ORDER BY created_at').all() as unknown as BoardNote[],
+    edges: db.prepare('SELECT * FROM board_edges ORDER BY created_at').all() as unknown as BoardEdge[],
+    offsets: readOffsets(),
+  };
 }

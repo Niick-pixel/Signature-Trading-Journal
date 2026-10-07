@@ -35,6 +35,7 @@ export function TagPicker<T extends string>({
         const on = value.includes(tag);
         return (
           <motion.button
+      initial={false}
             key={tag}
             type="button"
             aria-pressed={on}

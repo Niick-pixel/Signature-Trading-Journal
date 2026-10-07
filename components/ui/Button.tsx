@@ -29,6 +29,7 @@ export function Button({
 
   return (
     <motion.button
+      initial={false}
       type="button"
       whileTap={press}
       whileHover={{ y: -1 }}

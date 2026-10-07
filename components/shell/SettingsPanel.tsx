@@ -268,7 +268,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
 
             <Section
               title="Chart prep"
-              hint="The chart half of the check-in: ten short steps before New York, from the daily down to the order book — ticks and taps, nothing to type. Press P to go straight to it."
+              hint="The chart half of the check-in: six short steps before New York — bias, liquidity, HTF gaps, the heatmap, the draw, the session. Ticks and taps, nothing to type. Press P to go straight to it."
             >
               <label className="block">
                 <span className="mb-1.5 block text-[11px]" style={{ color: 'var(--text-faint)' }}>Order-book heatmap link</span>

@@ -230,7 +230,7 @@ function CheckInForm({ day, existing, onDone, onSaved, onChart }: {
           </p>
           {/* The four questions are the quick half; the chart is the rest. */}
           <p className="mx-auto mt-5 max-w-[24rem] text-[12px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>
-            Next, the chart: ten short steps, ticks and taps — mark each thing on your chart and move on.
+            Next, the chart: six short steps, ticks and taps — mark each thing on your chart and move on.
           </p>
           <div className="mt-4 flex justify-center gap-2">
             <Button variant="primary" onClick={onChart} data-checkin-to-prep>Prep the chart</Button>
