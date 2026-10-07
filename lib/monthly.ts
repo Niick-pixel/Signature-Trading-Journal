@@ -325,6 +325,7 @@ export function monthlyReview(input: MonthlyInput): MonthlyReview {
     if (context.length) p(`- **Context present:** ${context.join(', ')}`);
     if (t.mistake_tags.length) p(`- **Mistakes tagged:** ${t.mistake_tags.join(', ')}`);
     if (t.worked_tags?.length) p(`- **What worked:** ${t.worked_tags.join(', ')}`);
+    if (t.market_tags?.length) p(`- **What the market did (outside my control):** ${t.market_tags.join(', ')}`);
     if (t.quick_log) p('- **Quick log:** saved fast, past the form\'s minimums — the writing may be thin.');
     const exec = [
       t.contracts != null && `${t.contracts} contract${t.contracts === 1 ? '' : 's'}`,

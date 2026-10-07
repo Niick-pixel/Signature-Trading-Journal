@@ -128,6 +128,7 @@ export function journalExport(input: JournalExportInput): { filename: string; ma
           `why: ${t.reason}`, isHypothetical(t.account) ? 'MISSED (hypothetical)' : t.account,
           t.mistake_tags.length ? `went wrong: ${t.mistake_tags.join(', ')}` : null,
           (t.worked_tags ?? []).length ? `worked: ${t.worked_tags.join(', ')}` : null,
+          (t.market_tags ?? []).length ? `market: ${t.market_tags.join(', ')}` : null,
         ].filter(Boolean);
         p(`- ${parts.join(' · ')}`);
         if (t.lesson?.trim()) p(`  - Lesson: "${oneLine(t.lesson)}"`);

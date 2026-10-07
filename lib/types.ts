@@ -1,6 +1,6 @@
 import type {
   Account, ChecklistAnswer, Direction, HtfBias, Instrument, MistakeTag, Outcome, PremiumDiscount, Reason,
-  Regrade, Session, SetupType, ShotSlot, SkipReason, SweepTier, TargetType, TradeStatus, Tri, WorkedTag,
+  Regrade, Session, SetupType, ShotSlot, SkipReason, SweepTier, TargetType, TradeStatus, Tri, WorkedTag, MarketTag,
   BiasDirection, NewsLevel,
 } from './domain';
 import type { FlagKey } from './flags';
@@ -107,6 +107,8 @@ export interface Trade {
   quick_log: boolean;
   /** What went right — the mirror of mistake_tags. */
   worked_tags: WorkedTag[];
+  /** What the market did — outside my control, never a rule break. */
+  market_tags: MarketTag[];
 
   /**
    * What I said about my own discipline. Tri-state: null means the question

@@ -9,7 +9,8 @@ interface TagPickerProps<T extends string> {
   onChange: (v: T[]) => void;
   /** Mistakes by default. What worked passes WORKED_TAGS and the win tone. */
   options?: readonly T[];
-  tone?: 'loss' | 'win';
+  /** loss: what went wrong; win: what worked; market: what the market did. */
+  tone?: 'loss' | 'win' | 'market';
   /** Names the group for screen readers and tests. */
   name?: string;
 }
@@ -26,7 +27,7 @@ export function TagPicker<T extends string>({
 }: TagPickerProps<T> & { small?: boolean }) {
   const toggle = (tag: T) =>
     onChange(value.includes(tag) ? value.filter((t) => t !== tag) : [...value, tag]);
-  const hue = tone === 'win' ? 'var(--outcome-win)' : 'var(--outcome-loss)';
+  const hue = tone === 'win' ? 'var(--outcome-win)' : tone === 'market' ? 'var(--amber)' : 'var(--outcome-loss)';
 
   return (
     // Named only when asked: inside a Field group the field already names it.

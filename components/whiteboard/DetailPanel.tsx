@@ -433,6 +433,10 @@ export function DetailPanel({ trade, onClose, onChanged }: DetailPanelProps) {
                       label="What worked"
                       value={trade.worked_tags.length ? trade.worked_tags.join(', ') : '—'}
                     />
+                    <Row
+                      label="What the market did"
+                      value={(trade.market_tags ?? []).length ? trade.market_tags.join(', ') : '—'}
+                    />
                     <Row label="Contracts / P&L / stop"
                       value={`${trade.contracts ?? '—'} · ${
                         trade.pnl_dollars == null

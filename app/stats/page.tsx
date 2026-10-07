@@ -6,14 +6,15 @@ import { reasonAccent } from '@/lib/layout';
 import {
   accountsInUse, aggregate, byConfidence, byGradeBand, checklistEdge, discipline, edge,
   deliveryOnlyVerdict, equityCurves, excursion, targetHits, forAccount, gradeHonesty, hesitation, modelBreakdowns, money, passedSetups,
-  preGradedOnly, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
+  preGradedOnly, rByMarketTag, rByMistakeTag, rByReason, rByWorkedTag, rHistogram, streaks, whenHeatmap,
 } from '@/lib/stats';
 import { Histogram } from '@/components/stats/Histogram';
 import { WhenHeatmap } from '@/components/stats/WhenHeatmap';
 import { EquityChart } from '@/components/stats/EquityChart';
 import { gapTrend } from '@/lib/adherence';
 import { HypotheticalNote } from '@/components/money/MissedCard';
-import { AccountSwitcher } from '@/components/stats/AccountSwitcher';
+import { StatsFilters } from '@/components/stats/StatsFilters';
+import { accountParam, applyStatsScope, mixesWorlds, parseStatsScope } from '@/lib/statsScope';
 import { Line, Panel, SignedBars, Stat, type BarRow } from '@/components/stats/Bars';
 import { TitleBar } from '@/components/shell/TitleBar';
 import { MissedPatternsView } from '@/components/stats/MissedPatterns';
@@ -51,30 +52,33 @@ export default async function StatsPage(
   const all = listTrades();
   const accounts = accountsInUse(all);
 
-  // One account at a time. Defaults to whichever one actually has trades in
-  // it, never to a mixed total — backtest R and live R must never sum.
-  const asked = (await searchParams).account
-    ?? (await cookies()).get(accountCookie('stats'))?.value;
-  const requested = typeof asked === 'string' ? asked : undefined;
-  const account: Account | 'All' = requested === 'All'
-    ? 'All'
-    : (ACCOUNT_VALUES as readonly string[]).includes(requested ?? '')
-      ? (requested as Account)
-      // The busiest REAL account: Missed and Backtest open only by choosing them.
-      : (accounts.find((a) => isReal(a.account))?.account
-        ?? accounts[0]?.account ?? 'Live');
-
-  const scoped = forAccount(all, account);
+  // Accounts, period, session and direction, from the URL (lib/statsScope).
+  // With no account asked for, the remembered choice; with none, the busiest
+  // real account. "All accounts" is every account, Backtest and Missed too.
+  const params = await searchParams;
+  const scope = parseStatsScope(params, accounts.map((a) => a.account), (await cookies()).get(accountCookie('stats'))?.value);
+  const single = scope.accounts.length === 1 ? scope.accounts[0] : null;
+  // The URL value for this selection, carried by every link on the page.
+  const account = accountParam(scope.accounts, accounts.map((a) => a.account));
+  const inAccounts = all.filter((t) => scope.accounts.includes(t.account));
+  const scoped = applyStatsScope(all, scope);
+  const undatedOut = scope.period !== 'all' ? inAccounts.filter((t) => !isDated(t)).length : 0;
+  // Every filter but the account, carried by the page's own links.
+  const filterParams = {
+    ...(scope.period !== 'all' ? { period: scope.period } : {}),
+    ...(scope.sessions.length ? { session: scope.sessions.join(',') } : {}),
+    ...(scope.directions.length ? { dir: scope.directions.join(',') } : {}),
+  };
 
   /*
     Hindsight-graded and pre-graded trades cannot be pooled without lying to
     myself: a grade given after I already knew the result is not evidence that
     the grading works. ?pregraded=1 drops everything logged in one shot.
   */
-  const preOnly = (await searchParams).pregraded === '1';
+  const preOnly = params.pregraded === '1';
   // Quick logs skipped the form's standard, so they can be left out — they
   // are in by default, because a trade that happened is a trade that happened.
-  const noQuick = (await searchParams).quick === '0';
+  const noQuick = params.quick === '0';
   const quickCount = scoped.filter((t) => t.quick_log).length;
   const trades = (preOnly ? preGradedOnly(scoped) : scoped).filter((t) => !noQuick || !t.quick_log);
   /*
@@ -83,7 +87,7 @@ export default async function StatsPage(
     ?gates=1 narrows the model tables to trades graded with the gates, which
     is the only honest test of whether the gates themselves work.
   */
-  const gatedOnly = (await searchParams).gates === '1';
+  const gatedOnly = params.gates === '1';
   const sameFilters = (list: typeof all) => (preOnly ? preGradedOnly(list) : list)
     .filter((t) => (!noQuick || !t.quick_log) && (!gatedOnly || t.rubric_version >= GATES_SINCE));
   const model = modelBreakdowns(sameFilters(trades), sameFilters(all));
@@ -91,11 +95,11 @@ export default async function StatsPage(
   // account's page, not only on Missed's (where they are already the selection).
   const trialVerdict = deliveryOnlyVerdict(sameFilters(trades),
     // Not on Backtest's page: a replay's verdict is its own.
-    account !== 'All' && isSeparate(account) ? [] : sameFilters(all.filter((t) => isHypothetical(t.account))));
+    single && isSeparate(single) ? [] : sameFilters(all.filter((t) => isHypothetical(t.account))));
   const modelLink = `/stats?${new URLSearchParams({
     // Always carried, 'All' included: without it the page falls back to
                   // the remembered account and the filter silently changes accounts.
-                  account,
+                  account, ...filterParams,
     ...(preOnly ? { pregraded: '1' } : {}),
     ...(noQuick ? { quick: '0' } : {}),
     ...(gatedOnly ? {} : { gates: '1' }),
@@ -109,7 +113,7 @@ export default async function StatsPage(
   const withR = taken.filter((t) => t.r_multiple != null);
   const runs = streaks(trades);
   const tradingDays = new Set(taken.filter(isDated).map((t) => t.date.slice(0, 10))).size;
-  const tagged = (key: 'mistake_tags' | 'worked_tags') => taken.filter((t) => (t[key] ?? []).length > 0).length;
+  const tagged = (key: 'mistake_tags' | 'worked_tags' | 'market_tags') => taken.filter((t) => (t[key] ?? []).length > 0).length;
   const honesty = gradeHonesty(trades);
   const hes = hesitation(trades);
   const curves = equityCurves(trades);
@@ -122,6 +126,9 @@ export default async function StatsPage(
     label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
   }));
   const workedRows: BarRow[] = rByWorkedTag(trades).map((t) => ({
+    label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
+  }));
+  const marketRows: BarRow[] = rByMarketTag(trades).map((t) => ({
     label: t.tag, value: t.totalR, display: r(t.totalR), meta: `· ${t.count}`,
   }));
 
@@ -168,12 +175,12 @@ export default async function StatsPage(
           <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-[22px] font-semibold tracking-tight">Stats</h1>
             <div className="flex flex-wrap items-center gap-3">
-              <AccountSwitcher available={accounts} current={account} />
+
               <a
                 href={`/stats?${new URLSearchParams({
                   // Always carried, 'All' included: without it the page falls back to
                   // the remembered account and the filter silently changes accounts.
-                  account,
+                  account, ...filterParams,
                   ...(preOnly ? {} : { pregraded: '1' }),
                   ...(noQuick ? { quick: '0' } : {}),
                 })}`}
@@ -192,7 +199,7 @@ export default async function StatsPage(
                   href={`/stats?${new URLSearchParams({
                     // Always carried, 'All' included: without it the page falls back to
                   // the remembered account and the filter silently changes accounts.
-                  account,
+                  account, ...filterParams,
                     ...(preOnly ? { pregraded: '1' } : {}),
                     ...(noQuick ? {} : { quick: '0' }),
                   })}`}
@@ -210,18 +217,33 @@ export default async function StatsPage(
             </div>
           </header>
 
-          {account !== 'All' && isBacktest(account) && (
+          <div className="mb-5"><StatsFilters available={accounts} scope={scope} /></div>
+
+          {mixesWorlds(scope.accounts) && (
+            <p data-mixed-note className="mb-5 rounded-[calc(14px*var(--rk))] px-3.5 py-2.5 text-[12px] leading-relaxed"
+              style={{ background: 'rgb(var(--amber) / 0.08)', border: '1px solid rgb(var(--amber) / 0.25)', color: 'rgb(var(--amber))' }}>
+              Mixed: real trades are counted together with {scope.accounts.filter((a) => !isReal(a)).map((a) => isBacktest(a) ? 'backtest replays' : 'missed setups').join(' and ')} here.
+              Every total below includes them — pick accounts above to see one world at a time.
+            </p>
+          )}
+          {undatedOut > 0 && (
+            <p className="mb-5 text-[12px]" style={{ color: 'var(--text-faint)' }}>
+              {undatedOut} undated backtest{undatedOut === 1 ? ' is' : 's are'} left out: a period needs a day to fall in.
+            </p>
+          )}
+
+          {single && isBacktest(single) && (
             <div className="mb-5">
               <BacktestNote undated={scoped.filter((t) => !isDated(t)).length} where="stats" />
             </div>
           )}
 
-          {account !== 'All' && isHypothetical(account) && (
+          {single && isHypothetical(single) && (
             <div className="mb-5 space-y-5">
               <HypotheticalNote />
               {/* Against every trade actually taken — a miss rate needs both sides. */}
               <Panel
-                n={isHypothetical(account) ? (() => { const x = missedPatterns(all, listDailyReviews()); return x.missed + x.taken; })() : undefined}
+                n={single && isHypothetical(single) ? (() => { const x = missedPatterns(all, listDailyReviews()); return x.missed + x.taken; })() : undefined}
                 title="Where you hesitate"
                 note="Of the setups you saw under each condition, how many went without you — missed here, set against the trades you took in Demo, Live and Funded. The tick on each bar is your usual rate; a bar past it is a condition you freeze in. Faded rows have too few setups to mean anything yet."
               >
@@ -551,6 +573,14 @@ export default async function StatsPage(
                 </Panel>
               </div>
 
+              <div className="grid gap-5 lg:grid-cols-2">
+              <Panel n={tagged('market_tags')} title="R by what the market did" note="Outside your control, worst first. Next to R by mistake, it splits a bad run into process and luck: if most of the lost R sits here and not there, the execution is fine.">
+                {marketRows.length ? <SignedBars rows={marketRows} /> : (
+                  <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
+                    Nothing tagged yet. &ldquo;What the market did&rdquo; is on the trade form, under what went wrong.
+                  </p>
+                )}
+              </Panel>
               <Panel n={tagged('worked_tags')} title="R by what worked" note="The other half: what went right, on every trade taken, best first. A habit that shows up on your winners and your well-traded losers is the one to keep.">
                 {workedRows.length ? <SignedBars rows={workedRows} /> : (
                   <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
@@ -558,6 +588,7 @@ export default async function StatsPage(
                   </p>
                 )}
               </Panel>
+              </div>
 
               {/* What to change. Each of these names a behaviour. */}
               <div className="grid gap-5 lg:grid-cols-2">

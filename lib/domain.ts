@@ -427,6 +427,16 @@ export const WORKED_TAGS = [
 export type WorkedTag = (typeof WORKED_TAGS)[number];
 
 /**
+ * What the market did — the part of a trade outside my control. Its own list
+ * so Stats can separate process from luck; never a rule break.
+ */
+export const MARKET_TAGS = [
+  "Didn't follow the plan", 'Stopped by a wick', 'News spike', 'Slippage',
+  'Chop, no follow-through', 'Turned just short of target', 'Thin, low volume',
+] as const;
+export type MarketTag = (typeof MARKET_TAGS)[number];
+
+/**
  * Every account label the schema will accept, including retired ones.
  *
  * Validation and display read this. 'Backtest (FX Replay)' is still here

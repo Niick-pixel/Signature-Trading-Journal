@@ -1,8 +1,8 @@
 import {
   ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, signForOutcome, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
-  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS, MGMT_PLANS, PARTIAL_LEVELS,
-  type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type ContextFlag, type MistakeTag, type Tri,
+  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS, MARKET_TAGS, MGMT_PLANS, PARTIAL_LEVELS,
+  type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type MarketTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
 import { REGRADE_HINT, regradeAllowed, type GradeLetter } from './grade';
 import { CURRENT_RUBRIC, HTF_DELIVERIES, SWEEP_LEVELS, gradeUnder } from './rubric';
@@ -299,6 +299,11 @@ export function parseTradeInput(
       worked_tags: Array.isArray(t.worked_tags)
         ? t.worked_tags.filter(
             (v): v is WorkedTag => typeof v === 'string' && (WORKED_TAGS as readonly string[]).includes(v),
+          )
+        : [],
+      market_tags: Array.isArray(t.market_tags)
+        ? t.market_tags.filter(
+            (v): v is MarketTag => typeof v === 'string' && (MARKET_TAGS as readonly string[]).includes(v),
           )
         : [],
   };

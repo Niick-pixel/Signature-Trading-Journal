@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import type { SQLInputValue } from 'node:sqlite';
-import { MISTAKE_TAGS, WORKED_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
+import { MISTAKE_TAGS, WORKED_TAGS, MARKET_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
 import { CURRENT_RUBRIC, gradeUnder } from '../lib/rubric';
 import { GRADE_LETTERS } from '../lib/grade';
 import { getDb } from './index';
@@ -90,6 +90,7 @@ function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade
   // a corrupt tag list must never make a trade unreadable.
   trade.mistake_tags = parseTags((row as unknown as { mistake_tags: string | null }).mistake_tags);
   trade.worked_tags = parseList(r.worked_tags as string | null, WORKED_TAGS);
+  trade.market_tags = parseList(r.market_tags as string | null, MARKET_TAGS);
   trade.trigger_fired = Boolean(r.trigger_fired_at_entry ?? r.trigger_fired);
   trade.dismissed_flags = dismissed;
   return trade;
@@ -151,7 +152,7 @@ const WRITABLE = [
   'entry_time', 'exit_time', 'mae_r', 'mfe_r', 'mae_points', 'mfe_points', 'reached_1r',
   'confidence_at_entry', 'would_be_r', 'playbook_id',
   'contracts', 'risk_dollars', 'risk_percent', 'pnl_dollars', 'stop_points', 'outcome', 'r_multiple',
-  'explanation', 'lesson', 'screenshot_path', 'quick_log', 'worked_tags',
+  'explanation', 'lesson', 'screenshot_path', 'quick_log', 'worked_tags', 'market_tags',
   'undated',
 ] as const;
 
@@ -195,6 +196,7 @@ function flatten(input: TradeInput): Record<string, SQLInputValue> {
   }
   out.mistake_tags = JSON.stringify(input.mistake_tags ?? []);
   out.worked_tags = JSON.stringify(input.worked_tags ?? []);
+  out.market_tags = JSON.stringify(input.market_tags ?? []);
   return out;
 }
 

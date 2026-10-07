@@ -854,6 +854,21 @@ export function rByMistakeTag(trades: Trade[]): Array<{ tag: MistakeTag; count: 
   return [...out].map(([tag, v]) => ({ tag, ...v })).sort((a, b) => a.totalR - b.totalR);
 }
 
+/** What the market did, by the R it came with — worst first, like the mistakes. */
+export function rByMarketTag(trades: Trade[]): Array<{ tag: string; count: number; totalR: number }> {
+  const out = new Map<string, { count: number; totalR: number }>();
+  for (const t of trades) {
+    if (!isTaken(t.outcome)) continue;
+    for (const tag of t.market_tags ?? []) {
+      const entry = out.get(tag) ?? { count: 0, totalR: 0 };
+      entry.count += 1;
+      entry.totalR += t.r_multiple ?? 0;
+      out.set(tag, entry);
+    }
+  }
+  return [...out].map(([tag, v]) => ({ tag, ...v })).sort((a, b) => a.totalR - b.totalR);
+}
+
 /** What worked, by the R it came with — best first. The mirror of rByMistakeTag. */
 export function rByWorkedTag(trades: Trade[]): Array<{ tag: string; count: number; totalR: number }> {
   const out = new Map<string, { count: number; totalR: number }>();

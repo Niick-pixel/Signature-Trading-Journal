@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Collapse } from '@/components/ui/Collapse';
 import {
-  ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, MARKET_TAGS, type MarketTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TRADE_STATUSES, TARGET_WHY, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -127,6 +127,8 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
   const [followedRules, setFollowedRules] = useState<Tri>(trade?.followed_rules ?? null);
   const [regrade, setRegrade] = useState<Regrade | null>(trade?.regrade ?? null);
   const [mistakeTags, setMistakeTags] = useState<MistakeTag[]>(trade?.mistake_tags ?? []);
+  const [marketTags, setMarketTags] = useState<MarketTag[]>(trade?.market_tags ?? []);
+  const [tagSide, setTagSide] = useState<'me' | 'market'>('me');
   const [workedTags, setWorkedTags] = useState<WorkedTag[]>(trade?.worked_tags ?? []);
   const [account, setAccount] = useState<Account>(trade?.account ?? 'Live');
   const [accountLabel, setAccountLabel] = useState(trade?.account_label ?? '');
@@ -213,7 +215,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
   const draftValues = useMemo(() => ({
     date, undated, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, marketTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
     targetHit, targetFresh, oppositeTaken, mgmtPlan, partialAt, mfeR,
@@ -221,7 +223,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
     undated,
     date, instrument, direction, session, reason, setupType, htfBias,
     premiumDiscount, targetType, outcome, explanation, lesson,
-    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, account, accountLabel, status,
+    context, checks, sweepTier, sweepLevel, futuresConfirmed, htfDelivery, followedRules, mistakeTags, workedTags, marketTags, account, accountLabel, status,
     contracts, pnlDollars, stopPoints, rMultiple,
     reached1R, confidence, wouldBeR, confirmed,
     targetHit, targetFresh, oppositeTaken, mgmtPlan, partialAt, mfeR,
@@ -275,6 +277,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
     if (has('followedRules')) setFollowedRules(v.followedRules);
     if (has('mistakeTags')) setMistakeTags(v.mistakeTags);
     if (has('workedTags')) setWorkedTags(v.workedTags);
+    if (has('marketTags')) setMarketTags(v.marketTags);
     if (has('confirmed')) setConfirmed(v.confirmed);
     if (has('account')) setAccount(v.account);
     if (has('accountLabel')) setAccountLabel(v.accountLabel);
@@ -416,6 +419,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
       // erases a value written under the old taxonomy.
       mistake_tag: trade?.mistake_tag ?? null,
       mistake_tags: mistakeTags,
+      market_tags: marketTags,
       worked_tags: workedTags,
       account, account_label: accountLabel.trim() || null,
       status,
@@ -989,12 +993,47 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           </div>
         </Field>
 
+        {/*
+          What went wrong, in two halves: my execution and the market. Stored
+          apart (mistake_tags, market_tags) and read apart in Stats; they share
+          this one spot behind a two-way switch because a second block made
+          the form taller than the screen. The counts on the switch show what
+          is tagged on the half you are not looking at.
+        */}
         <Field quiet
-          label="What went wrong"
-          hint="Anything that went against the trade — your execution or the market. Notes only: a tag never marks the trade as a rule break; the checklist decides that."
+          label={tagSide === 'me' ? 'What went wrong' : 'What the market did'}
+          hint={tagSide === 'me'
+            ? 'Your execution: what you did that cost the trade. Notes only — a tag never marks the trade as a rule break; the checklist decides that.'
+            : 'Outside your control: the market, not you. Kept apart from your execution so Stats can tell process from luck. Never a rule break.'}
           group
+          badge={
+            <span data-tag-side className="flex shrink-0 gap-1 text-[10.5px] font-medium normal-case tracking-normal">
+              {(['me', 'market'] as const).map((side) => {
+                const on = tagSide === side;
+                const n = side === 'me' ? mistakeTags.length : marketTags.length;
+                return (
+                  <button key={side} type="button" data-side={side} aria-pressed={on} data-no-press
+                    onClick={() => setTagSide(side)}
+                    className="rounded-full border px-2 py-0.5 transition-colors"
+                    style={{
+                      borderColor: on ? `rgb(var(${side === 'me' ? '--outcome-loss' : '--amber'}) / 0.5)` : 'var(--glass-stroke)',
+                      background: on ? `rgb(var(${side === 'me' ? '--outcome-loss' : '--amber'}) / 0.1)` : 'transparent',
+                      color: on ? `rgb(var(${side === 'me' ? '--outcome-loss' : '--amber'}))` : 'var(--text-faint)',
+                    }}>
+                    {side === 'me' ? 'Me' : 'Market'}{n > 0 ? ` · ${n}` : ''}
+                  </button>
+                );
+              })}
+            </span>
+          }
         >
-          <TagPicker small value={mistakeTags} onChange={setMistakeTags} />
+          {tagSide === 'me'
+            ? <TagPicker small value={mistakeTags} onChange={setMistakeTags} />
+            : (
+              <div data-market-tags>
+                <TagPicker small value={marketTags} onChange={setMarketTags} options={MARKET_TAGS} tone="market" />
+              </div>
+            )}
         </Field>
 
         {/*
