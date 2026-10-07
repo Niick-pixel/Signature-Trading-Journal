@@ -17,21 +17,25 @@ const { savePrep, getPrep, previousPrep, listPreps } = await import('../db/prep'
 const { toMarkdown } = await import('../lib/sanitise');
 const { journalExport } = await import('../lib/journalExport');
 
-test('six steps, each one part of the model (plus the heatmap)', () => {
+test('six steps of reminders, each part of the model (plus the heatmap)', () => {
   assert.deepEqual(PREP_STEPS.map((s) => s.id), ['bias', 'liquidity', 'gaps', 'heatmap', 'draw', 'session']);
-  // Off-model things are gone: no zones, no NWOG/NDOG, no volume imbalances.
+  // Off-model things stay out: no order blocks, breakers or S/R zones.
   const words = JSON.stringify(PREP_STEPS);
-  for (const gone of ['Order block', 'breaker', 'resistance', 'NWOG', 'NDOG', 'Volume imbalance', 'Uptrend']) {
+  for (const gone of ['Order block', 'breaker', 'resistance', 'support', 'Uptrend']) {
     assert.ok(!words.toLowerCase().includes(gone.toLowerCase()), gone);
   }
   for (const s of PREP_STEPS) {
-    assert.ok(s.marks.length >= 1 && s.marks.length <= 2, s.id);
+    // The reminders are the point: every step has several.
+    assert.ok(s.marks.length >= 3 && s.marks.length <= 5, s.id);
     for (const f of s.fields) {
       assert.ok(['one', 'many', 'pick'].includes(f.kind), `${s.id}.${f.id}`);
       assert.ok(f.options.length >= 2, `${s.id}.${f.id}`);
     }
   }
   assert.ok(PREP_STEPS.find((s) => s.id === 'heatmap')?.heatmap);
+  // The important levels and gaps are all reminded.
+  for (const level of ['PDH and PDL', 'PWH and PWL', 'Asia and London', 'equal highs and lows', '4H FVGs', '1H FVGs', 'NWOG / NDOG', 'killzone', 'Invalidation'])
+    assert.ok(words.includes(level), level);
   // The target is picked from the same ranked classes as the trade form.
   assert.equal(PREP_STEPS.find((s) => s.id === 'draw')!.fields.find((f) => f.id === 'target')!.options[0], 'PDH/PDL');
 });
@@ -84,8 +88,8 @@ test('the prep in Markdown says what was answered and marked', () => {
     }),
   });
   assert.match(md, /1 of 6 steps marked, 1 skipped/);
-  assert.match(md, /Bias: htf bias Bullish; price is in Discount · 1\/1 marked/);
-  assert.match(md, /Draw and plan: price draws Up; target EQH\/EQL · 0\/2 marked/);
+  assert.match(md, /Bias: htf bias Bullish; price is in Discount · 1\/3 marked/);
+  assert.match(md, /Draw and plan: price draws Up; target EQH\/EQL · 0\/4 marked/);
   assert.match(md, /Liquidity to sweep: sweep to wait for PDL, Asia high/);
   assert.doesNotMatch(md, /Session and rules/);
 });

@@ -4,25 +4,24 @@ import { TARGET_TYPES } from './domain';
  * The chart prep: the second half of the morning check-in, done on the chart
  * before the New York session.
  *
- * Six short steps, each one something the model actually uses — and nothing
- * else (plus the order-book heatmap, kept on purpose):
+ * Six steps, each a set of reminders to tick as they go on the chart and a
+ * few answers to tap — every one of them something the model uses (plus the
+ * order-book heatmap, kept on purpose):
  *
- *   1. Bias            the HTF direction, and premium or discount
- *   2. Liquidity       the nameable levels a sweep can take
- *   3. HTF gaps        the 1H / 4H FVGs: targets, and deliveries
+ *   1. Bias            the HTF swing range, its 50%, the nearest HTF FVGs
+ *   2. Liquidity       every nameable level a sweep can take
+ *   3. HTF gaps        the 4H / 1H FVGs and the opening gaps
  *   4. Heatmap         the resting size in the book
- *   5. Draw and plan   which way, to which target class, which side
- *   6. Session         the killzone, the news, the rules for today
+ *   5. Draw and plan   which way, to which target class, where it is wrong
+ *   6. Session         news, the killzone, the rules for today
  *
- * Order blocks, breakers, support and resistance, NWOG/NDOG and volume
- * imbalances used to have steps of their own. None of them is in the model,
- * so they are gone. (The Asia and London highs and lows are not drawn here
- * on purpose — a TradingView script already draws them.)
+ * The reminders are the point: the important levels and checks, each one
+ * ticked, so nothing gets skipped on a rushed morning. Order blocks, breakers
+ * and support/resistance zones are left out — they are not in the model.
  *
- * Each step is at most two marks to tick as they go on the chart and a few
- * answers to tap. Nothing is typed. Like the check-in it is a prompt, never a
- * gate: any step can be skipped and nothing in the app waits on it. Times are
- * New York time, the clock the sessions are defined on.
+ * Nothing is typed. Like the check-in it is a prompt, never a gate: any step
+ * can be skipped and nothing in the app waits on it. Times are New York time,
+ * the clock the sessions are defined on.
  */
 
 /** One tap-to-answer question on a step. */
@@ -49,10 +48,19 @@ export interface PrepStep {
 /** The nameable levels a sweep can take — the same names the trade form uses. */
 const SWEEPABLE = ['PDH', 'PDL', 'PWH', 'PWL', 'Asia high', 'Asia low', 'London high', 'London low', 'EQH', 'EQL'];
 
+/*
+  Answer ids are kept from the previous version (bias.bias, liquidity.taken,
+  draw.target, …) so a prep saved under it still reads; the new answers only
+  add to them.
+*/
 export const PREP_STEPS: PrepStep[] = [
   {
     id: 'bias', title: 'Bias', frames: 'Daily · 4H',
-    marks: ['Daily / 4H swing range marked, its 50% drawn'],
+    marks: [
+      'Daily and 4H swing high and low marked',
+      'The 50% of that range drawn — premium above, discount below',
+      'Nearest unfilled Daily / 4H FVG boxed, above and below',
+    ],
     fields: [
       { id: 'bias', label: 'HTF bias', kind: 'one', options: ['Bullish', 'Bearish', 'No clear bias'] },
       { id: 'zone', label: 'Price is in', kind: 'one', options: ['Premium', 'Equilibrium', 'Discount'] },
@@ -60,22 +68,39 @@ export const PREP_STEPS: PrepStep[] = [
   },
   {
     id: 'liquidity', title: 'Liquidity to sweep', frames: 'Daily · 1H · 15m',
-    marks: ['PDH / PDL and PWH / PWL lined', 'Clean EQH / EQL marked'],
+    marks: [
+      'PDH and PDL lined',
+      'PWH and PWL lined',
+      'Asia and London highs and lows on the chart',
+      'Clean equal highs and lows marked — the obvious ones',
+      'The levels closest to price circled',
+    ],
     fields: [
       { id: 'taken', label: 'Already taken', kind: 'many', options: SWEEPABLE },
+      { id: 'clean', label: 'Clean resting liquidity', kind: 'one', options: ['EQH above', 'EQL below', 'Both sides', 'None clean'] },
       { id: 'wait', label: 'Sweep to wait for', kind: 'many', options: SWEEPABLE },
     ],
   },
   {
     id: 'gaps', title: 'HTF gaps', frames: '4H · 1H',
-    marks: ['Unfilled 1H and 4H FVGs boxed'],
+    marks: [
+      'Unfilled 4H FVGs boxed',
+      'Unfilled 1H FVGs boxed',
+      'NWOG / NDOG marked',
+      'Gaps already traded through taken off the chart',
+    ],
     fields: [
+      { id: 'types', label: 'On the chart today', kind: 'many', options: ['Daily FVG', '4H FVG', '1H FVG', 'NWOG', 'NDOG'] },
       { id: 'nearest', label: 'Nearest unfilled HTF FVG', kind: 'one', options: ['Above price', 'Below price', 'Both sides', 'None close'] },
     ],
   },
   {
     id: 'heatmap', title: 'Liquidity from the heatmap', frames: 'Order book', heatmap: true,
-    marks: ['Bands that held for hours moved to the chart', 'Flickering bands ignored — spoofing, not liquidity'],
+    marks: [
+      'Heatmap open on the futures book',
+      'Bands that held for hours moved to the chart',
+      'Flickering bands ignored — spoofing, not liquidity',
+    ],
     fields: [
       { id: 'side', label: 'Heaviest liquidity sits', kind: 'one', options: ['Above price', 'Below price', 'Both sides', 'Thin book'] },
       { id: 'walls', label: 'The walls are', kind: 'one', options: ['Holding', 'Being pulled', 'Mixed'] },
@@ -83,19 +108,33 @@ export const PREP_STEPS: PrepStep[] = [
   },
   {
     id: 'draw', title: 'Draw and plan',
-    marks: ['Target and invalidation marked', 'Alerts set on the sweep levels'],
+    marks: [
+      'Draw on liquidity marked — where price is most likely heading',
+      'Target marked, from the strongest class in range',
+      'Invalidation marked — where the idea is wrong',
+      'Alerts set on the sweep levels',
+    ],
     fields: [
       { id: 'direction', label: 'Price draws', kind: 'one', options: ['Up', 'Down', 'Unclear'] },
       // The same six classes the trade form ranks, strongest first.
       { id: 'target', label: 'Target', kind: 'pick', options: [...TARGET_TYPES] },
+      { id: 'confidence', label: 'How clear', kind: 'one', options: ['Clear', 'Probable', 'Coin flip'] },
       { id: 'side', label: 'Today I take', kind: 'one', options: ['Longs only', 'Shorts only', 'Both ways', 'No trade today'] },
     ],
   },
   {
     id: 'session', title: 'Session and rules', frames: 'NY AM',
-    marks: ['Killzone shaded, red-folder times lined', 'Only the model: a named sweep, one clean FVG, an inversion close'],
+    marks: [
+      'Red-folder release times lined',
+      'NY AM killzone shaded',
+      'Only the model: a named sweep, one clean FVG, an inversion close',
+      'Daily loss limit set in the platform',
+      'Step away until an alert rings',
+    ],
     fields: [
       { id: 'news', label: 'News', kind: 'one', options: ['None today', 'Before the open', 'Inside the killzone'] },
+      { id: 'first', label: 'First entry', kind: 'pick', options: ['From the open (9:30)', 'After 9:45', 'After 10:00', '15 min after the news'] },
+      { id: 'done', label: 'Done by', kind: 'pick', options: ['11:00', '11:30', '12:00', 'The close'] },
       { id: 'stop', label: 'Stop after', kind: 'one', options: ['1 loss', '2 losses', 'Daily limit'] },
     ],
   },
