@@ -16,6 +16,8 @@ interface ChecklistProps {
   /** Still on the form's starting answer — lit until one is picked. */
   sweepPending?: boolean;
   accent?: string;
+  /** A control to show inside a row, e.g. the target picker on "Targets are clear". */
+  slot?: Partial<Record<ChecklistKey, React.ReactNode>>;
 }
 
 const ITEM = new Map(CHECKLIST_ITEMS.map((i) => [i.key, i]));
@@ -119,8 +121,7 @@ function SweepTierRow({ value, onChange, pending, accent, label, hint }: {
  * answering is the difference between scoring a trade and rationalising one.
  */
 export function Checklist({
-  answers, onChange, sweepTier, onSweepTier, sweepPending = false, accent = 'var(--accent)',
-}: ChecklistProps) {
+  answers, onChange, sweepTier, onSweepTier, sweepPending = false, accent = 'var(--accent)', slot}: ChecklistProps) {
   return (
     <div className="space-y-3">
       {CHECKLIST_PHASES.map((phase) => {
@@ -231,6 +232,10 @@ export function Checklist({
                         </span>
                       </span>
                     </motion.button>
+
+                    {slot?.[item.key] && (
+                      <div data-row-slot={item.key} className="shrink-0 py-1">{slot[item.key]}</div>
+                    )}
 
                     {/*
                       Marks a condition the market never offered. Its points

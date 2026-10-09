@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import type { SQLInputValue } from 'node:sqlite';
-import { MISTAKE_TAGS, WORKED_TAGS, MARKET_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
+import { MISTAKE_TAG_VALUES, WORKED_TAG_VALUES, MARKET_TAGS, type MistakeTag, type WorkedTag } from '../lib/domain';
 import { CURRENT_RUBRIC, gradeUnder } from '../lib/rubric';
 import { GRADE_LETTERS } from '../lib/grade';
 import { getDb } from './index';
@@ -89,7 +89,7 @@ function hydrate(row: Row, dismissed: Record<string, string | null> = {}): Trade
   // deserves. Anything unparseable reads as no tags rather than throwing —
   // a corrupt tag list must never make a trade unreadable.
   trade.mistake_tags = parseTags((row as unknown as { mistake_tags: string | null }).mistake_tags);
-  trade.worked_tags = parseList(r.worked_tags as string | null, WORKED_TAGS);
+  trade.worked_tags = parseList(r.worked_tags as string | null, WORKED_TAG_VALUES);
   trade.market_tags = parseList(r.market_tags as string | null, MARKET_TAGS);
   trade.trigger_fired = Boolean(r.trigger_fired_at_entry ?? r.trigger_fired);
   trade.dismissed_flags = dismissed;
@@ -102,7 +102,7 @@ function parseTags(raw: string | null): Trade['mistake_tags'] {
     const v: unknown = JSON.parse(raw);
     if (!Array.isArray(v)) return [];
     return v.filter(
-      (x): x is MistakeTag => typeof x === 'string' && (MISTAKE_TAGS as readonly string[]).includes(x),
+      (x): x is MistakeTag => typeof x === 'string' && (MISTAKE_TAG_VALUES as readonly string[]).includes(x),
     );
   } catch {
     return [];

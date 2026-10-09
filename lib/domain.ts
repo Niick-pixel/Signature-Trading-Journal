@@ -404,27 +404,41 @@ export const TAKE_IT_THRESHOLD = 70;
  * forcing a single choice throws two thirds of it away.
  */
 export const MISTAKE_TAGS = [
-  'Entered late', 'Entered early', 'No trigger', 'Chased', 'Moved stop',
-  'Cut winner early', 'Oversized', 'Undersized', 'Outside killzone',
-  'Against HTF bias', 'No defined target', 'Revenge', 'Overtraded',
-  'Ignored news', 'Widened stop',
+  'Long in premium', 'Short in discount', 'Against HTF bias', 'Took it before the sweep',
+  "Didn't wait for the close", 'Chased', 'Outside killzone', 'Ignored news', 'No defined target',
+  'Moved stop', 'Cut winner early', 'Oversized', 'Revenge', 'Overtraded',
 ] as const;
-export type MistakeTag = (typeof MISTAKE_TAGS)[number];
+/**
+ * No longer offered, still accepted: trades were tagged with them, and a tag
+ * dropped from the list would vanish from those trades on the next read.
+ */
+export const RETIRED_MISTAKE_TAGS = ['Entered late', 'Entered early', 'No trigger', 'Undersized', 'Widened stop'] as const;
+export const MISTAKE_TAG_VALUES = [...MISTAKE_TAGS, ...RETIRED_MISTAKE_TAGS] as const;
+export type MistakeTag = (typeof MISTAKE_TAG_VALUES)[number];
 
 /**
  * What worked — the other half of the post-mortem.
  *
  * A journal that only records mistakes teaches you what not to do and nothing
- * about what to repeat. These mirror the mistakes, so a winner that was traded
- * well and a loser that was traded well can be told apart from luck.
+ * about what to repeat. These mirror the mistakes — the model's own steps
+ * first — so a winner that was traded well and a loser that was traded well
+ * can be told apart from luck.
  */
 export const WORKED_TAGS = [
-  'Waited for the close', 'Entered on the retest', 'Took only the A+', 'With HTF bias',
-  'Inside the killzone', 'Clear target named', 'Stop where the idea fails', 'Sized correctly',
-  'Let the winner run', 'Managed to plan', 'Respected the news', 'Stopped at the limit',
-  'Stayed patient', 'Followed the plan exactly',
+  'Waited for the sweep', 'Waited for the close', 'Entered on the retest',
+  'Long in discount / short in premium', 'With HTF bias', 'Inside the killzone',
+  'Clear target named', 'Stop where the idea fails', 'Sized correctly',
+  'Let the winner run', 'Managed to plan', 'Stopped at the limit',
 ] as const;
-export type WorkedTag = (typeof WORKED_TAGS)[number];
+export const RETIRED_WORKED_TAGS = ['Took only the A+', 'Respected the news', 'Stayed patient', 'Followed the plan exactly'] as const;
+export const WORKED_TAG_VALUES = [...WORKED_TAGS, ...RETIRED_WORKED_TAGS] as const;
+export type WorkedTag = (typeof WORKED_TAG_VALUES)[number];
+
+/** The tags to offer on a trade: the current list, plus any retired one it already carries. */
+export function tagOptions<T extends string>(offered: readonly T[], carried: readonly string[] | null | undefined): readonly T[] {
+  const extra = (carried ?? []).filter((t) => !(offered as readonly string[]).includes(t)) as T[];
+  return extra.length ? [...offered, ...extra] : offered;
+}
 
 /**
  * What the market did — the part of a trade outside my control. Its own list

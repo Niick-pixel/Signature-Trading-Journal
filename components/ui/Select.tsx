@@ -20,6 +20,8 @@ interface SelectProps<T extends string> {
   titleFor?: (option: T) => string | undefined;
   disabled?: boolean;
   id?: string;
+  /** Small, for use inside a row (the checklist's target picker). */
+  compact?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ interface SelectProps<T extends string> {
  * tinted per option.
  */
 export function Select<T extends string>({
-  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, labelFor, titleFor, disabled, id,
+  value, onChange, options, placeholder = 'Select…', accent = 'var(--accent)', accentFor, labelFor, titleFor, disabled, id, compact = false,
 }: SelectProps<T>) {
   const text = (o: T) => (labelFor ? labelFor(o) : o);
   const [open, setOpen] = useState(false);
@@ -141,8 +143,9 @@ export function Select<T extends string>({
             : 'var(--shadow-card), 0 0 0px rgb(0 0 0 / 0)',
           borderColor: glowing ? `rgb(${activeAccent} / 0.55)` : 'var(--glass-stroke)',
         }}
-        className="glass flex w-full items-center justify-between gap-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5
-          text-left text-[13px] disabled:opacity-40"
+        className={`glass flex w-full items-center justify-between text-left disabled:opacity-40 ${compact
+          ? 'gap-2 rounded-[calc(10px*var(--rk))] px-2.5 py-1 text-[11.5px]'
+          : 'gap-3 rounded-[calc(14px*var(--rk))] px-4 py-2.5 text-[13px]'}`}
         style={{ color: value ? 'var(--text)' : 'var(--text-faint)' }}
       >
         <span ref={shownRef} className="truncate"

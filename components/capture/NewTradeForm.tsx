@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Collapse } from '@/components/ui/Collapse';
 import {
-  ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, type WorkedTag, MARKET_TAGS, type MarketTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
+  ACCOUNT_VALUES, BACKTEST, BACKTEST_REASON, accountLabel as accountName, SHOT_SLOTS, accountOptions, isBacktest, isHypothetical, CHECKLIST_KEYS, CONTEXT_FLAGS, WORKED_TAGS, MISTAKE_TAGS, tagOptions, type WorkedTag, MARKET_TAGS, type MarketTag, DIRECTIONS, HTF_BIASES, INSTRUMENTS,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, SESSIONS, SETUP_TYPES,
   SKIP_REASONS, TRADE_STATUSES, TARGET_WHY, WEAK_TARGET, WEAK_TARGET_WARNING, targetTypeOptions,
   type Account, type ChecklistAnswer, type ChecklistKey, type ContextFlag,
@@ -17,7 +17,7 @@ import {
 import { REGRADE_HINT, regradeOptions } from '@/lib/grade';
 import { CURRENT_RUBRIC, GATES_SINCE, MODEL_GATE_MESSAGE, gradeUnder } from '@/lib/rubric';
 import { macroWindowFor } from '@/lib/macro';
-import { press, spring, springSoft, riseIn, exitQuick, springSnappy } from '@/lib/motion';
+import { press, spring, springSoft, riseIn, exitQuick } from '@/lib/motion';
 import { reasonAccent } from '@/lib/layout';
 import { MIN_EXPLANATION, MIN_LESSON, type Trade } from '@/lib/types';
 
@@ -749,21 +749,12 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
         {/*
           (Here, under the outcome and the motive, because this column had the
           room: added to the facts column it pushed the form off a 1080p screen.)
-          Targets and management. Which targets actually pull price is a
-          question only my own trades can answer — so the form asks whether
-          the target was hit, whether it was fresh, and whether the other
-          side had already gone, and Stats splits the hit rate by each.
+          Management: the plan, where the partial came off, how far it ran.
+          (The three target questions that sat here — hit, untouched, other
+          side taken — were removed: they added nothing. Answers already on
+          old trades are kept.)
         */}
         <div data-section="target-management" className="space-y-2.5">
-          <TriState inline value={targetHit} onChange={setTargetHit}
-            label="Target hit before the stop?"
-            hint="The named target, not the outcome. A partial and a BE can make a win that never got there." />
-          <TriState inline value={targetFresh} onChange={setTargetFresh}
-            label="Target untouched at entry?"
-            hint="A level already tapped today has less left in it." />
-          <TriState inline value={oppositeTaken} onChange={setOppositeTaken}
-            label="Other side already taken today?"
-            hint="If the opposite liquidity went first, this side is the obvious draw." />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field quiet label="Management plan"
               hint={`${mgmtPlan ? MGMT_PLAN_WHY[mgmtPlan] + '\n\n' : ''}Fixed for the whole sample, or the sample measures nothing.`}>
@@ -833,25 +824,6 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           <Field quiet label="Setup type" pending={pending('setupType')}><Select value={setupType} onChange={(v) => { setSetupType(v); confirm('setupType'); }} options={SETUP_TYPES} /></Field>
           <Field quiet label="HTF bias" pending={pending('htfBias')}><Select value={htfBias} onChange={(v) => { setHtfBias(v); confirm('htfBias'); }} options={HTF_BIASES} /></Field>
           <Field quiet label="Premium / discount" pending={pending('premiumDiscount')}><Select value={premiumDiscount} onChange={(v) => { setPremiumDiscount(v); confirm('premiumDiscount'); }} options={PREMIUM_DISCOUNTS} /></Field>
-          <Field quiet label="Target type" pending={pending('targetType')}
-            badge={
-              // Said where the choice is made, not only where the grade is — in
-              // the label row, so the form gets no taller.
-              <AnimatePresence initial={false}>
-                {targetType === WEAK_TARGET && (
-                  <motion.span key="weak-target" data-target-warning title={`${WEAK_TARGET_WARNING} Max grade B.`}
-                    initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 6, transition: exitQuick }}
-                    transition={springSnappy}
-                    className="shrink-0 whitespace-nowrap text-[11px] font-semibold" style={{ color: 'rgb(var(--amber))' }}>
-                    Weakest · max B
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            }
-            hint={(targetType && TARGET_WHY[targetType]) || 'Ranked strongest first: external liquidity, clean EQH/EQL, data wicks, HTF imbalance, intraday swings, LRLR. Hover an option for why.'}>
-            <Select value={targetType} onChange={(v) => { setTargetType(v); confirm('targetType'); }}
-              options={targetTypeOptions(trade?.target_type ?? null)} titleFor={(o) => TARGET_WHY[o]} />
-          </Field>
         </div>
         {!planned && (
           <PastLessons setup={setupType} lessons={lessonsHere[setupType] ?? []} inline={false} />
@@ -941,7 +913,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           badly until this is filled in.
         */}
         <Field quiet label="What worked" hint="Pick every one that applies — on losers too. A good trade can lose." group>
-          <TagPicker small value={workedTags} onChange={setWorkedTags} options={WORKED_TAGS} tone="win" />
+          <TagPicker small value={workedTags} onChange={setWorkedTags} options={tagOptions(WORKED_TAGS, trade?.worked_tags)} tone="win" />
         </Field>
 
         {/* The context pills are retired (see CONTEXT_GROUPS); an edit still
@@ -1028,7 +1000,7 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
           }
         >
           {tagSide === 'me'
-            ? <TagPicker small value={mistakeTags} onChange={setMistakeTags} />
+            ? <TagPicker small value={mistakeTags} onChange={setMistakeTags} options={tagOptions(MISTAKE_TAGS, trade?.mistake_tags)} />
             : (
               <div data-market-tags>
                 <TagPicker small value={marketTags} onChange={setMarketTags} options={MARKET_TAGS} tone="market" />
@@ -1115,7 +1087,31 @@ export function NewTradeForm({ trade, pastLessons = {}, backtestLessons = {} }: 
 
           <Checklist answers={checks} onChange={setCheck} accent={accent}
             sweepTier={sweepTier} onSweepTier={(t) => { setSweepTier(t); confirm('sweepTier'); }}
-            sweepPending={pending('sweepTier')} />
+            sweepPending={pending('sweepTier')}
+            slot={{
+              /*
+                The target is picked where the rule about it is: on "Targets
+                are clear". Picking one names the target, so it ticks the box
+                when the box was not ticked — untick it if it was not clear.
+              */
+              chk_targets_clear: (
+                <div data-target-picker className="w-[10.5rem] rounded-[calc(10px*var(--rk))]"
+                  title={targetType === WEAK_TARGET ? `${WEAK_TARGET_WARNING} Max grade B.`
+                    : (targetType && TARGET_WHY[targetType]) || 'The target you aimed at — ranked strongest first. Hover an option for why.'}
+                  data-target-warning={targetType === WEAK_TARGET ? '' : undefined}
+                  style={targetType === WEAK_TARGET
+                    // LRLR: the weakest target, max grade B — amber, said on hover.
+                    ? { boxShadow: '0 0 0 1.5px rgb(var(--amber) / 0.7)' }
+                    : pending('targetType') ? { boxShadow: `0 0 0 1.5px rgb(${accent} / 0.6)` } : undefined}>
+                  <Select compact value={targetType} placeholder="Target…"
+                    onChange={(v) => {
+                      setTargetType(v); confirm('targetType');
+                      if (checks.chk_targets_clear !== true) setCheck('chk_targets_clear', true);
+                    }}
+                    options={targetTypeOptions(trade?.target_type ?? null)} titleFor={(o) => TARGET_WHY[o]} />
+                </div>
+              ),
+            }} />
 
           <TrialLiquidity accent={accent}
             answers={{

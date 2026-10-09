@@ -1,5 +1,5 @@
 import { aggregate, byReason, leakPairs } from './stats';
-import { BACKTEST_REASON, REASONS, isBacktest, type Reason } from './domain';
+import { BACKTEST_REASON, REASONS, isBacktest, isHypothetical, type Reason } from './domain';
 import type { Trade } from './types';
 import type { Aggregate } from './stats';
 
@@ -201,24 +201,33 @@ interface BoardGroup { key: string; reason: Reason; accent: string; stats: Aggre
  * that is correct and deliberate: the point of grouping by mistake is to see
  * every trade each error touched, not to force one label per trade.
  */
+/** The group missed setups get when they share the board with taken trades. */
+export const MISSED_GROUP = 'Missed setups';
+
 /**
- * Backtests share a board with real trades only as a group of their own.
+ * Backtests and missed setups share a board with real trades only as groups
+ * of their own.
  *
- * When the board shows real trades and backtests together (All accounts),
- * every backtest goes in one group, whatever the grouping — so a replayed
- * win never sits in, or moves the total of, a real cluster. Shown on their
- * own (the Backtest account), backtests are grouped like any other trades.
+ * On All accounts, every backtest goes in one group and every missed setup
+ * in another, whatever the grouping — so a replayed win or a setup that never
+ * happened never sits in, or moves the total of, a real cluster. Shown on
+ * their own (one account), they are grouped like any other trades.
  */
 function withBacktestsApart(trades: Trade[], mode: GroupMode): BoardGroup[] {
   const backtests = trades.filter((t) => isBacktest(t.account));
-  if (backtests.length === 0 || backtests.length === trades.length) return groupsFor(trades, mode);
+  const missed = trades.filter((t) => isHypothetical(t.account));
+  const rest = trades.filter((t) => !isBacktest(t.account) && !isHypothetical(t.account));
+  // Shown on their own, backtests or missed setups group like any trades.
+  if (rest.length === 0 && (backtests.length === 0 || missed.length === 0)) return groupsFor(trades, mode);
+  const apart = (key: string, list: Trade[]): BoardGroup[] => (list.length === 0 ? [] : [{
+    key, reason: key as Reason, accent: key === MISSED_GROUP ? 'var(--amber)' : reasonAccent(key as Reason),
+    stats: aggregate(list), trades: list,
+  }]);
   return [
-    ...groupsFor(trades.filter((t) => !isBacktest(t.account)), mode),
-    // Last, so it sits after the real groups rather than among them.
-    {
-      key: BACKTEST_REASON, reason: BACKTEST_REASON, accent: reasonAccent(BACKTEST_REASON),
-      stats: aggregate(backtests), trades: backtests,
-    },
+    ...groupsFor(rest, mode),
+    // Last, so they sit after the real groups rather than among them.
+    ...apart(BACKTEST_REASON, backtests),
+    ...apart(MISSED_GROUP, missed),
   ];
 }
 
@@ -376,7 +385,7 @@ export function computeLayout(
   // The timeline is a running total of R: real trades only, unless the
   // board is showing nothing but backtests.
   if (mode === 'timeline') {
-    const real = trades.filter((t) => !isBacktest(t.account));
+    const real = trades.filter((t) => !isBacktest(t.account) && !isHypothetical(t.account));
     return timelineLayout(real.length ? real : trades, scale);
   }
   const groups = withBacktestsApart(trades, mode);
@@ -475,7 +484,7 @@ export function computeLayout(
 
   // Leak lines join losses within one world: a replayed loss is not the same leak.
   const leakEdges = [
-    ...leakChains(trades.filter((t) => !isBacktest(t.account))),
+    ...leakChains(trades.filter((t) => !isBacktest(t.account) && !isHypothetical(t.account))),
     ...leakChains(trades.filter((t) => isBacktest(t.account))),
   ];
   return { clusters, nodes, stacks, reasonEdges, leakEdges, nominalWidth };

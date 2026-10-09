@@ -814,11 +814,20 @@ function WhiteboardInner({ trades: initial, readOnly = false, start }: { trades:
       group's own hue, so the whole board reads as one tree instead of a field
       of unexplained islands.
     */
+    // The title's centre (it is 300 wide, about 130 tall, at y −200).
+    const hub = { x: layout.nominalWidth / 2, y: -135 };
+    const face = (c: { x: number; y: number; width: number; height: number }) => {
+      if (c.y + c.height <= hub.y) return 't-bottom';
+      if (c.y >= hub.y) return 't-top';
+      return c.x + c.width / 2 < hub.x ? 't-right' : 't-left';
+    };
     const branches: Edge[] = layout.clusters.map((cluster) => ({
       id: `branch-${cluster.key}`,
       source: 'board-title',
       target: `cluster-${cluster.key}`,
-      type: 'default',
+      targetHandle: face(cluster),
+      // Straight rays from the middle of the title to the facing side.
+      type: 'straight',
       // Thicker than the derived edges: this is the board's skeleton, and it
       // has to read at the zoom where the whole board fits on screen.
       style: {

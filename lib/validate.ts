@@ -1,7 +1,7 @@
 import {
-  ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, signForOutcome, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAGS,
+  ACCOUNT_VALUES, BACKTEST, CHECKLIST_ITEMS, signForOutcome, CONTEXT_FLAGS, DIRECTIONS, HTF_BIASES, INSTRUMENTS, MISTAKE_TAG_VALUES,
   OUTCOMES, PREMIUM_DISCOUNTS, REASONS, REGRADES, RENAMED_TARGET_TYPES, SESSIONS, SETUP_TYPES, SKIP_REASONS,
-  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAGS, MARKET_TAGS, MGMT_PLANS, PARTIAL_LEVELS,
+  SWEEP_TIERS, TARGET_TYPE_VALUES, TRADE_STATUSES, WORKED_TAG_VALUES, MARKET_TAGS, MGMT_PLANS, PARTIAL_LEVELS,
   type ChecklistKey, type Regrade, type TradeStatus, type WorkedTag, type MarketTag, type ContextFlag, type MistakeTag, type Tri,
 } from './domain';
 import { REGRADE_HINT, regradeAllowed, type GradeLetter } from './grade';
@@ -249,7 +249,7 @@ export function parseTradeInput(
       mistake_tag: typeof t.mistake_tag === 'string' ? t.mistake_tag : null,
       mistake_tags: Array.isArray(t.mistake_tags)
         ? (t.mistake_tags.filter(
-            (v): v is MistakeTag => typeof v === 'string' && (MISTAKE_TAGS as readonly string[]).includes(v),
+            (v): v is MistakeTag => typeof v === 'string' && (MISTAKE_TAG_VALUES as readonly string[]).includes(v),
           ))
         : [],
       account,
@@ -298,7 +298,7 @@ export function parseTradeInput(
       quick_log: quick,
       worked_tags: Array.isArray(t.worked_tags)
         ? t.worked_tags.filter(
-            (v): v is WorkedTag => typeof v === 'string' && (WORKED_TAGS as readonly string[]).includes(v),
+            (v): v is WorkedTag => typeof v === 'string' && (WORKED_TAG_VALUES as readonly string[]).includes(v),
           )
         : [],
       market_tags: Array.isArray(t.market_tags)

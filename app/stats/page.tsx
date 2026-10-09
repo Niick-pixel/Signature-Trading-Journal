@@ -623,6 +623,8 @@ export default async function StatsPage(
                     </>
                   )}
                 </Panel>
+                {/* Only while old trades carry answers: the question left the form. */}
+                {hits.answered > 0 && (
                 <Panel
                   n={hits.answered}
                   title="Which targets get hit"
@@ -665,6 +667,7 @@ export default async function StatsPage(
                     </div>
                   )}
                 </Panel>
+                )}
                 <Panel
                   n={hes.skipped}
                   title="What hesitating cost"

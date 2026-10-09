@@ -49,8 +49,13 @@ function ClusterNodeInner({ data }: NodeProps) {
       everything inside it — put it in there and the branch detaches from its
       group the moment the group is dragged.
     */}
-    <Handle type="target" position={Position.Top}
-      style={{ opacity: 0, pointerEvents: 'none' }} />
+    {/* One per face: the branch lands on the side that faces the title — the
+        bottom of a group above it, the top of one below, the near side of one
+        level with it. */}
+    <Handle id="t-top" type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
+    <Handle id="t-bottom" type="target" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
+    <Handle id="t-left" type="target" position={Position.Left} style={{ opacity: 0, pointerEvents: 'none' }} />
+    <Handle id="t-right" type="target" position={Position.Right} style={{ opacity: 0, pointerEvents: 'none' }} />
 
     <motion.div
       // No `layout`: React Flow moves the region, and a layout animation on top

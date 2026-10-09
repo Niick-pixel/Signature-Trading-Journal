@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { bulkUpdate } from '@/db/trades';
-import { ACCOUNTS, MISTAKE_TAGS, REASONS, TRADE_STATUSES } from '@/lib/domain';
+import { ACCOUNTS, MISTAKE_TAG_VALUES, REASONS, TRADE_STATUSES } from '@/lib/domain';
 import type { BulkPatch } from '@/lib/types';
 
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[]): T | undefined =>
@@ -33,8 +33,8 @@ export async function PATCH(request: Request) {
   }
   if (Array.isArray(raw.mistake_tags)) {
     patch.mistake_tags = raw.mistake_tags.filter(
-      (v): v is (typeof MISTAKE_TAGS)[number] =>
-        typeof v === 'string' && (MISTAKE_TAGS as readonly string[]).includes(v),
+      (v): v is (typeof MISTAKE_TAG_VALUES)[number] =>
+        typeof v === 'string' && (MISTAKE_TAG_VALUES as readonly string[]).includes(v),
     );
   }
 

@@ -108,3 +108,15 @@ test('a group is two rows of three, newest first, and "+N" takes the sixth slot'
   assert.equal(new Set(sixCards.map((n) => n.y)).size, 2);
   assert.equal(six.stacks.length, 0);
 });
+
+test('on All, missed setups are a group of their own, like backtests', async () => {
+  const { MISSED_GROUP } = await import('../lib/layout');
+  const missed = [1, 2].map(() => make({ account: 'Missed', reason: 'Hesitation (late entry)', outcome: 'Not taken', r_multiple: null }));
+  const l = computeLayout([...all, ...missed], 1, 'reason', {}, 'All');
+  const g = l.clusters.find((c) => c.key === MISSED_GROUP)!;
+  assert.equal(g.trades.length, 2);
+  // Never inside a real group.
+  assert.ok(!l.clusters.some((c) => c.key !== MISSED_GROUP && c.trades.some((t) => t.account === 'Missed')));
+  // On its own account, missed setups group by reason as usual.
+  assert.ok(computeLayout(missed, 1, 'reason', {}, 'Missed').clusters.some((c) => c.key === 'Hesitation (late entry)'));
+});

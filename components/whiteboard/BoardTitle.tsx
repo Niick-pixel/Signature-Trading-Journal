@@ -48,7 +48,10 @@ function BoardTitleInner({ data }: NodeProps) {
         {sub}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
+      {/* At the centre, behind the card: every branch leaves from the middle of
+          the title, so the lines read as rays from it, not from one corner. */}
+      <Handle type="source" position={Position.Bottom}
+        style={{ opacity: 0, pointerEvents: 'none', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }} />
     </motion.div>
   );
 }
